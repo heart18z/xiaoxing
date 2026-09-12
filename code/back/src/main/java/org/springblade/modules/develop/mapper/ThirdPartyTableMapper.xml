@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.develop.mapper.ThirdPartyTableMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="thirdPartyTableResultMap" type="org.springblade.modules.develop.entity.ThirdPartyTableEntity">
+        <result column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="remark" property="remark"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="table_name" property="tableName"/>
+        <result column="table_comment" property="tableComment"/>
+        <result column="database_id" property="databaseId"/>
+        <result column="purpose" property="purpose"/>
+    </resultMap>
+
+
+    <select id="selectThirdPartyTablePage" resultType="org.springblade.modules.develop.vo.ThirdPartyTableVO">
+        SELECT
+            pt.* ,
+
+            ifnull( pm.columnCount,0) columnCount
+        FROM
+            blade_third_party_table  pt
+                left join (SELECT count(*) columnCount ,table_id FROM blade_third_party_table_column WHERE is_deleted = 0 GROUP BY table_id ) pm on pt.id  = pm.table_id
+        WHERE
+            pt.is_deleted = 0
+
+        <if test="thirdPartyTable.databaseId != null and thirdPartyTable.databaseId != ''">
+            and pt.database_id = #{thirdPartyTable.databaseId}
+        </if>
+
+        <if test="thirdPartyTable.tableName != null and thirdPartyTable.tableName != ''">
+            and  pt.table_name like concat(concat('%', #{thirdPartyTable.tableName}), '%')
+        </if>
+        <if test="thirdPartyTable.tableComment != null and thirdPartyTable.tableComment != ''">
+            and  pt.table_comment like concat(concat('%', #{thirdPartyTable.tableComment}), '%')
+        </if>
+    </select>
+
+
+    <select id="exportThirdPartyTable" resultType="org.springblade.modules.develop.excel.ThirdPartyTableExcel">
+        SELECT * FROM blade_third_party_table ${ew.customSqlSegment}
+    </select>
+
+</mapper>

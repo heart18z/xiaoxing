@@ -1,0 +1,62 @@
+/*
+ *      Copyright (c) 2018-2028, Chill Zhuang All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  Redistributions of source code must retain the above copyright notice,
+ *  this list of conditions and the following disclaimer.
+ *  Redistributions in binary form must reproduce the above copyright
+ *  notice, this list of conditions and the following disclaimer in the
+ *  documentation and/or other materials provided with the distribution.
+ *  Neither the name of the dreamlu.net developer nor the names of its
+ *  contributors may be used to endorse or promote products derived from
+ *  this software without specific prior written permission.
+ *  Author: Chill 庄骞 (smallchill@163.com)
+ */
+package org.springblade.modules.system.entity;
+
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Date;
+import lombok.EqualsAndHashCode;
+import org.springblade.core.tenant.mp.TenantEntity;
+
+/**
+ * 优化内容 实体类
+ *
+ * @author BladeX
+ * @since 2024-08-04
+ */
+@Data
+@TableName("blade_optimize")
+@Schema(name = "Optimize对象", description = "优化内容")
+@EqualsAndHashCode(callSuper = true)
+public class OptimizeEntity extends TenantEntity {
+
+	/**
+	 * 备注
+	 */
+	@Schema(description = "备注")
+	private String remark;
+	/**
+	 * 优化标题
+	 */
+	@Schema(description = "优化标题")
+	private String title;
+	/**
+	 * 处理状态
+	 */
+	@Schema(description = "处理状态")
+	private String handleStatus;
+	/**
+	 * 依赖代码编号
+	 */
+	@Schema(description = "依赖代码编号")
+	private String sourceTag;
+
+
+	private String systemCode;
+
+}

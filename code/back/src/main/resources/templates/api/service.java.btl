@@ -1,0 +1,79 @@
+/*
+ *      Copyright (c) 2018-2028, Chill Zhuang All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  Redistributions of source code must retain the above copyright notice,
+ *  this list of conditions and the following disclaimer.
+ *  Redistributions in binary form must reproduce the above copyright
+ *  notice, this list of conditions and the following disclaimer in the
+ *  documentation and/or other materials provided with the distribution.
+ *  Neither the name of the dreamlu.net developer nor the names of its
+ *  contributors may be used to endorse or promote products derived from
+ *  this software without specific prior written permission.
+ *  Author: Chill 庄骞 (smallchill@163.com)
+ */
+package ${package.Service!};
+
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import ${packageName!}.pojo.entity.${modelClass!}Entity;
+import ${packageName!}.pojo.vo.${modelClass!}VO;
+import ${packageName!}.excel.${modelClass!}Excel;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.springblade.core.mp.support.Query;
+#if(hasSuperEntity){
+import ${superServiceClassPackage!};
+#}else{
+import com.baomidou.mybatisplus.extension.service.IService;
+#}
+import java.util.List;
+import java.util.Map;
+
+/**
+ * ${codeName!} 服务类
+ *
+ * @author ${author!}
+ * @since ${date!}
+ */
+#if(hasSuperEntity){
+public interface I${modelClass!}Service extends ${superServiceClass!}<${modelClass!}Entity> {
+#}else{
+public interface I${modelClass!}Service extends IService<${modelClass!}Entity> {
+#}
+	/**
+	 * 自定义分页
+	 *
+	 * @param page
+	 * @param ${modelCode!}
+	 * @return
+	 */
+	IPage<${modelClass!}VO> select${modelClass!}Page(IPage<${modelClass!}VO> page, ${modelClass!}VO ${modelCode!});
+
+#if(templateType=="tree"){
+	/**
+	 * 树形结构
+	 *
+	 * @param tenantId
+	 * @return
+	 */
+	List<${modelClass!}VO> tree(String tenantId);
+
+    /**
+     * 树表懒加载
+     * @param page
+     * @param param
+     * @return
+     */
+    IPage<${modelClass!}VO> lazyList(IPage<${modelClass!}VO> page, Map<String, Object> param);
+#}
+
+	/**
+	 * 导出数据
+	 *
+	 * @param queryWrapper
+	 * @return
+	 */
+	List<${modelClass!}Excel> export${modelClass!}(Wrapper<${modelClass!}Entity> queryWrapper);
+
+}

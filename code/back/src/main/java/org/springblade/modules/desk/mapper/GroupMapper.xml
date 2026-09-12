@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.desk.mapper.GroupMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="groupResultMap" type="org.springblade.modules.desk.entity.GroupEntity">
+        <result column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="ancestors" property="ancestors"/>
+        <result column="group_name" property="groupName"/>
+        <result column="group_full_name" property="groupFullName"/>
+        <result column="sort" property="sort"/>
+        <result column="remark" property="remark"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <resultMap id="treeNodeResultMap" type="org.springblade.core.tool.node.TreeNode">
+        <id column="id" property="id"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="title" property="title"/>
+        <result column="value" property="value"/>
+        <result column="key" property="key"/>
+    </resultMap>
+
+    <resultMap id="groupVoResultMap" type="org.springblade.modules.desk.vo.GroupVO" extends="groupResultMap">
+        <result column="has_children" property="hasChildren"/>
+    </resultMap>
+
+
+    <select id="selectGroupPage" resultMap="groupResultMap">
+        select * from blade_group where is_deleted = 0
+    </select>
+
+    <select id="tree" resultMap="treeNodeResultMap">
+        select id as id, parent_id as parent_id, group_name as title, id as 'value', id as 'key' from blade_group where is_deleted = 0
+    </select>
+
+    <select id="lazyList" resultMap="groupVoResultMap">
+        SELECT
+            bld.*,
+            (
+                SELECT
+                    CASE WHEN count( 1 ) > 0 THEN 1 ELSE 0 END
+                FROM
+                    blade_group
+                WHERE
+                    parent_id = bld.id AND is_deleted = 0
+            ) AS "has_children"
+        FROM
+            blade_group bld
+            ${ew.customSqlSegment}  and is_deleted = 0
+    </select>
+
+
+    <select id="exportGroup" resultType="org.springblade.modules.desk.excel.GroupExcel">
+        SELECT * FROM blade_group ${ew.customSqlSegment}
+    </select>
+    <select id="selectGroupUserList" resultType="org.springblade.modules.desk.vo.GroupUserVO">
+        SELECT
+        u.id userId,
+        u.real_name name,
+        u.account account,
+        u.dept_id deptId,
+        g.group_id groupId
+        FROM
+        blade_user u
+        LEFT JOIN ( select group_id,user_id from blade_group_user
+        <if test="groupId != null and groupId != ''">
+            where group_id = #{groupId}
+        </if>) g
+        on u.id = g.user_id
+        where u.is_deleted = 0
+
+    </select>
+
+</mapper>

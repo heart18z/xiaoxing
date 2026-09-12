@@ -1,0 +1,105 @@
+/* Page themes share the shell while retaining their own content styles. */
+.sr-shell.skin-chat,.sr-shell.skin-events,.sr-shell.skin-profile{min-height:100dvh;background-color:#f4f7fd;background-position:top center;background-size:100% auto;background-repeat:no-repeat}
+.sr-shell.skin-chat{background-image:url('/images/chat-background-v2.jpg');background-size:100% 100%}
+/* One uninterrupted background spans the header and the full list, including long pages. */
+.sr-shell.skin-events,.sr-shell.skin-event-detail{background-image:url('/images/events-background-v2.jpg');background-size:100% 100%;background-position:top center;background-repeat:no-repeat;background-color:#f3f7fd;min-height:100dvh}
+.sr-shell.skin-event-detail .sr-main{background:transparent}
+.sr-shell.skin-event-detail .sr-header{background:transparent;position:relative;color:#263653}
+.sr-shell.skin-event-detail .sr-header:before,.sr-shell.skin-event-detail .sr-header:after{display:none}
+.sr-shell.skin-event-detail .sr-header strong{color:#263653;text-shadow:none}
+.sr-shell.skin-event-detail .sr-header small{color:#8491aa}
+.sr-shell.skin-event-detail .sr-back{background:#ffffffb8;color:#536c9d}
+.sr-shell.skin-profile{background-image:url('/images/profile-background.jpg')}
+.sr-shell.skin-chat .sr-main,.sr-shell.skin-events .sr-main,.sr-shell.skin-profile .sr-main{background:transparent}
+.sr-shell.skin-chat .sr-header,.sr-shell.skin-events .sr-header{background:transparent;box-shadow:none}
+.sr-shell.skin-chat .sr-header:before,.sr-shell.skin-chat .sr-header:after,.sr-shell.skin-events .sr-header:before,.sr-shell.skin-events .sr-header:after{display:none}
+.sr-shell.skin-chat .sr-header{height:76px;color:#303c54;display:grid;grid-template-columns:44px 1fr 44px;padding:16px;position:relative;background:none;border:0;box-shadow:none}
+.sr-shell.skin-chat .chat-brand{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sr-shell.skin-chat .chat-ai-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:linear-gradient(140deg,#6688f3,#4764d9);box-shadow:0 3px 9px #536edb1c;color:white;font:650 12px/1 system-ui,sans-serif;letter-spacing:.04em}
+.sr-shell.skin-chat .sr-header strong{font-size:19px;font-weight:750;line-height:1.4;text-shadow:none;letter-spacing:0;color:#222c5b}
+.sr-shell.skin-chat .chat-brand small{font-size:11px;line-height:1.5;letter-spacing:.08em;color:#9696b4}
+.sr-shell.skin-chat .chat-toolbar-button{width:42px;height:42px;padding:0;border:0;border-radius:0;color:#55585e;background:transparent;box-shadow:none;display:grid;place-items:center;cursor:pointer}
+.sr-shell.skin-chat .chat-toolbar-button:focus-visible{outline:2px solid #6476ff;outline-offset:2px}
+.sr-shell.skin-chat .chat-toolbar-button .ui-icon{width:19px;height:19px;stroke-width:2.5}
+html.smart-chat-page,body.smart-chat-page{height:100%;overflow:hidden;overscroll-behavior:none}
+.sr-shell.skin-chat{height:100vh;height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+.sr-shell.skin-chat .sr-header{flex:0 0 68px;height:68px;padding-top:12px;padding-bottom:12px}
+.sr-shell.skin-chat .sr-main{flex:1;min-height:0;display:flex;flex-direction:column;padding:0;overflow:hidden}
+.sr-shell.skin-chat .messages{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;padding:10px 16px 16px;scrollbar-width:thin;scrollbar-color:#bdcbea transparent;-webkit-overflow-scrolling:touch}
+.sr-shell.skin-chat .composer{position:relative;left:auto;bottom:auto;transform:none;flex:0 0 auto;width:100%;margin:0}
+.sr-shell.skin-chat .sr-nav{position:relative;bottom:auto;left:auto;transform:none;width:100%;flex:0 0 calc(68px + env(safe-area-inset-bottom));height:calc(68px + env(safe-area-inset-bottom))}
+.sr-shell.skin-events .sr-header{height:94px;padding:18px 22px;position:relative;gap:8px}
+.sr-shell.skin-events .sr-header strong{font-size:27px;line-height:1.3;font-weight:750;text-shadow:none;color:#263653}
+.sr-shell.skin-events .sr-header small{font-size:14px;margin-top:3px;color:#8491aa}
+.sr-shell.skin-events .all-toggle{display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #ffffffb0;background:linear-gradient(120deg,#ffffffee,#ffffffbd);color:#1a286b;border-radius:24px;padding:9px 13px;font-size:12px;font-weight:650;min-height:36px;cursor:pointer;white-space:nowrap}
+.sr-shell.skin-events .all-toggle .ui-icon{width:17px;height:17px;color:#315bff}
+.sr-shell.skin-events .sr-main{padding:0 16px 20px;min-height:calc(100dvh - 162px)}
+.sr-shell.skin-events .type-tabs{background:#e8edf6b3;border:10px solid #ffffff9c;border-radius:20px;margin:0 -5px 14px;padding:0}
+.sr-shell.skin-events .type-tabs button{position:relative;height:40px;border-radius:13px;font-size:15px;font-weight:650}
+.sr-shell.skin-events .type-tabs button.active:after{content:'';position:absolute;bottom:-1px;left:calc(50% - 19px);width:38px;height:3px;border-radius:8px;background:linear-gradient(90deg,#79a0ff,#3548ee);box-shadow:0 2px 4px #426cff45}
+.sr-shell.skin-events .type-tabs button span{min-width:21px;height:21px;font-size:12px;margin-left:5px}
+.sr-shell.skin-events .event{border-radius:22px;padding:15px 16px 17px;margin-bottom:13px;background:#ffffffef;border:1px solid #ffffffd9;box-shadow:0 10px 26px #607aa913}
+.sr-shell.skin-events .event-top{gap:12px;min-width:0}
+.sr-shell.skin-events .event-top small{font-size:11px;color:#828aa2;padding-left:12px;border-left:1px solid #e1e6f0;flex:1;min-width:0}
+.sr-shell.skin-events .event-chevron{width:16px;height:16px;color:#8b95ad}
+.sr-shell.skin-events .status{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:11px;background:#eaf0ff;font-size:12px;font-weight:650;white-space:nowrap}
+.sr-shell.skin-events .status:before{content:'';width:7px;height:7px;background:#315bff;border-radius:50%}
+.sr-shell.skin-events .status.stopped,.sr-shell.skin-events .status.completed{background:#f0f2f7;color:#7c8699}
+.sr-shell.skin-events .status.stopped:before,.sr-shell.skin-events .status.completed:before{background:#9ba5b7}
+.sr-shell.skin-events .event h3{margin:12px 0 9px;font-size:16px;line-height:1.55;font-weight:750;color:#182138;overflow-wrap:anywhere}
+.sr-shell.skin-events .event-people{display:flex;align-items:center;gap:9px;color:#808aa1;font-size:13px;margin:0}
+.sr-shell.skin-events .event-people .ui-icon{width:17px;height:17px}
+.sr-shell.skin-events .latest{align-items:center;gap:8px;padding:11px 10px;margin:11px 0;background:linear-gradient(100deg,#f1f5ff,#f6f8fd);border-radius:12px}
+.sr-shell.skin-events .latest .ui-icon{color:#3464ff;width:19px;height:19px}
+.sr-shell.skin-events .latest span{font-size:12px;color:#2856e4;font-weight:650;white-space:nowrap}
+.sr-shell.skin-events .latest b{border-left:1px solid #ccd5e7;padding-left:9px;font-size:12px;color:#35415c;line-height:1.5}
+.sr-shell.skin-events .event-dates{border-top:1px solid #edf0f6;padding-top:7px}
+.sr-shell.skin-events .event-dates p{display:flex;align-items:center;gap:9px;font-size:12px;color:#838ca4;margin:5px 0 0}
+.sr-shell.skin-events .event-dates .ui-icon{width:17px;height:17px}
+.sr-shell.skin-events .event-dates span{white-space:nowrap}
+.sr-shell.skin-events .event-dates time{min-width:0;overflow-wrap:anywhere}
+.sr-shell.skin-profile .sr-main{padding:42px 16px 20px;min-height:calc(100dvh - 76px)}
+.sr-shell.skin-profile .sr-nav,.sr-shell.skin-events .sr-nav,.sr-shell.skin-chat .sr-nav{border-radius:20px 20px 0 0;border-top-color:#ffffff;box-shadow:0 -6px 25px #6c88b308;background:#ffffffee}
+.sr-shell.skin-profile .sr-nav .chat-entry,.sr-shell.skin-events .sr-nav .chat-entry,.sr-shell.skin-chat .sr-nav .chat-entry{background:radial-gradient(circle at 25% 10%,#849dff,#3463ff 65%,#5f72ff);border-color:#edf2ff;box-shadow:0 9px 22px #507aff38}
+.sr-shell.skin-profile .sr-nav .event-counter,.sr-shell.skin-events .sr-nav .event-counter,.sr-shell.skin-chat .sr-nav .event-counter{background:#eff3ff;border-radius:8px}
+.sr-shell.skin-profile .sr-nav .event-entry.router-link-active .event-counter,.sr-shell.skin-events .sr-nav .event-entry.router-link-active .event-counter{background:linear-gradient(145deg,#4387ff,#3c48f1);color:white;border-color:#6686ff;box-shadow:0 3px 10px #597eff25}
+.sr-shell button:focus-visible,.sr-shell [role=button]:focus-visible{outline:3px solid #8ca9ff;outline-offset:3px}
+/* Compact app dock: all items share a baseline, without the raised circular tab. */
+.sr-shell[class*="skin-"] .sr-nav .chat-entry{width:auto;height:auto;transform:none;margin:0;border:0;border-radius:0;background:none;box-shadow:none;color:#9695b5;gap:4px;align-self:stretch;justify-self:stretch;font-size:12px}
+.sr-shell .sr-nav .chat-entry.router-link-active{color:#5552ed}
+.sr-shell .sr-nav .chat-entry .assistant-spark{display:block;width:29px;height:29px;margin:0 auto;background:radial-gradient(circle at 28% 25%,#72e9ff,transparent 40%),conic-gradient(from 35deg,#7135ff,#4b75ff,#59dbff,#9660ff,#e045ff,#7135ff);clip-path:polygon(43% 0,57% 0,63% 32%,68% 37%,100% 43%,100% 57%,68% 63%,63% 68%,57% 100%,43% 100%,37% 68%,32% 63%,0 57%,0 43%,32% 37%,37% 32%)}
+.sr-shell .sr-nav .nav-icon{width:27px;height:27px;margin:0 auto 3px;color:inherit}
+.sr-shell .sr-nav .me-entry{color:#9695b5}.sr-shell .sr-nav .me-entry.router-link-active{color:#5552ed}
+.sr-shell.skin-chat .composer{padding:10px 15px 8px;border:0;border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -3px 16px #7d9ed609}
+.sr-shell.skin-chat .sr-nav{border-radius:22px 22px 0 0;background:#fff;border-top:0;box-shadow:0 -5px 14px #7d9ed617;margin-top:10px}
+.sr-shell.skin-chat .composer{border-radius:22px;padding-bottom:9px}
+/* Fade and lightly blur messages as they leave the scroll viewport, not the title itself. */
+.sr-shell.skin-chat .messages{padding-top:10px;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 9px);mask-image:linear-gradient(to bottom,transparent,#000 9px)}
+.sr-shell.skin-chat .sr-main:before{display:none}
+.sr-shell.skin-chat .notify .notification-focus .notification-content,.sr-shell.skin-chat .reminder-focus>strong{font-size:14px;line-height:1.65}
+html.smart-list-page,body.smart-list-page{height:100%;overflow:hidden;overscroll-behavior:none}
+.sr-shell.skin-events,.sr-shell.skin-profile{height:100vh;height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+.sr-shell.skin-events .sr-header{flex:0 0 94px}
+.sr-shell.skin-events .sr-main,.sr-shell.skin-profile .sr-main{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding-bottom:12px}
+.sr-shell.skin-events .type-tabs{flex:0 0 auto}
+.sr-shell.skin-events .event-list-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:0 1px 4px}
+.sr-shell.skin-events .sr-nav,.sr-shell.skin-profile .sr-nav{position:relative;left:auto;bottom:auto;transform:none;flex:0 0 calc(68px + env(safe-area-inset-bottom));height:calc(68px + env(safe-area-inset-bottom));width:100%}
+.sr-shell.skin-profile .sr-main{padding-top:10px}
+.sr-shell.skin-profile .me-page{height:100%;min-height:0;overflow:hidden;padding:0;display:flex;flex-direction:column}
+.sr-shell.skin-profile .profile-tools{display:flex;justify-content:flex-end;flex:0 0 auto;margin-bottom:6px}
+.sr-shell.skin-profile .settings-entry{border:0;background:#ffffffc9;color:#526ac0;border-radius:16px;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:3px}.settings-entry .ui-icon{width:14px;height:14px}
+.sr-shell.skin-profile .me-page .friend-area{flex:1;min-height:0;overflow:hidden}
+.sr-shell.skin-profile .me-page .friend-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:2px}
+.sr-shell.skin-profile .me-page .logout{position:relative;left:auto;bottom:auto;transform:none;width:100%;flex:0 0 42px;height:42px;margin-top:10px}
+@media(max-height:660px){.sr-shell.skin-profile .me-page .profile{padding:9px 12px;min-height:72px;gap:10px}.sr-shell.skin-profile .me-page .avatar-editor{width:44px;height:44px;flex-basis:44px}.sr-shell.skin-profile .me-page .profile small,.sr-shell.skin-profile .me-page .ai-profile small{display:none}.sr-shell.skin-profile .me-page .ai-profile{padding:7px 12px;min-height:49px;margin-bottom:8px}.sr-shell.skin-profile .me-page .ai-profile img{width:32px;height:32px}.sr-shell.skin-profile .me-page .friend-tabs{margin-bottom:8px}.sr-shell.skin-profile .me-page .friend-tabs button{height:30px}.sr-shell.skin-profile .me-page .logout{margin-top:7px;flex-basis:36px;height:36px}}
+.sr-shell.skin-chat .composer .composer-box,.sr-shell.skin-chat .composer .composer-box:focus-within{display:block;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0}
+.sr-shell.skin-chat .composer-input-row{display:flex;align-items:flex-start;gap:10px;min-height:34px}
+.sr-shell.skin-chat .composer-orb{flex:0 0 23px;width:23px;height:23px;margin:7px 0 0 3px;border-radius:50%;background:radial-gradient(ellipse at 30% 23%,#fff 0,transparent 26%),radial-gradient(ellipse at 65% 62%,#48e8ff 6%,transparent 45%),conic-gradient(#6775ff,#d155fa,#4863fa,#3ce2f5,#9367ff,#6775ff);box-shadow:inset 0 0 4px #ffffffb0,0 2px 6px #8a8fe844}
+.sr-shell.skin-chat .composer-box textarea{padding:7px 0 4px;min-height:34px;font-size:14px;line-height:22px;color:#303754}
+.sr-shell.skin-chat .composer-box textarea::placeholder{color:#9a9bb8}
+.sr-shell.skin-chat .composer-actions{display:flex;align-items:center;gap:9px;padding:3px 0 0}
+.sr-shell.skin-chat .composer-actions .upload,.sr-shell.skin-chat .voice-button,.sr-shell.skin-chat .send-button{flex:0 0 36px;width:36px;height:36px;min-height:36px;padding:0;border:1px solid #f1f4fc;border-radius:50%;display:grid;place-items:center;color:#8782b8;background:#fff;box-shadow:0 2px 10px #7997d329;cursor:pointer}
+.sr-shell.skin-chat .composer-actions .ui-icon{width:21px;height:21px;stroke-width:2}
+.sr-shell.skin-chat .send-button{margin-left:auto;color:#746ac1}
+.sr-shell.skin-chat .send-button:disabled{opacity:.5;cursor:default}
+@media(max-width:360px){.sr-shell.skin-events .sr-header{padding:16px}.sr-shell.skin-events .sr-header strong{font-size:24px}.sr-shell.skin-events .sr-header small{font-size:12px}.sr-shell.skin-events .all-toggle{padding:8px 10px;font-size:11px}.sr-shell.skin-events .sr-main{padding-left:12px;padding-right:12px}.sr-shell.skin-events .event{padding:14px 12px}.sr-shell.skin-events .event-top{gap:8px}.sr-shell.skin-events .event-top small{padding-left:8px;font-size:10px}.sr-shell.skin-events .event-dates p{gap:6px;font-size:11px}}

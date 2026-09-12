@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.standard.mapper.StandardMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="standardResultMap" type="org.springblade.modules.standard.entity.StandardEntity">
+    </resultMap>
+
+
+    <resultMap id="standardVOResultMap" type="org.springblade.modules.standard.vo.StandardVO">
+        <id column="id" property="id"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="title" property="title"/>
+        <result column="remark" property="remark"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="has_children" property="hasChildren"/>
+        <result column="upload_user" property="uploadUser"/>
+        <result column="upload_time" property="uploadTime"/>
+        <result column="level" property="level"/>
+        <result column="remark" property="remark"/>
+        <result column="serial_number" property="serialNumber"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="standard_type" property="standardType" />
+    </resultMap>
+
+    <resultMap id="treeNodeResultMap" type="org.springblade.core.tool.node.TreeNode">
+        <id column="id" property="id"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="title" property="title"/>
+        <result column="value" property="value"/>
+        <result column="key" property="key"/>
+    </resultMap>
+
+
+    <select id="selectStandardPage" resultMap="standardResultMap">
+        select * from blade_standard where is_deleted = 0
+    </select>
+
+    <select id="lazyList" resultMap="standardVOResultMap">
+        SELECT
+        standard.*,
+        (
+        SELECT
+        CASE WHEN count( 1 ) > 0 THEN 1 ELSE 0 END
+        FROM
+        blade_standard
+        WHERE
+        parent_id = standard.id AND is_deleted = 0
+        ) AS "has_children"
+        FROM
+        blade_standard standard
+        WHERE standard.is_deleted = 0
+        <if test="param1!=null">
+            and standard.parent_id = #{param1}
+        </if>
+        <if test="param2.title!=null and param2.title!=''">
+            and standard.title like concat(concat('%', #{param2.title}),'%')
+        </if>
+
+        <if test="param2.id!=null and param2.id!=''">
+            and standard.id = #{param2.id}
+        </if>
+
+        <if test="param2.tenantId!=null and param2.tenantId!=''">
+            and standard.tenant_id like concat(concat('%', #{param2.tenantId}),'%')
+        </if>
+        ORDER BY standard.serial_number*1
+    </select>
+
+    <select id="exportStandard" resultType="org.springblade.modules.standard.excel.StandardExcel">
+        SELECT * FROM blade_standard ${ew.customSqlSegment}
+    </select>
+
+    <select id="lazyListPage" resultMap="standardVOResultMap">
+        SELECT
+        standard.*,
+        (
+        SELECT
+        CASE WHEN count( 1 ) > 0 THEN 1 ELSE 0 END
+        FROM
+        blade_standard
+        WHERE
+        parent_id = standard.id AND is_deleted = 0
+        ) AS "has_children"
+        FROM
+        blade_standard standard
+        WHERE standard.is_deleted = 0
+        <if test="param1!=null">
+            and standard.parent_id = #{param1}
+        </if>
+        <if test="param2.title!=null and param2.title!=''">
+            and standard.title like concat(concat('%', #{param2.title}),'%')
+        </if>
+        <if test="param2.tenantId!=null and param2.tenantId!=''">
+            and standard.tenant_id like concat(concat('%', #{param2.tenantId}),'%')
+        </if>
+        ORDER BY standard.id
+        <if test="param1!=null and param1 == 0">
+            limit #{param2.current}, #{param2.size}
+        </if>
+    </select>
+
+    <select id="lazyListCount" resultType="java.lang.Integer">
+        SELECT
+        count(1)
+        FROM
+        blade_standard standard
+        WHERE standard.is_deleted = 0
+        <if test="param1!=null">
+            and standard.parent_id = #{param1}
+        </if>
+        <if test="param2.title!=null and param2.title!=''">
+            and standard.title like concat(concat('%', #{param2.title}),'%')
+        </if>
+        <if test="param2.tenantId!=null and param2.tenantId!=''">
+            and standard.tenant_id like concat(concat('%', #{param2.tenantId}),'%')
+        </if>
+    </select>
+
+    <select id="tree" resultMap="treeNodeResultMap">
+        select id, parent_id, title as title, id as 'value', id as 'key' from blade_standard where is_deleted = 0
+    </select>
+
+</mapper>

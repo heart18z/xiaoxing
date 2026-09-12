@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.desk.mapper.BizNoticeMessageMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="bizNoticeMessageResultMap" type="org.springblade.modules.desk.entity.BizNoticeMessageEntity">
+        <result column="id" property="id"/>
+        <result column="notice_id" property="noticeId"/>
+        <result column="notice_reply" property="noticeReply"/>
+        <result column="notice_read_status" property="noticeReadStatus"/>
+        <result column="notice_read_time" property="noticeReadTime"/>
+        <result column="receive_user_id" property="receiveUserId"/>
+        <result column="send_user_id" property="sendUserId"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="tenant_id" property="tenantId"/>
+    </resultMap>
+
+
+    <select id="selectBizNoticeMessagePage" resultMap="bizNoticeMessageResultMap">
+        select * from blade_biz_notice_message where is_deleted = 0
+    </select>
+
+
+    <select id="exportBizNoticeMessage" resultType="org.springblade.modules.desk.excel.BizNoticeMessageExcel">
+        SELECT * FROM blade_biz_notice_message ${ew.customSqlSegment}
+    </select>
+
+</mapper>

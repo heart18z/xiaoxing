@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.aiconfig.mapper.BtnConfigDetailMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="btnConfigDetailResultMap" type="org.springblade.modules.aiconfig.entity.BtnConfigDetailEntity">
+        <result column="id" property="id"/>
+        <result column="btn_config_id" property="btnConfigId"/>
+        <result column="data_type" property="dataType"/>
+        <result column="data_name" property="dataName"/>
+        <result column="data_desc" property="dataDesc"/>
+        <result column="data_structure" property="dataStructure"/>
+        <result column="specific_description" property="specificDescription"/>
+        <result column="table_name" property="tableName"/>
+        <result column="field_name" property="fieldName"/>
+        <result column="filter_conditions" property="filterConditions"/>
+        <result column="mock_data" property="mockData"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+
+    <select id="selectBtnConfigDetailPage" resultMap="btnConfigDetailResultMap">
+        select * from blade_ai_btn_config_detail where is_deleted = 0
+    </select>
+
+
+    <select id="exportBtnConfigDetail" resultType="org.springblade.modules.aiconfig.excel.BtnConfigDetailExcel">
+        SELECT * FROM blade_ai_btn_config_detail ${ew.customSqlSegment}
+    </select>
+
+</mapper>

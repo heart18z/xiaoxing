@@ -1,0 +1,74 @@
+/*
+ *      Copyright (c) 2018-2028, Chill Zhuang All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  Redistributions of source code must retain the above copyright notice,
+ *  this list of conditions and the following disclaimer.
+ *  Redistributions in binary form must reproduce the above copyright
+ *  notice, this list of conditions and the following disclaimer in the
+ *  documentation and/or other materials provided with the distribution.
+ *  Neither the name of the dreamlu.net developer nor the names of its
+ *  contributors may be used to endorse or promote products derived from
+ *  this software without specific prior written permission.
+ *  Author: Chill 庄骞 (smallchill@163.com)
+ */
+package ${package.Mapper!};
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import ${packageName!}.pojo.entity.${modelClass!}Entity;
+import ${packageName!}.pojo.vo.${modelClass!}VO;
+import ${packageName!}.excel.${modelClass!}Excel;
+import ${superMapperClassPackage!};
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.apache.ibatis.annotations.Param;
+import java.util.List;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import java.util.Map;
+
+/**
+ * ${codeName!} Mapper 接口
+ *
+ * @author ${author!}
+ * @since ${date!}
+ */
+public interface ${modelClass!}Mapper extends ${superMapperClass!}<${modelClass!}Entity> {
+
+	/**
+	 * 自定义分页
+	 *
+	 * @param page
+	 * @param ${modelCode!}
+	 * @return
+	 */
+	List<${modelClass!}VO> select${modelClass!}Page(IPage page, ${modelClass!}VO ${modelCode!});
+
+#if(templateType=="tree"){
+	/**
+	 * 获取树形节点
+	 *
+	 * @param tenantId
+	 * @return
+	 */
+	List<${modelClass!}VO> tree(String tenantId);
+
+    /**
+     * 获取懒加载数据
+     * @param queryWrapper
+     * @param page
+     * @return
+     */
+	List<${modelClass!}VO> lazyList(@Param("ew")QueryWrapper<${modelClass!}Entity> queryWrapper, IPage<${modelClass!}VO> page);
+#}
+
+	/**
+	 * 获取导出数据
+	 *
+	 * @param queryWrapper
+	 * @return
+	 */
+	List<${modelClass!}Excel> export${modelClass!}(@Param("ew") Wrapper<${modelClass!}Entity> queryWrapper);
+
+}

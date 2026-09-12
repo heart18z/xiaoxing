@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.system.mapper.RemoteParamMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="remoteParamResultMap" type="org.springblade.modules.system.entity.RemoteParamEntity">
+        <result column="id" property="id"/>
+        <result column="create_tenant" property="createTenant"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="param_name" property="paramName"/>
+        <result column="param_key" property="paramKey"/>
+        <result column="param_value" property="paramValue"/>
+        <result column="sort" property="sort"/>
+        <result column="remark" property="remark"/>
+        <result column="hierarchical" property="hierarchical"/>
+        <result column="current_hierarchy" property="currentHierarchy"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="is_sync" property="isSync"/>
+        <result column="system_source" property="systemSource"/>
+        <result column="is_public_param" property="isPublicParam"/>
+    </resultMap>
+    <delete id="deleteAllData">
+        delete from blade_remote_param where 1=1
+    </delete>
+
+
+    <select id="selectRemoteParamPage" resultMap="remoteParamResultMap">
+        select * from blade_remote_param where is_deleted = 0
+    </select>
+
+
+    <select id="exportRemoteParam" resultType="org.springblade.modules.system.excel.RemoteParamExcel">
+        SELECT * FROM blade_remote_param ${ew.customSqlSegment}
+    </select>
+
+</mapper>

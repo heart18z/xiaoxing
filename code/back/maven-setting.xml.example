@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <servers>
+    <server><id>bladex</id><username>${env.BLADE_MAVEN_USERNAME}</username><password>${env.BLADE_MAVEN_PASSWORD}</password></server>
+    <server><id>blade-release</id><username>${env.BLADE_MAVEN_USERNAME}</username><password>${env.BLADE_MAVEN_PASSWORD}</password></server>
+    <server><id>blade-snapshot</id><username>${env.BLADE_MAVEN_USERNAME}</username><password>${env.BLADE_MAVEN_PASSWORD}</password></server>
+    <server><id>dfyj-release</id><username>${env.DFYJ_MAVEN_USERNAME}</username><password>${env.DFYJ_MAVEN_PASSWORD}</password></server>
+  </servers>
+</settings>

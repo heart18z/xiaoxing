@@ -1,0 +1,308 @@
+<template>
+  <basic-container>
+    <avue-crud :option="option"
+               :search.sync="query"
+               :table-loading="loading"
+               :data="data"
+               :page.sync="page"
+               :permission="permissionList"
+               :before-open="beforeOpen"
+               v-model="form"
+               ref="crud"
+               @cell-click="rowView"
+               @cell-dblclick="editList"
+               @row-update="rowUpdate"
+               @row-save="rowSave"
+               @row-del="rowDel"
+               @search-change="searchChange"
+               @search-reset="searchReset"
+               @selection-change="selectionChange"
+               @current-change="currentChange"
+               @size-change="sizeChange"
+               @refresh-change="refreshChange"
+               @on-load="onLoad">
+        <!-- 左边按钮 -->
+        <template slot="menuLeft" slot-scope="{row,index}">
+            <el-button class="button-size" round title="新增" v-if="permission.${modelCode!}_add" size="small" icon="el-icon-plus" @click.stop="addList()">
+            </el-button>
+            <el-button class="button-size" round title="删除" v-if="permission.${modelCode!}_delete" size="small" icon="el-icon-delete"
+                @click.stop="handleDelete()">
+            </el-button>
+            <el-button class="button-size" round title="复制" v-if="permission.${modelCode!}_add" size="small" icon="el-icon-document-copy" @click.stop="copyList()">
+            </el-button>
+        </template>
+
+        <!-- 打开附件列表 -->
+        <template slot="uploadList" slot-scope="{row}">
+            <row-attach :source-id="row.id"></row-attach>
+        </template>
+
+        <template \#index="{row,index}">
+            <div>{{index+1}}</div>
+        </template>
+
+        <template slot-scope="{row,index,type}" slot="menuForm"  v-if="type !== 'view'">
+            <el-button icon="el-icon-check" size="mini" circle @click="$refs.crud.rowSave()" title="保存"></el-button>
+            <el-button circle icon="el-icon-close" size="mini" title="取消" @click="$refs.crud.closeDialog()"></el-button>
+        </template>
+    </avue-crud>
+    <!-- 左下按钮 -->
+    <page-attach ref="pageAttach"></page-attach>
+  </basic-container>
+</template>
+
+<script>
+  import pageAttach from "@/components/attach-dialog/page-attach/main.vue"
+  import rowAttach from "@/components/attach-dialog/row-attach/main.vue"
+  import {getList, getDetail, add, update, remove} from "@/api/${serviceCode!}/${modelCode!}";
+  import option from "@/option/${serviceCode!}/${modelCode!}";
+  import {mapGetters} from "vuex";
+  import {exportBlob} from "@/api/common";
+  import {getToken} from '@/util/auth';
+  import {downloadXls} from "@/util/util";
+  import {dateNow} from "@/util/date";
+  import NProgress from 'nprogress';
+  import 'nprogress/nprogress.css';
+
+  export default {
+    components: {
+     pageAttach, rowAttach
+    },
+    data() {
+      return {
+        form: {},
+        query: {},
+        search: {},
+        loading: true,
+        page: {
+          pageSize: 30,
+          currentPage: 1,
+          total: 0
+        },
+        selectionList: [],
+        option: option,
+        data: [],
+        timer: null
+      };
+    },
+    computed: {
+      ...mapGetters(["permission"]),
+      permissionList() {
+        return {
+          addBtn: this.vaildData(this.permission.${modelCode!}_add, false),
+          viewBtn: this.vaildData(this.permission.${modelCode!}_view, false),
+          delBtn: this.vaildData(this.permission.${modelCode!}_delete, false),
+          editBtn: this.vaildData(this.permission.${modelCode!}_edit, false)
+        };
+      },
+      ids() {
+        let ids = [];
+        this.selectionList.forEach(ele => {
+          ids.push(ele.id);
+        });
+        return ids.join(",");
+      }
+    },
+    methods: {
+      addList() {
+        this.$refs.crud.rowAdd()
+        this.form = {}
+        this.$refs.crud.dicInit()
+      },
+      copyList(){
+        if (this.selectionList.length === 0) {
+          this.$message.warning("请选择至少一条数据");
+          return;
+        }
+        this.$refs.crud.rowAdd()
+        this.form = this.selectionList[0]
+        this.form.id = ""
+        this.$refs.crud.dicInit()
+      },
+      editList(row,{property}) {
+        if (this.permission.${modelCode!}_edit && property === "index") {
+            clearTimeout(this.timer);
+            this.$refs.crud.dicInit()
+            this.$refs.crud.rowEdit(row, row.$index)
+        }
+      },
+      rowView(row, {property}) {
+        if (property === "index") {
+          clearTimeout(this.timer);
+          this.timer = setTimeout(() =>{
+            this.$refs.crud.rowView(row, row.$index)
+          },250)
+        }
+      },
+      rowSave(row, done, loading) {
+        add(row).then(() => {
+          this.onLoad(this.page);
+          this.$message({
+            type: "success",
+            message: "操作成功!"
+          });
+          done();
+        }, error => {
+          loading();
+          window.console.log(error);
+        });
+      },
+      rowUpdate(row, index, done, loading) {
+        update(row).then(() => {
+          this.onLoad(this.page);
+          this.$message({
+            type: "success",
+            message: "操作成功!"
+          });
+          done();
+        }, error => {
+          loading();
+          console.log(error);
+        });
+      },
+      rowDel(row) {
+        this.$confirm("确定将选择数据删除?", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning"
+        })
+          .then(() => {
+            return remove(row.id);
+          })
+          .then(() => {
+            this.onLoad(this.page);
+            this.$message({
+              type: "success",
+              message: "操作成功!"
+            });
+          });
+      },
+      handleDelete() {
+        if (this.selectionList.length === 0) {
+          this.$message.warning("请选择至少一条数据");
+          return;
+        }
+        this.$confirm("确定将选择数据删除?", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning"
+        })
+          .then(() => {
+            return remove(this.ids);
+          })
+          .then(() => {
+            this.onLoad(this.page);
+            this.$message({
+              type: "success",
+              message: "操作成功!"
+            });
+            this.$refs.crud.toggleSelection();
+          });
+      },
+      handleExport() {
+        let downloadUrl = `/api/${serviceName!}/${modelCode!}/export-${modelCode!}?\${this.website.tokenHeader}=\${getToken()}`;
+        const {
+          #for(x in prototypes) {
+            #if(x.isQuery==1){
+            ${x.propertyName!},
+            #}
+          #}
+        } = this.query;
+        let values = {
+          #for(x in prototypes) {
+            #if(x.isQuery==1){
+            ${x.propertyName!}_${x.queryType!}: ${x.propertyName!},
+            #}
+          #}
+        };
+        this.$confirm("是否导出数据?", "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning"
+        }).then(() => {
+          NProgress.start();
+          exportBlob(downloadUrl, values).then(res => {
+            downloadXls(res.data, `${codeName!}\${dateNow()}.xlsx`);
+            NProgress.done();
+          })
+        });
+      },
+      beforeOpen(done, type) {
+        if (["edit", "view"].includes(type)) {
+          getDetail(this.form.id).then(res => {
+            this.form = res.data.data;
+          });
+        }
+        done();
+      },
+      searchReset() {
+        this.query = {};
+        this.onLoad(this.page);
+      },
+      searchChange(params, done) {
+        this.query = params;
+        this.page.currentPage = 1;
+        this.onLoad(this.page, params);
+        done();
+      },
+      selectionChange(list) {
+        this.selectionList = list;
+      },
+      selectionClear() {
+        this.selectionList = [];
+        this.$refs.crud.toggleSelection();
+      },
+      currentChange(currentPage){
+        this.page.currentPage = currentPage;
+      },
+      sizeChange(pageSize){
+        this.page.pageSize = pageSize;
+      },
+      refreshChange() {
+        this.onLoad(this.page, this.query);
+      },
+      onLoad(page) {
+        this.loading = true;
+
+        const {
+        #for(x in prototypes) {
+         #if(x.isQuery==1){
+          ${x.propertyName!},
+         #}
+        #}
+        } = this.query;
+
+        let values = {
+        #for(x in prototypes) {
+         #if(x.isQuery==1){
+           #if(x.queryType == null||x.queryType == ''){
+           ${x.propertyName!}_equal: ${x.propertyName!},
+            #} else {
+           ${x.propertyName!}_${x.queryType!}: ${x.propertyName!},
+            #}
+         #}
+        #}
+        };
+
+        getList(page.currentPage, page.pageSize, values).then(res => {
+          const data = res.data.data;
+          this.page.total = data.total;
+          this.data = data.records;
+          this.loading = false;
+          this.selectionClear();
+        });
+      }
+    }
+  };
+</script>
+
+<style scoped>
+.button-size {
+  width: 32px;
+  height: 32px;
+}
+
+.button-size ::v-deep i {
+  margin-left: -6px;
+}
+</style>

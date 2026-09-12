@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.system.mapper.PeopleGroupChildMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="groupChildResultMap" type="org.springblade.modules.system.entity.PeopleGroupChild">
+        <result column="id" property="id"/>
+        <result column="people_group_id" property="peopleGroupId"/>
+        <result column="user_id" property="userId"/>
+    </resultMap>
+
+    <select id="selectPageByGroupIds" resultType="org.springblade.modules.system.entity.PeopleEntity">
+        select B.* from (select DISTINCT user_id from blade_peopele_group_child
+        <where>
+            <if test="peopleGroupQo.peopleGroupIds != null and peopleGroupQo.peopleGroupIds.size() > 0">
+                and people_group_id in
+                <foreach collection="peopleGroupQo.peopleGroupIds" item="item" index="index" open="(" close=")"
+                         separator=",">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+        ) A
+        LEFT JOIN blade_people B on A.user_id = B.id
+        <where>
+            and B.phone is not null
+            <if test="peopleGroupQo.realName != null and peopleGroupQo.realName != ''">
+                and B.real_name like concat('%',#{peopleGroupQo.realName}, '%')
+            </if>
+            <if test="peopleGroupQo.phone != null and peopleGroupQo.phone != ''">
+                and B.phone like concat('%',#{peopleGroupQo.phone}, '%')
+            </if>
+            <if test="peopleGroupQo.excludeIds != null and peopleGroupQo.excludeIds.size() > 0">
+                and B.id not in
+                <foreach collection="peopleGroupQo.excludeIds" item="item" index="index" open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+        order by B.real_name asc
+    </select>
+
+</mapper>

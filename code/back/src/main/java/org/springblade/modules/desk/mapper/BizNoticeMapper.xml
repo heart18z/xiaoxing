@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.desk.mapper.BizNoticeMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="bizNoticeResultMap" type="org.springblade.modules.desk.entity.BizNoticeEntity">
+        <result column="id" property="id"/>
+        <result column="notice_title" property="noticeTitle"/>
+        <result column="notice_content" property="noticeContent"/>
+        <result column="notice_status" property="noticeStatus"/>
+        <result column="notice_sent_time" property="noticeSentTime"/>
+        <result column="notice_build_time" property="noticeBuildTime"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="category" property="category"/>
+        <result column="is_show" property="isShow"/>
+        <result column="href" property="href"/>
+        <result column="description" property="description"/>
+        <result column="send_type" property="sendType"/>
+    </resultMap>
+
+
+    <select id="selectBizNoticePage" resultMap="bizNoticeResultMap">
+        select * from blade_biz_notice where is_deleted = 0
+    </select>
+
+
+    <select id="exportBizNotice" resultType="org.springblade.modules.desk.excel.BizNoticeExcel">
+        SELECT * FROM blade_biz_notice ${ew.customSqlSegment}
+    </select>
+    <select id="getMessagePage" resultType="org.springblade.modules.desk.vo.BizNoticeMessageVO">
+        SELECT
+            m.* ,
+            u.name sendUserName,
+            n.notice_title,
+            n.notice_sent_time noticeSentTime,
+            n.category,
+            u1.name receiveUserName,
+            n.href,
+            n.notice_content
+        FROM
+            blade_biz_notice_message m
+            left join blade_biz_notice n  on m.notice_id = n.id
+            LEFT JOIN (SELECT id,name from  blade_user )u on m.send_user_id = u.id
+            LEFT JOIN (SELECT id,name from  blade_user )u1 on m.receive_user_id = u1.id
+        WHERE
+            n.is_deleted =0
+        <if test="noticeCondition.sendUserId != null and noticeCondition.sendUserId != ''">
+            and m.send_user_id = #{noticeCondition.sendUserId}
+        </if>
+
+        <if test="noticeCondition.noticeTitle != null and noticeCondition.noticeTitle != ''">
+            and  n.notice_title like concat(concat('%', #{noticeCondition.noticeTitle}), '%')
+        </if>
+
+        <if test="noticeCondition.receiveUserId != null and noticeCondition.receiveUserId != ''">
+            and m.receive_user_id = #{noticeCondition.receiveUserId}
+        </if>
+
+        <if test="noticeCondition.category != null and noticeCondition.category != ''">
+            and n.category = #{noticeCondition.category}
+        </if>
+        <if test="noticeCondition.noticeReadStatus != null and noticeCondition.noticeReadStatus != ''">
+            and m.notice_read_status = #{noticeCondition.noticeReadStatus}
+        </if>
+        <if test="noticeCondition.firstTime != null and noticeCondition.firstTime != ''">
+            and  n.notice_sent_time between #{noticeCondition.firstTime} and #{noticeCondition.endTime}
+        </if>
+        order by n.notice_sent_time desc
+    </select>
+
+    <select id="getUserSendMessage" resultType="org.springblade.modules.desk.vo.BizNoticeMessageVO">
+        SELECT
+        n.id notice_id,
+        n.notice_title,
+        n.notice_sent_time noticeSentTime,
+        n.category,
+        n.href,
+        n.notice_content,
+        m.messageCount,
+        m.noticeReplyTime,
+        u.name sendUserName
+        FROM
+        blade_biz_notice n
+        LEFT JOIN (
+        SELECT count(*) messageCount,
+        max( notice_reply_time ) noticeReplyTime,
+        notice_id FROM
+        blade_biz_notice_message
+        GROUP BY notice_id ) m ON m.notice_id = n.id
+        LEFT JOIN (
+        SELECT count(*) userMessageCount,
+        notice_id FROM
+        blade_biz_notice_message
+        <if test="noticeCondition.receiveUserId != null and noticeCondition.receiveUserId != ''">
+            where receive_user_id = #{noticeCondition.receiveUserId}
+        </if>
+        GROUP BY notice_id ) m1 ON m1.notice_id = n.id
+        LEFT JOIN (SELECT id,name from  blade_user )u on n.create_user = u.id
+        WHERE
+        n.is_deleted =0
+        <if test="noticeCondition.sendUserId != null and noticeCondition.sendUserId != ''">
+            and n.create_user = #{noticeCondition.sendUserId}
+        </if>
+
+        <if test="noticeCondition.noticeTitle != null and noticeCondition.noticeTitle != ''">
+            and  n.notice_title like concat(concat('%', #{noticeCondition.noticeTitle}), '%')
+        </if>
+
+        <if test="noticeCondition.receiveUserId != null and noticeCondition.receiveUserId != ''">
+            and m1.userMessageCount > 0
+        </if>
+
+        <if test="noticeCondition.category != null and noticeCondition.category != ''">
+            and n.category = #{noticeCondition.category}
+        </if>
+        <if test="noticeCondition.firstTime != null and noticeCondition.firstTime != ''">
+            and  n.notice_sent_time between #{noticeCondition.firstTime} and #{noticeCondition.endTime}
+        </if>
+        order by n.notice_sent_time desc
+    </select>
+
+    <select id="selectListUserId" resultType="java.lang.Long">
+        select DISTINCT(send_user_id) FROM blade_biz_notice_message where receive_user_id=#{userId}
+    </select>
+    <select id="selectRecipientUserIdList" resultType="java.lang.Long">
+        select DISTINCT(receive_user_id) FROM blade_biz_notice_message where send_user_id=#{userId}
+    </select>
+    <select id="selcectMessageBySendUser" resultType="org.springblade.modules.desk.vo.BizNoticeMessageVO">
+        SELECT
+        m.* ,
+        n.notice_title,
+        n.notice_sent_time noticeSentTime,
+        n.category,
+        u1.name receiveUserName,
+        n.href,
+        n.notice_content
+        FROM
+        blade_biz_notice_message m
+        left join blade_biz_notice n  on m.notice_id = n.id
+        LEFT JOIN (SELECT id,name from  blade_user )u1 on m.receive_user_id = u1.id
+        WHERE
+        n.is_deleted =0
+        <if test="noticeCondition.sendUserId != null and noticeCondition.sendUserId != ''">
+            and m.send_user_id = #{noticeCondition.sendUserId}
+        </if>
+
+        <if test="noticeCondition.noticeId != null and noticeCondition.noticeId != ''">
+            and m.notice_id = #{noticeCondition.noticeId}
+        </if>
+
+        <if test="noticeCondition.noticeTitle != null and noticeCondition.noticeTitle != ''">
+            and  n.notice_title like concat(concat('%', #{noticeCondition.noticeTitle}), '%')
+        </if>
+
+        <if test="noticeCondition.receiveUserId != null and noticeCondition.receiveUserId != ''">
+            and m.receive_user_id = #{noticeCondition.receiveUserId}
+        </if>
+
+        <if test="noticeCondition.category != null and noticeCondition.category != ''">
+            and n.category = #{noticeCondition.category}
+        </if>
+        <if test="noticeCondition.noticeReadStatus != null and noticeCondition.noticeReadStatus != ''">
+            and m.notice_read_status = #{noticeCondition.noticeReadStatus}
+        </if>
+        <if test="noticeCondition.firstTime != null and noticeCondition.firstTime != ''">
+            and  n.notice_sent_time between #{noticeCondition.firstTime} and #{noticeCondition.endTime}
+        </if>
+        order by n.notice_sent_time desc
+    </select>
+
+    <select id="selectGroupUser" parameterType="String" resultType="org.springblade.modules.system.entity.User">
+        select u.* from blade_user u left join blade_group_user g  on u.id = g.user_id where u.is_deleted=0
+        <if test="groupId!=null and groupId!=''">
+            and g.group_id = #{groupId}
+        </if>
+        <if test="userName!=null and userName!=''">
+            and (u.real_name like  concat('%',#{userName}, '%') or u.account like  concat('%',#{userName} , '%') or u.name like  concat('%',#{userName} , '%'))
+        </if>
+    </select>
+</mapper>

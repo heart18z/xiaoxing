@@ -1,0 +1,12 @@
+html.native-app,html.native-app body,html.native-app #app{height:100%;overflow:hidden}
+html.native-app .sr-shell{padding-top:env(safe-area-inset-top);box-sizing:border-box;height:100dvh;min-height:0}
+html.native-app .sr-shell.skin-chat,html.native-app .sr-shell.skin-events,html.native-app .sr-shell.skin-profile{height:100dvh}
+html.native-app .skin-event-detail .sr-main{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+html.native-app .skin-event-detail{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+html.native-app .skin-event-detail .sr-header{flex:none}
+html.native-app .skin-event-detail .sr-main{flex:1;min-height:0;overflow-y:auto}
+html.native-app .login-page{height:100dvh;min-height:0;overflow-y:auto}
+html.native-app .login-canvas{padding-top:env(safe-area-inset-top)}
+html.native-app.keyboard-open .sr-nav{display:none}
+html.native-app.keyboard-open .composer{padding-bottom:12px}
+html.native-app input,html.native-app textarea{font-size:16px}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.desk.mapper.UnifiedMessagingSendMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="unifiedMessagingSendResultMap" type="org.springblade.modules.desk.entity.UnifiedMessagingSendEntity">
+        <result column="id" property="id"/>
+        <result column="notice_title" property="noticeTitle"/>
+        <result column="notice_content" property="noticeContent"/>
+        <result column="notice_status" property="noticeStatus"/>
+        <result column="send_rate" property="sendRate"/>
+        <result column="send_type" property="sendType"/>
+        <result column="sent_time" property="sentTime"/>
+        <result column="end_sent_time" property="endSentTime"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="href" property="href"/>
+        <result column="from_id" property="fromId"/>
+        <result column="target_account" property="targetAccount"/>
+    </resultMap>
+
+
+    <select id="selectUnifiedMessagingSendPage" resultMap="unifiedMessagingSendResultMap">
+        select * from blade_unified_messaging_send where is_deleted = 0
+    </select>
+
+
+    <select id="exportUnifiedMessagingSend" resultType="org.springblade.modules.desk.excel.UnifiedMessagingSendExcel">
+        SELECT * FROM blade_unified_messaging_send ${ew.customSqlSegment}
+    </select>
+
+</mapper>

@@ -1,0 +1,2 @@
+@saber:registry=https://center.javablade.com/api/packages/blade/npm/
+//center.javablade.com/api/packages/blade/npm/:_authToken=${NPM_BLADE_TOKEN}

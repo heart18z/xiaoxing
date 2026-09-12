@@ -1,0 +1,114 @@
+# 本地开发端口（避免与系统 80 端口冲突）
+server:
+  port: 8080
+
+#数据源配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  data:
+    redis:
+      ##redis 单机环境配置
+      host: 192.168.15.50
+      port: 6379
+      #      password:
+      database: 2
+      ssl:
+        enabled: false
+      ##redis 集群环境配置
+      #cluster:
+      #  nodes: 127.0.0.1:7001,127.0.0.1:7002,127.0.0.1:7003
+      #  commandTimeout: 5000
+  datasource:
+    # MySql
+    url: jdbc:mysql://192.168.15.50:3306/ai_message_reminder?useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&serverTimezone=GMT%2B8&nullCatalogMeansCurrent=true&allowPublicKeyRetrieval=true
+    username: root
+    password: ${XIAOXING_APPLICATION_DEV_YML_PASSWORD_1}
+    # PostgreSQL
+    #url: jdbc:postgresql://127.0.0.1:5432/bladex_boot
+    #username: postgres
+    #password: 123456
+    # Oracle
+    #url: jdbc:oracle:thin:@127.0.0.1:1521:orcl
+    #username: BLADEX_BOOT
+    #password: BLADEX_BOOT
+    # SqlServer
+    #url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=bladex_boot
+    #username: bladex_boot
+    #password: bladex_boot
+    # DaMeng
+    #url: jdbc:dm://127.0.0.1:5236/BLADEX_BOOT?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+    #username: BLADEX_BOOT
+    #password: BLADEX_BOOT
+    # YashanDB
+    #url: jdbc:yasdb://127.0.0.1:1688/BLADEX_BOOT
+    #username: BLADEX_BOOT
+    #password: BLADEX_BOOT
+
+#第三方登陆
+social:
+  enabled: true
+  domain: http://127.0.0.1:1888
+
+#blade配置
+blade:
+  #分布式锁配置
+  lock:
+    ##是否启用分布式锁
+    enabled: false
+    ##redis服务地址
+    address: redis://192.168.15.50:6379
+  #本地文件上传
+  file:
+    remote-mode: false
+    upload-domain: http://localhost:8999
+    remote-path: /usr/share/nginx/html
+
+
+
+#统一授权登录
+unified-oauth:
+  client:
+    # 集成系统所需的用户名
+    username: 1qwertyu
+    # 集成系统所需的密码
+    password: ${XIAOXING_APPLICATION_DEV_YML_PASSWORD_2}
+    # 认证系统接口基础地址
+    base-url: http://192.168.25.232:10116/api/
+    # 退出登录地址（保证所部署环境访问到此接口，需要集成时手动开发接口）
+    logout-url: http://192.168.25.232:8888/open/unified-oauth/logout
+    # 系统id（！必须获取统一分发的系统id之后才可以）
+    system-id: dev-blade
+    # 系统名称
+    system-name: 开发-脚手架系统
+    # 前端跳转的授权访问地址
+    login-url: http://192.168.25.232:10116/oauth/authorize
+
+# Keycloak 单点登录
+keycloak:
+  enable: true
+  client-id: "blade-auth"
+  client-secret: ${XIAOXING_APPLICATION_DEV_YML_CLIENT_SECRET_3}
+  scope: "openid profile email"
+  auth-endpoint: "https://lbjtest.sinoaopt.com/realms/dfyj/protocol/openid-connect/auth"
+  token-endpoint: "https://lbjtest.sinoaopt.com/realms/dfyj/protocol/openid-connect/token"
+  discovery-endpoint: "https://lbjtest.sinoaopt.com/realms/dfyj/.well-known/openid-configuration"
+  redirect-uri: "http://localhost:2888/oauth/keycloak/callback"
+  logout-endpoint: "https://lbjtest.sinoaopt.com/realms/dfyj/protocol/openid-connect/logout"
+
+
+# 接口平台
+api-platform:
+  app-key: avrhylwypm2g
+  app-secret: ${XIAOXING_APPLICATION_DEV_YML_APP_SECRET_4}
+  base-url: https://api.ori.ink/
+
+
+maitalk-config:
+  base-url: https://maitalk.sinoaopt.com
+#  base-url: http://192.168.25.232:3518
+

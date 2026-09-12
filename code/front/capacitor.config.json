@@ -1,0 +1,11 @@
+{
+  "appId": "com.dfyj.xiaoxing",
+  "appName": "AI小醒",
+  "webDir": "dist-native",
+  "server": { "iosScheme": "capacitor", "hostname": "localhost" },
+  "ios": { "contentInset": "never" },
+  "plugins": {
+    "PushNotifications": { "presentationOptions": ["banner", "list", "sound"] },
+    "Keyboard": { "resize": "native" }
+  }
+}

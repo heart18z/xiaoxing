@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.desk.mapper.ScheduledLogMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="scheduledLogResultMap" type="org.springblade.modules.desk.entity.ScheduledLogEntity">
+        <result column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="remark" property="remark"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="task_content" property="taskContent"/>
+        <result column="exec_time" property="execTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="success" property="success"/>
+        <result column="update_rows" property="updateRows"/>
+    </resultMap>
+
+
+    <select id="selectScheduledLogPage" resultMap="scheduledLogResultMap">
+        select * from blade_scheduled_log where is_deleted = 0
+    </select>
+
+
+    <select id="exportScheduledLog" resultType="org.springblade.modules.desk.excel.ScheduledLogExcel">
+        SELECT * FROM blade_scheduled_log ${ew.customSqlSegment}
+    </select>
+
+</mapper>

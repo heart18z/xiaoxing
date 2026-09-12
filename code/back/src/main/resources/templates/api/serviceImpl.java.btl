@@ -1,0 +1,107 @@
+/*
+ *      Copyright (c) 2018-2028, Chill Zhuang All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  Redistributions of source code must retain the above copyright notice,
+ *  this list of conditions and the following disclaimer.
+ *  Redistributions in binary form must reproduce the above copyright
+ *  notice, this list of conditions and the following disclaimer in the
+ *  documentation and/or other materials provided with the distribution.
+ *  Neither the name of the dreamlu.net developer nor the names of its
+ *  contributors may be used to endorse or promote products derived from
+ *  this software without specific prior written permission.
+ *  Author: Chill 庄骞 (smallchill@163.com)
+ */
+package ${package.ServiceImpl!};
+
+
+import ${packageName!}.pojo.entity.${modelClass!}Entity;
+import ${packageName!}.pojo.vo.${modelClass!}VO;
+import ${packageName!}.excel.${modelClass!}Excel;
+import ${packageName!}.mapper.${model.modelClass!}Mapper;
+import ${packageName!}.service.I${model.modelClass!}Service;
+import org.springframework.stereotype.Service;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.springblade.core.mp.support.Query;
+import org.springblade.core.tool.utils.Func;
+#if(templateType=="tree"){
+import org.springblade.core.tool.node.ForestNodeMerger;
+#}
+#if(hasSuperEntity){
+import ${superServiceImplClassPackage!};
+#}else{
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+#}
+import java.util.List;
+#if(templateType=="tree"){
+import java.util.Map;
+import java.util.stream.Collectors;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import org.springblade.core.mp.support.Condition;
+import ${packageName!}.pojo.wrapper.${modelClass!}Wrapper;
+#}
+/**
+ * ${codeName!} 服务实现类
+ *
+ * @author ${author!}
+ * @since ${date!}
+ */
+@Service
+#if(hasSuperEntity){
+public class ${modelClass!}ServiceImpl extends ${superServiceImplClass!}<${modelClass!}Mapper, ${modelClass!}Entity> implements I${model.modelClass!}Service {
+#}else{
+public class ${modelClass!}ServiceImpl extends ServiceImpl<${modelClass!}Mapper, ${modelClass!}Entity> implements I${model.modelClass!}Service {
+#}
+
+#if(templateType=="tree"){
+    private final static String PARENT_ID = "parentId";
+
+    private final static String PARENT_ID_EQUAL = PARENT_ID+"_equal";
+#}
+
+	@Override
+	public IPage<${modelClass!}VO> select${modelClass!}Page(IPage<${modelClass!}VO> page, ${modelClass!}VO ${modelCode!}) {
+		return page.setRecords(baseMapper.select${modelClass!}Page(page, ${modelCode!}));
+	}
+
+#if(templateType=="tree"){
+	@Override
+	public List<${modelClass!}VO> tree(String tenantId) {
+		return ForestNodeMerger.merge(baseMapper.tree(tenantId));
+	}
+
+    @Override
+    public IPage<${modelClass!}VO> lazyList(IPage<${modelClass!}VO> page, Map<String, Object> param) {
+         if (Func.isEmpty(Func.toStr(param.get(PARENT_ID)))) {
+            List<Object> valueList = param.values().stream().filter(v->
+                Func.isNotEmpty(Func.toStr(v))
+            ).collect(Collectors.toList());
+            if (valueList.size() == 2) {
+                param.put(PARENT_ID_EQUAL,0);
+            } else {
+                param.put(PARENT_ID_EQUAL,null);
+            }
+        } else {
+            Object parentId = param.get(PARENT_ID);
+            param.clear();
+            param.put(PARENT_ID_EQUAL,parentId);
+        }
+        QueryWrapper<${modelClass!}Entity> queryWrapper = Condition.getQueryWrapper(param, ${modelClass!}Entity.class);
+        List<${modelClass!}VO> list = this.baseMapper.lazyList(queryWrapper,page);
+        return page.setRecords(${modelClass!}Wrapper.build().listNodeLazyVO(list));
+    }
+#}
+
+	@Override
+	public List<${modelClass!}Excel> export${modelClass!}(Wrapper<${modelClass!}Entity> queryWrapper) {
+		List<${modelClass!}Excel> ${modelCode!}List = baseMapper.export${modelClass!}(queryWrapper);
+		//${modelCode!}List.forEach(${modelCode!} -> {
+		//	${modelCode!}.setTypeName(DictCache.getValue(DictEnum.YES_NO, ${modelClass!}.getType()));
+		//});
+		return ${modelCode!}List;
+	}
+
+}

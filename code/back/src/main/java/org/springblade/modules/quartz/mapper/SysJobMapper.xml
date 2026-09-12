@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.quartz.mapper.SysJobMapper">
+
+	<resultMap type="org.springblade.modules.quartz.domain.SysJob" id="SysJobResult">
+		<id     property="id"          column="id"          />
+		<result property="jobName"        column="job_name"        />
+		<result property="jobGroup"       column="job_group"       />
+		<result property="invokeTarget"   column="invoke_target"   />
+		<result property="cronExpression" column="cron_expression" />
+		<result property="misfirePolicy"  column="misfire_policy"  />
+		<result property="concurrent"     column="concurrent"      />
+		<result property="processStatus"         column="process_status"          />
+		<result property="createTime"     column="create_time"     />
+		<result property="updateTime"     column="update_time"     />
+
+	</resultMap>
+
+	<sql id="selectJobVo">
+        select id, job_name, job_group, invoke_target,
+               cron_expression, misfire_policy, concurrent, status, create_user, create_time, remark
+		from blade_job
+    </sql>
+
+	<select id="selectJobList" parameterType="org.springblade.modules.quartz.domain.SysJob" resultMap="SysJobResult">
+		<include refid="selectJobVo"/>
+		<where>
+			<if test="jobName != null and jobName != ''">
+				AND job_name like concat('%', #{jobName}, '%')
+			</if>
+			<if test="jobGroup != null and jobGroup != ''">
+				AND job_group = #{jobGroup}
+			</if>
+			<if test="processStatus != null and processStatus != ''">
+				AND process_status = #{processStatus}
+			</if>
+			<if test="invokeTarget != null and invokeTarget != ''">
+				AND invoke_target like concat('%', #{invokeTarget}, '%')
+			</if>
+		</where>
+	</select>
+
+	<select id="selectJobAll" resultMap="SysJobResult">
+		<include refid="selectJobVo"/>
+	</select>
+
+	<select id="selectJobById" parameterType="Long" resultMap="SysJobResult">
+		<include refid="selectJobVo"/>
+		where id = #{id}
+	</select>
+
+    <select id="cleanTable" resultType="java.lang.Boolean">
+        delete from ${tableName} where is_sync='sync'
+    </select>
+
+    <delete id="deleteJobById" parameterType="Long">
+ 		delete from blade_job where id = #{id}
+ 	</delete>
+
+ 	<delete id="deleteJobByIds" parameterType="Long">
+ 		delete from blade_job where id in
+ 		<foreach collection="array" item="id" open="(" separator="," close=")">
+ 			#{id}
+        </foreach>
+ 	</delete>
+
+ 	<update id="updateJob" parameterType="org.springblade.modules.quartz.domain.SysJob">
+ 		update blade_job
+ 		<set>
+ 			<if test="jobName != null and jobName != ''">job_name = #{jobName},</if>
+ 			<if test="jobGroup != null and jobGroup != ''">job_group = #{jobGroup},</if>
+ 			<if test="invokeTarget != null and invokeTarget != ''">invoke_target = #{invokeTarget},</if>
+ 			<if test="cronExpression != null and cronExpression != ''">cron_expression = #{cronExpression},</if>
+ 			<if test="misfirePolicy != null and misfirePolicy != ''">misfire_policy = #{misfirePolicy},</if>
+ 			<if test="concurrent != null and concurrent != ''">concurrent = #{concurrent},</if>
+ 			<if test="processStatus !=null">process_status = #{processStatus},</if>
+ 			<if test="remark != null and remark != ''">remark = #{remark},</if>
+ 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+ 			update_time = sysdate()
+ 		</set>
+ 		where id = #{id}
+	</update>
+
+ 	<insert id="insertJob" parameterType="org.springblade.modules.quartz.domain.SysJob" useGeneratedKeys="true" keyProperty="id">
+ 		insert into blade_job(
+ 			<if test="id != null and id != 0">id,</if>
+ 			<if test="jobName != null and jobName != ''">job_name,</if>
+ 			<if test="jobGroup != null and jobGroup != ''">job_group,</if>
+ 			<if test="invokeTarget != null and invokeTarget != ''">invoke_target,</if>
+ 			<if test="cronExpression != null and cronExpression != ''">cron_expression,</if>
+ 			<if test="misfirePolicy != null and misfirePolicy != ''">misfire_policy,</if>
+ 			<if test="concurrent != null and concurrent != ''">concurrent,</if>
+ 			<if test="processStatus != null and processStatus != ''">process_status,</if>
+ 			<if test="remark != null and remark != ''">remark,</if>
+ 			<if test="createUser != null and createUser != ''">create_user,</if>
+ 			create_time
+ 		)values(
+ 			<if test="id != null and id != 0">#{id},</if>
+ 			<if test="jobName != null and jobName != ''">#{jobName},</if>
+ 			<if test="jobGroup != null and jobGroup != ''">#{jobGroup},</if>
+ 			<if test="invokeTarget != null and invokeTarget != ''">#{invokeTarget},</if>
+ 			<if test="cronExpression != null and cronExpression != ''">#{cronExpression},</if>
+ 			<if test="misfirePolicy != null and misfirePolicy != ''">#{misfirePolicy},</if>
+ 			<if test="concurrent != null and concurrent != ''">#{concurrent},</if>
+ 			<if test="processStatus != null and processStatus != ''">#{processStatus},</if>
+ 			<if test="remark != null and remark != ''">#{remark},</if>
+ 			<if test="createUser != null and createUser != ''">#{createUser},</if>
+ 			sysdate()
+ 		)
+	</insert>
+    <insert id="insertBatchData">
+        insert into ${tableName}(${columns})
+        values
+        <foreach collection="list" item="item" separator="," >
+            (${item})
+        </foreach>
+    </insert>
+
+
+    <select id="selectIdsById" resultType="java.lang.String">
+        select ${pk} from ${tableName} where  ${pk} in
+        <foreach collection="list" item="item" separator="," open="(" close=")">
+             #{item}
+        </foreach>
+    </select>
+</mapper>

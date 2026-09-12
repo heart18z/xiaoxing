@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.resource.mapper.AttachMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="attachResultMap" type="org.springblade.modules.resource.entity.Attach">
+        <result column="id" property="id"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="link" property="link"/>
+        <result column="domain_url" property="domainUrl"/>
+        <result column="name" property="name"/>
+        <result column="original_name" property="originalName"/>
+        <result column="extension" property="extension"/>
+        <result column="attach_size" property="attachSize"/>
+        <result column="file_physical_position" property="filePhysicalPosition" />
+        <result column="upload_system" property="uploadSystem" />
+    </resultMap>
+
+    <update id="updateAttachDeleted">
+        update blade_attach set is_deleted = 0 where is_deleted = 1 and id in
+        <foreach collection="list" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+    <delete id="physicsRemoveByIds">
+        delete from  blade_attach where is_deleted = 1 and id in
+        <foreach collection="list" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="selectAttachByIds" resultMap="attachResultMap">
+        select * from blade_attach where is_deleted = 1
+        and id in
+        <foreach collection="list" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
+
+
+    <select id="selectAttachPage" resultMap="attachResultMap">
+        select
+        a.id,
+        a.create_user,
+        a.create_dept,
+        a.create_time,
+        a.update_user,
+        a.update_time,
+        a.status,
+        a.is_deleted,
+        a.link,
+        a.domain_url,
+        a.name,
+        a.original_name,
+        a.extension,
+        a.upload_system,
+        a.file_physical_position,
+        substring_index(a.domain_url, '/',-1)  ossBucketName,
+        a.attach_size from blade_attach a
+
+                      where 1= 1
+        <if test='attach.isNotProperty=="1".toString'>
+         and a.id not in (select attach_id from blade_attach_source where is_deleted = 0 and is_physical_save=1)
+        </if>
+        <if test="attach.originalName!=null and attach.originalName!=''">
+            and a.original_name like concat(concat('%', #{attach.originalName}),'%')
+        </if>
+
+        <if test="attach.isDeleted!=null">
+            and a.is_deleted =  #{attach.isDeleted}
+        </if>
+
+        <if test="attach.extension!=null and attach.extension!=''">
+            and a.extension =  #{attach.extension}
+        </if>
+        <if test="attach.ossBucketName!=null and attach.ossBucketName!=''">
+            and substring_index(a.domain_url, '/',-1) =  #{attach.ossBucketName}
+        </if>
+
+        <if test="attach.attachIds!=null and attach.attachIds.size()>0">
+            and a.id in
+            <foreach collection="attach.attachIds" item="id" index="index" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+
+        order by a.create_time desc
+    </select>
+    <select id="selectBucketNameList" resultType="org.springblade.modules.standard.support.vo.KeyValueVO">
+        SELECT
+            a.v `key`,
+            a.v `value`
+        FROM
+            ( SELECT substring_index( domain_url, '/',- 1 ) AS v FROM blade_attach GROUP BY substring_index( domain_url, '/',- 1 ) ) a
+    </select>
+
+</mapper>

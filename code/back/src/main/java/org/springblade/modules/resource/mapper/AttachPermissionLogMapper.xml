@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.resource.mapper.AttachPermissionLogMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="attachPermissionLogResultMap" type="org.springblade.modules.resource.entity.AttachPermissionLogEntity">
+        <result column="id" property="id"/>
+        <result column="create_time" property="createTime"/>
+        <result column="create_by" property="createBy"/>
+        <result column="permisson_account" property="permissionAccount"/>
+        <result column="attach_source_id" property="attachSourceId"/>
+    </resultMap>
+
+
+    <select id="selectAttachPermissionLogPage" resultMap="attachPermissionLogResultMap">
+        select * from blade_attach_permission_log where is_deleted = 0
+    </select>
+
+
+    <select id="exportAttachPermissionLog" resultType="org.springblade.modules.resource.excel.AttachPermissionLogExcel">
+        SELECT * FROM blade_attach_permission_log ${ew.customSqlSegment}
+    </select>
+
+</mapper>

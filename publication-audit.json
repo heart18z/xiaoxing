@@ -1,0 +1,244 @@
+{
+  "date": "2026-09-12",
+  "excluded": [
+    "code/front/.npmrc",
+    "code/front/CLAUDE.md",
+    "code/front/dist/",
+    "code/front/dist-native/",
+    "code/front/ios/App/App/capacitor.config.json",
+    "code/front/ios/App/App/config.xml",
+    "code/front/ios/App/App/public/",
+    "code/front/logs/",
+    "code/front/node_modules/",
+    "code/back/logs/",
+    "code/back/maven-setting.xml",
+    "code/back/smart-reminder-backend-error.log",
+    "code/back/smart-reminder-backend.log",
+    "code/back/smart-reminder-v10-backend-error.log",
+    "code/back/smart-reminder-v10-backend.log",
+    "code/back/smart-reminder-v12-backend-error.log",
+    "code/back/smart-reminder-v12-backend.log",
+    "code/back/smart-reminder-v2-backend-error.log",
+    "code/back/smart-reminder-v2-backend.log",
+    "code/back/smart-reminder-v3-backend-error.log",
+    "code/back/smart-reminder-v3-backend.log",
+    "code/back/smart-reminder-v4-backend-error.log",
+    "code/back/smart-reminder-v4-backend.log",
+    "code/back/smart-reminder-v5-backend-error.log",
+    "code/back/smart-reminder-v5-backend.log",
+    "code/back/smart-reminder-v6-backend-error.log",
+    "code/back/smart-reminder-v6-backend.log",
+    "code/back/smart-reminder-v7-backend-error.log",
+    "code/back/smart-reminder-v7-backend.log",
+    "code/back/src/test/resources/application-dev.yml",
+    "code/back/src/test/resources/application-prod.yml",
+    "code/back/src/test/resources/application-test.yml",
+    "code/back/src/test/resources/application.yml",
+    "code/back/src/test/resources/templates/code.properties",
+    "code/back/src/test/resources/templates/controller.java.vm",
+    "code/back/target/",
+    "scripts/AdditionalModelConfigs.java",
+    "scripts/chat-scroll-regression.js",
+    "scripts/content-polish-regression.js",
+    "scripts/context-ui-regression.js",
+    "scripts/ContextDeploymentCheck.java",
+    "scripts/ConversationInputDeploymentCheck.java",
+    "scripts/create-speech-mp3.cjs",
+    "scripts/CreatorChangeModelCheck.java",
+    "scripts/CreatorModelDeploymentCheck.java",
+    "scripts/dock-polish-regression.js",
+    "scripts/Dockerfile.public-sync",
+    "scripts/EvaluationInputInspect.java",
+    "scripts/event-model-deployment-smoke.ps1",
+    "scripts/event-model-ui-regression.js",
+    "scripts/EventModelDeploymentCheck.java",
+    "scripts/GlmFlashConfigurationSetup.java",
+    "scripts/header-icons-ui.js",
+    "scripts/live-summary-ui.js",
+    "scripts/LiveSummaryDeploymentCheck.java",
+    "scripts/mobile-locale-transform.cjs",
+    "scripts/model-refresh-ui.js",
+    "scripts/NotificationTimingCheck.java",
+    "scripts/original-wording-ui.js",
+    "scripts/overview-fix-ui.js",
+    "scripts/OverviewDeploymentCheck.java",
+    "scripts/pages-style-fixture.js",
+    "scripts/pages-style-regression.js",
+    "scripts/personal-ui-regression.js",
+    "scripts/PersonalDeploymentCheck.java",
+    "scripts/prepare-git-export.mjs",
+    "scripts/PrioritizeWordingRefresh.java",
+    "scripts/public-sync-20260911.sh",
+    "scripts/public-sync-integrity.py",
+    "scripts/SpeechConfigurationSetup.java",
+    "scripts/stage1-browser-checks.js",
+    "scripts/stage1-browser-fixture.js",
+    "scripts/stage2-avatar-checks.js",
+    "scripts/stage2-browser-checks.js",
+    "scripts/stage2-browser-fixture.js",
+    "scripts/stage2-chat-checks.js",
+    "scripts/Stage2DeploymentCheck.java",
+    "scripts/stage3-avatar-checks.js",
+    "scripts/stage3-browser-fixture.js",
+    "scripts/stage3-composer-checks.js",
+    "scripts/stage3-dialog-dimensions.js",
+    "scripts/stage3-final-ui-checks.js",
+    "scripts/stage3-oss-checks.js",
+    "scripts/Stage3EnableStorage.java",
+    "scripts/Stage3StorageProbe.java",
+    "scripts/Stage3VisionProbe.java",
+    "scripts/stage4-auth-regression.js",
+    "scripts/stage4-browser-regression.js",
+    "scripts/stage4-expired-session.js",
+    "scripts/stage4-loading-regression.mjs",
+    "scripts/stage4-static-regression.cjs",
+    "scripts/surface-blend-regression.js",
+    "scripts/toolbar-fix-regression.js",
+    "scripts/voice-http-regression.js",
+    "scripts/voice-ui-regression.js",
+    "sql/.gitkeep",
+    "sql/init_main.sql"
+  ],
+  "sanitized": [
+    {
+      "path": "code/back/src/main/resources/application-dev.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_DEV_YML_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application-dev.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_DEV_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application-dev.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_DEV_YML_CLIENT_SECRET_3"
+    },
+    {
+      "path": "code/back/src/main/resources/application-dev.yml",
+      "field": "app-secret",
+      "environment": "XIAOXING_APPLICATION_DEV_YML_APP_SECRET_4"
+    },
+    {
+      "path": "code/back/src/main/resources/application-extract.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_EXTRACT_YML_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application-extract.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_EXTRACT_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application-pre.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_PRE_YML_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application-pre.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_PRE_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application-prod.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_PROD_YML_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application-prod.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_PROD_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application-test.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_TEST_YML_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application-test.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_TEST_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application-test.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_TEST_YML_PASSWORD_3"
+    },
+    {
+      "path": "code/back/src/main/resources/application-test.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_TEST_YML_PASSWORD_4"
+    },
+    {
+      "path": "code/back/src/main/resources/application-test.yml",
+      "field": "app-secret",
+      "environment": "XIAOXING_APPLICATION_TEST_YML_APP_SECRET_5"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "login-password",
+      "environment": "XIAOXING_APPLICATION_YML_LOGIN_PASSWORD_1"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_YML_PASSWORD_2"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "access-key",
+      "environment": "XIAOXING_APPLICATION_YML_ACCESS_KEY_3"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "secret-key",
+      "environment": "XIAOXING_APPLICATION_YML_SECRET_KEY_4"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_5"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_6"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_7"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_8"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_9"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "client-secret",
+      "environment": "XIAOXING_APPLICATION_YML_CLIENT_SECRET_10"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "private-key",
+      "environment": "XIAOXING_APPLICATION_YML_PRIVATE_KEY_11"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "sign-key",
+      "environment": "XIAOXING_APPLICATION_YML_SIGN_KEY_12"
+    },
+    {
+      "path": "code/back/src/main/resources/application.yml",
+      "field": "password",
+      "environment": "XIAOXING_APPLICATION_YML_PASSWORD_13"
+    }
+  ]
+}

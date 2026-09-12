@@ -1,0 +1,78 @@
+#数据源配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  redis:
+    ##redis 单机环境配置
+    ##将docker脚本部署的redis服务映射为宿主机ip
+    ##生产环境推荐使用阿里云高可用redis服务并设置密码
+    host: 192.168.25.232
+    port: 6379
+    password: ${XIAOXING_APPLICATION_TEST_YML_PASSWORD_1}
+    database: 8
+    ssl: false
+    ##redis 集群环境配置
+    #cluster:
+    #  nodes: 127.0.0.1:7001,127.0.0.1:7002,127.0.0.1:7003
+    #  commandTimeout: 5000
+  datasource:
+    url: jdbc:mysql://192.168.25.232:10029/bladex?useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&serverTimezone=GMT%2B8&nullCatalogMeansCurrent=true&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: root
+    password: ${XIAOXING_APPLICATION_TEST_YML_PASSWORD_2}
+
+#第三方登陆
+social:
+  enabled: true
+  domain: http://127.0.0.1:1888
+
+#blade配置
+blade:
+  #分布式锁配置
+  lock:
+    ##是否启用分布式锁
+    enabled: false
+    ##将docker脚本部署的redis服务映射为宿主机ip
+    ##生产环境推荐使用阿里云高可用redis服务并设置密码
+    address: redis://192.168.25.232:6379
+    password: ${XIAOXING_APPLICATION_TEST_YML_PASSWORD_3}
+  #本地文件上传
+  file:
+    remote-mode: true
+    upload-domain: http://localhost:8999
+    remote-path: /usr/share/nginx/html
+
+
+
+#统一授权登录
+unified-oauth:
+  client:
+    # 集成系统所需的用户名
+    username: 1qwertyu
+    # 集成系统所需的密码
+    password: ${XIAOXING_APPLICATION_TEST_YML_PASSWORD_4}
+    # 认证系统接口基础地址
+    base-url: http://192.168.25.232:10115/
+    # 退出登录地址（保证所部署环境访问到此接口，需要集成时手动开发接口）
+    logout-url: http://192.168.25.232:10028/api/open/unified-oauth/logout
+    # 系统id（！必须获取统一分发的系统id之后才可以）
+    system-id: default-blade-system-id
+    # 系统名称
+    system-name: 开发-脚手架系统
+    # 前端跳转的授权访问地址
+    login-url: http://192.168.25.232:10116/oauth/authorize
+
+
+# 接口平台
+api-platform:
+  app-key: avrhylwypm2g
+  app-secret: ${XIAOXING_APPLICATION_TEST_YML_APP_SECRET_5}
+  base-url: https://api.ori.ink/
+
+
+
+maitalk-config:
+  base-url: http://192.168.25.232:3518

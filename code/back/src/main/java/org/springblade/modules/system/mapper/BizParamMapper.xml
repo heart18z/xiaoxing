@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.system.mapper.BizParamMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="bizParamResultMap" type="org.springblade.modules.system.entity.BizParam">
+        <result column="id" property="id"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="param_name" property="paramName"/>
+        <result column="param_key" property="paramKey"/>
+        <result column="param_value" property="paramValue"/>
+        <result column="remark" property="remark"/>
+        <result column="hierarchical" property="hierarchical"/>
+        <result column="current_hierarchy" property="currentHierarchy"/>
+        <result column="sort" property="sort"/>
+    </resultMap>
+
+    <resultMap id="bizParamVOResultMap" type="org.springblade.modules.system.vo.BizParamVO">
+        <result column="id" property="id"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="param_name" property="paramName"/>
+        <result column="param_key" property="paramKey"/>
+        <result column="param_value" property="paramValue"/>
+        <result column="remark" property="remark"/>
+        <result column="hierarchical" property="hierarchical"/>
+        <result column="current_hierarchy" property="currentHierarchy"/>
+        <result column="max_hierarchy" property="maxHierarchy"/>
+        <result column="sort" property="sort"/>
+        <result column="has_children" property="hasChildren"/>
+    </resultMap>
+
+    <resultMap id="treeNodeResultMap" type="org.springblade.core.tool.node.TreeNode">
+        <id column="id" property="id"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="title" property="title"/>
+        <result column="value" property="value"/>
+        <result column="key" property="key"/>
+        <result column="has_children" property="hasChildren"/>
+    </resultMap>
+
+    <sql id="columnList">
+        id, parent_id, param_name, param_key, param_value, sort, remark, hierarchical, status
+    </sql>
+    <delete id="deleteAllData">
+        delete from blade_biz_param where 1=1
+    </delete>
+
+    <select id="selectBizParamPage" resultMap="bizParamResultMap">
+        select * from blade_biz_param where is_deleted = 0
+    </select>
+
+    <select id="getOne" resultMap="bizParamVOResultMap">
+        SELECT
+            a.*,
+            (
+                SELECT MAX(current_hierarchy) FROM blade_biz_param where param_key = a.param_key
+            ) max_hierarchy
+        FROM
+            blade_biz_param a
+        WHERE
+            a.is_deleted = 0
+          AND a.id = #{bizParam.id}
+        <if test="bizParam.paramKey!=null and bizParam.paramKey!=''">
+            and a.param_key like concat('%', #{bizParam.paramKey}, '%')
+        </if>
+        <if test="bizParam.paramName!=null and bizParam.paramName!=''">
+            and a.param_name like concat('%', #{bizParam.paramName}, '%')
+        </if>
+        ORDER BY a.sort ASC
+    </select>
+
+    <select id="getValue" resultType="java.lang.String">
+        select
+            param_value
+        from blade_biz_param where param_name = #{param1} and param_key = #{param2} and is_deleted = 0
+    </select>
+
+    <select id="getList" resultMap="bizParamResultMap">
+        select
+        <include refid="columnList"></include>
+        from blade_biz_param
+        where param_key = #{param1}
+          and parent_id > 0
+          and status = 1
+          and is_deleted = 0
+    </select>
+
+    <select id="tree" resultMap="treeNodeResultMap">
+        select id, parent_id, param_name as title, id as "value", id as "key" from blade_biz_param where is_deleted = 0
+    </select>
+
+    <select id="parentTree" resultMap="treeNodeResultMap">
+        select id, parent_id, param_name as title, id as "value", id as "key" from blade_biz_param where is_deleted = 0 and parent_id = 0
+    </select>
+    <select id="selectOneBySql" resultType="org.springblade.modules.system.entity.BizParam">
+        ${sql}
+    </select>
+    <select id="deepChild" resultType="org.springblade.modules.system.entity.BizParam">
+
+        WITH RECURSIVE child_nodes AS (
+            SELECT *
+            FROM blade_biz_param
+            WHERE id = #{parentId} and is_deleted = 0
+
+            UNION ALL
+
+            SELECT b.*
+            FROM blade_biz_param b
+                     INNER JOIN child_nodes c ON b.parent_id = c.id and b.is_deleted = 0
+        )
+        SELECT * FROM child_nodes WHERE id != #{parentId};
+    </select>
+    <select id="selectBizParentPage" resultType="org.springblade.modules.system.vo.BizParamVO">
+     with recursive t as
+        (
+        select * from blade_biz_param where is_deleted=0
+        <if test="bizParam.paramValue!=null and bizParam.paramValue!=''">
+            and param_value like concat('%', #{bizParam.paramValue}, '%')
+        </if>
+        <if test="bizParam.paramName!=null and bizParam.paramName!=''">
+            and param_name like concat('%', #{bizParam.paramName}, '%')
+        </if>
+        <if test="bizParam.systemSource!=null and bizParam.systemSource!=''">
+            and system_source like concat('%', #{bizParam.systemSource}, '%')
+        </if>
+        <if test="bizParam.isPublicParam!=null and bizParam.isPublicParam!=''">
+            and is_public_param = #{bizParam.isPublicParam}
+        </if>
+        <if test="bizParam.isSync!=null and bizParam.isSync!=''">
+            and is_sync = #{bizParam.isSync}
+        </if>union all
+   select  a.
+        * from blade_biz_param a join t on a.id = t.parent_id and a.is_deleted =0
+                           )
+        select DISTINCT t.id as distinctId,
+        t.*  from t WHERE t.parent_id = 0 and t.is_deleted = 0 order by sort
+
+    </select>
+
+
+</mapper>

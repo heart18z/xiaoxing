@@ -1,0 +1,319 @@
+#project-id: blade-api666
+#服务器配置
+server:
+  port: 80
+  undertow:
+    threads:
+      # 设置IO线程数, 它主要执行非阻塞的任务,它们会负责多个连接, 默认设置每个CPU核心一个线程
+      io: 16
+      # 阻塞任务线程池, 当执行类似servlet请求阻塞操作, undertow会从这个线程池中取得线程,它的值设置取决于系统的负载
+      worker: 400
+    # 以下的配置会影响buffer,这些buffer会用于服务器连接的IO操作,有点类似netty的池化内存管理
+    buffer-size: 1024
+    # 是否分配的直接内存
+    direct-buffers: true
+    multipart:
+      enabled: true # 是否支持多部分上传。
+      maxFileSize: 20000000MB # 最大支持文件上传的大小
+      maxRequestSize: 20000000MB # 支持请求最大文件上传的大小
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+  application:
+    name: xxx
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    #driver-class-name: org.postgresql.Driver
+    #driver-class-name: oracle.jdbc.OracleDriver
+    #driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    #driver-class-name: dm.jdbc.driver.DmDriver
+    #driver-class-name: com.yashandb.jdbc.Driver
+    druid:
+      # MySql、PostgreSQL、SqlServer、DaMeng校验
+      validation-query: select 1
+      # Oracle、YashanDB校验
+      #oracle: true
+      #validation-query: select 1 from dual
+      validation-query-timeout: 2000
+      initial-size: 5
+      max-active: 20
+      min-idle: 5
+      max-wait: 60000
+      test-on-borrow: false
+      test-on-return: false
+      test-while-idle: true
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      stat-view-servlet:
+        enabled: true
+        login-username: blade
+        login-password: ${XIAOXING_APPLICATION_YML_LOGIN_PASSWORD_1}
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: '*.js,*.gif,*.jpg,*.bmp,*.png,*.css,*.ico,/druid/*'
+        session-stat-enable: true
+        session-stat-max-count: 10
+
+# mybatis
+mybatis-plus:
+  mapper-locations: classpath:org/springblade/**/mapper/*Mapper.xml
+  #实体扫描，多个package用逗号或者分号分隔
+  typeAliasesPackage: org.springblade.**.entity
+  #typeEnumsPackage: org.springblade.dashboard.entity.enums
+  global-config:
+    # 关闭MP3.0自带的banner
+    banner: false
+    db-config:
+      #主键类型  0:"数据库ID自增", 1:"不操作", 2:"用户输入ID",3:"数字型snowflake", 4:"全局唯一ID UUID", 5:"字符串型snowflake";
+      id-type: assign_id
+      #字段策略
+      insert-strategy: not_null
+      update-strategy: not_null
+      where-strategy: not_null
+      #驼峰下划线转换
+      table-underline: true
+      # 逻辑删除配置
+      # 逻辑删除全局值（1表示已删除，这也是Mybatis Plus的默认配置）
+      logic-delete-value: 1
+      # 逻辑未删除全局值（0表示未删除，这也是Mybatis Plus的默认配置）
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    jdbc-type-for-null: 'null'
+
+#knife4j配置
+knife4j:
+  #启用
+  enable: true
+  #基础认证
+  basic:
+    enable: false
+    username: blade
+    password: ${XIAOXING_APPLICATION_YML_PASSWORD_2}
+  #增强配置
+  setting:
+    enableSwaggerModels: true
+    enableDocumentManage: true
+    enableHost: false
+    enableHostText: http://localhost
+    enableRequestCache: true
+    enableFilterMultipartApis: false
+    enableFilterMultipartApiMethodType: POST
+    language: zh_cn
+    enableFooter: false
+    enableFooterCustom: true
+    footerCustomContent: Copyright © 2023 BladeX All Rights Reserved
+
+#swagger公共信息
+swagger:
+  title: BladeX 接口文档系统
+  description: BladeX 接口文档系统
+  version: 4.9.0.RELEASE
+  license: Powered By BladeX
+  license-url: https://bladex.vip
+  terms-of-service-url: https://bladex.vip
+  contact:
+    name: 翼宿
+    email: bladejava@qq.com
+    url: https://gitee.com/smallc
+
+#flowable配置
+flowable:
+  activity-font-name: \u5B8B\u4F53
+  label-font-name: \u5B8B\u4F53
+  annotation-font-name: \u5B8B\u4F53
+  check-process-definitions: false
+  database-schema-update: false
+  async-executor-activate: false
+  async-history-executor-activate: false
+
+#报表配置
+report:
+  enabled: false
+  database:
+    provider:
+      prefix: blade-
+
+#oss默认配置
+oss:
+  enabled: true
+  name: qiniu
+  tenant-mode: false
+  endpoint: http://prt1thnw3.bkt.clouddn.com
+  access-key: ${XIAOXING_APPLICATION_YML_ACCESS_KEY_3}
+  secret-key: ${XIAOXING_APPLICATION_YML_SECRET_KEY_4}
+  bucket-name: bladex
+
+#第三方登陆配置
+social:
+  oauth:
+    GITHUB:
+      client-id: 233************
+      client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_5}
+      redirect-uri: ${social.domain}/oauth/redirect/github
+    GITEE:
+      client-id: 233************
+      client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_6}
+      redirect-uri: ${social.domain}/oauth/redirect/gitee
+    WECHAT_OPEN:
+      client-id: 233************
+      client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_7}
+      redirect-uri: ${social.domain}/oauth/redirect/wechat
+    QQ:
+      client-id: 233************
+      client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_8}
+      redirect-uri: ${social.domain}/oauth/redirect/qq
+    DINGTALK:
+      client-id: 233************
+      client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_9}
+      redirect-uri: ${social.domain}/oauth/redirect/dingtalk
+
+# Keycloak 单点登录配置
+keycloak:
+  enable: false
+  client-id: blade-auth
+  client-secret: ${XIAOXING_APPLICATION_YML_CLIENT_SECRET_10}
+  scope: "openid profile email"
+  auth-endpoint: ""
+  token-endpoint: ""
+  discovery-endpoint: ""
+  redirect-uri: ""
+  logout-endpoint: ""
+
+#blade配置
+blade:
+  #oauth2配置
+  oauth2:
+    enabled: true
+    public-key: 04ddcbd16c70e495a0cc4107fef6df86bce8997c53daa6a421e520a79c18993054c4cd87c8173022543fda4e281642f6e8a080deac7c0e776b17594295058484aa
+    private-key: ${XIAOXING_APPLICATION_YML_PRIVATE_KEY_11}
+  #认证扩展配置
+  auth:
+    refresh-filter:
+      # 有操作自动续期：JWT 过半生命周期时服务端静默换发 access_token（不依赖 refresh_token）
+      enabled: true
+  #token配置
+  token:
+    #是否有状态
+    state: true
+    #是否单用户登录
+    single: true
+    #单用户登录范围
+    single-level: all
+    #token签名
+    #使用 @org.springblade.test.SignKeyGenerator 获取
+    sign-key: ${XIAOXING_APPLICATION_YML_SIGN_KEY_12}
+  #redis序列化方式
+  redis:
+    serializer-type: protostuff
+  #接口配置
+  api:
+    #报文加密配置
+    crypto:
+      #启用报文加密配置
+      enabled: false
+      #使用AesUtil.genAesKey()生成
+      aes-key: O2BEeIv399qHQNhD6aGW8R8DEj4bqHXm
+      #使用DesUtil.genDesKey()生成
+      des-key: jMVCBsFGDQr1USHo
+  #jackson配置
+  jackson:
+    #null自动转空值
+    null-to-empty: true
+    #大数字自动转字符串
+    big-num-to-string: true
+    #支持text文本请求,与报文加密同时开启
+    support-text-plain: false
+  #日志配置
+  log:
+    request:
+      #开启控制台请求日志
+      enabled: true
+      #控制台请求日志忽略
+      skip-url:
+        - /blade-desk/notice/list
+        - /blade-chat/weixin/**
+        - /blade-smart/ai-config/**
+        - /app/reminder/audio/**
+        - /app/reminder/settings/**
+        - /app/push/**
+      #开启错误日志入库
+      error-log: true
+  #xss配置
+  xss:
+    enabled: true
+    skip-url:
+      - /blade-chat/weixin
+      - /blade-bizNotice/bizNotice/addNotice
+      - /blade-flow/model/submit
+      - /blade-unifiedMessagingSend/unifiedMessagingSend/submit
+      - /app/reminder/**
+      - /blade-smart/ai-config/**
+  #安全框架配置
+  secure:
+    #接口放行
+    skip-url:
+      - /blade-test/**
+      - /blade-system/param/login-page-param
+      - /blade-system/param/favicon
+      - /open/**
+      - /unified-oauth/get-login-url
+    #授权认证配置
+    auth:
+      - method: ALL
+        pattern: /blade-chat/weixin/**
+        expression: "hasAuth()"
+      - method: POST
+        pattern: /blade-desk/dashboard/upload
+        expression: "hasTimeAuth(9, 17)"
+      - method: POST
+        pattern: /blade-desk/dashboard/submit
+        expression: "hasAnyRole('administrator', 'admin', 'user')"
+    #基础认证配置
+    basic:
+      - method: ALL
+        pattern: /blade-desk/dashboard/info
+        username: "blade"
+        password: ${XIAOXING_APPLICATION_YML_PASSWORD_13}
+    system-api:
+      - method: ALL
+        pattern: /auth-test/**
+
+
+    #动态签名认证配置
+    sign:
+      - method: ALL
+        pattern: /blade-desk/dashboard/sign
+        crypto: "sha1"
+    #多终端认证配置
+    client:
+      - client-id: sword
+        path-patterns:
+          - /blade-sword/**
+      - client-id: saber
+        path-patterns:
+          - /blade-saber/**
+  #多租户配置（单租户模式：保留 tenant_id 字段隔离，关闭增强授权与动态数据源）
+  tenant:
+    #多租户增强（4.9 会加载 pojo.entity.Tenant，单租户场景务必关闭）
+    enhance: false
+    #多租户授权保护
+    license: false
+    #默认租户
+    default-tenant-id: 000000
+    #动态数据源功能
+    dynamic-datasource: false
+    #动态数据源全局扫描
+    dynamic-global: false
+    #多租户字段名
+    column: tenant_id
+    #排除多租户逻辑
+    exclude-tables:
+      - blade_user
+      - blade_ai_btn_config
+      - blade_ai_btn_config_detail

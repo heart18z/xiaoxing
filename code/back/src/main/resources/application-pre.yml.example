@@ -1,0 +1,18 @@
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_ADDR}
+        username: ${NACOS_USERNAME}
+        password: ${XIAOXING_APPLICATION_PRE_YML_PASSWORD_1}
+        namespace: ${spring.profiles.active}
+        group: ${server.port}
+        file-extension: yaml
+      discovery:
+        server-addr: ${NACOS_ADDR}
+        username: ${NACOS_USERNAME}
+        password: ${XIAOXING_APPLICATION_PRE_YML_PASSWORD_2}
+        namespace: ${spring.profiles.active}
+  config:
+    import:
+      - optional:nacos:application-${spring.profiles.active}.yml?group=${server.port}

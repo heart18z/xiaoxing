@@ -1,0 +1,6 @@
+Default avatars generated locally with DiceBear 9.4.2.
+Thumbs and Shapes by DiceBear: CC0 1.0.
+https://www.dicebear.com/styles/thumbs/
+https://www.dicebear.com/styles/shapes/
+https://creativecommons.org/publicdomain/zero/1.0/
+DiceBear core code: MIT, Copyright (c) 2024 Florian Körner.

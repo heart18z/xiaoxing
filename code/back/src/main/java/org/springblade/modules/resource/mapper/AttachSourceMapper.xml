@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springblade.modules.resource.mapper.AttachSourceMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="attachSourceResultMap" type="org.springblade.modules.resource.entity.AttachSourceEntity">
+        <result column="id" property="id"/>
+        <result column="source_id" property="sourceId"/>
+        <result column="attach_id" property="attachId"/>
+        <result column="source_type" property="sourceType"/>
+        <result column="remark" property="remark"/>
+        <result column="attach_extension" property="attachExtension"/>
+        <result column="create_user" property="createUser"/>
+        <result column="create_dept" property="createDept"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_user" property="updateUser"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status" property="status"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <result column="diy_file_name" property="diyFileName"/>
+        <result column="file_physical_position" property="filePhysicalPosition"/>
+        <result column="source_id" property="sourceId"/>
+        <result column="source_type" property="sourceType" />
+        <result column="is_physical_save" property="isPhysicalSave"/>
+    </resultMap>
+    <update id="updateAttachSourceDeletedByAttachId">
+        update blade_attach_source set is_deleted = 0 where is_deleted = 1 and id in
+        <foreach collection="list" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+<!--    <update id="updateAttachSourceDeletedById">-->
+<!--        update blade_attach_source set is_deleted = 0 where is_deleted = 1 and id =#{id}-->
+<!--    </update>-->
+
+
+    <select id="selectAttachSourcePage" resultMap="attachSourceResultMap">
+        select * from blade_attach_source where is_deleted = 0
+    </select>
+    <select id="selectAttachBySource" resultType="org.springblade.modules.resource.vo.AttachVO">
+        select ba.*,bas.id as attachSourceId,bas.attach_extension,bas.diy_file_name,bas.source_id,
+               bas.file_physical_position filePhysicalPosition,bas.is_physical_save,
+        bas.source_type,
+        bas.safekeep_status,
+       bas.archive_no,
+       bas.permission_user_account,
+       bas.file_num,
+       bas.is_secrecy,
+       bas.upload_type,
+       bas.sign_status,
+       bas.keeper,
+       bas.sort,
+       bu.account createUserAccount,
+       bas.physical_position_info
+        FROM blade_attach ba LEFT JOIN blade_attach_source bas on ba.id = bas.attach_id
+        left join blade_user bu on bu.id = bas.create_user
+        WHERE bas.source_id = #{sourceId} and bas.is_deleted = 0
+        order by create_time desc
+    </select>
+
+
+    <select id="selectLastUpdateListByAttachIds"
+            resultType="org.springblade.modules.resource.entity.AttachSourceEntity">
+        select
+        attach_id,
+        SUBSTRING_INDEX(GROUP_CONCAT(id ORDER BY update_time DESC),',',1) AS id
+            from blade_attach_source where is_deleted = 1 and attach_id in
+        <foreach collection="list" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        group by attach_id
+    </select>
+    <select id="selectRegionList" resultType="org.springblade.modules.resource.vo.RegionVo">
+        select * from blade_property_region
+    </select>
+    <select id="selectAttachByOriginalId" resultType="org.springblade.modules.resource.vo.AttachVO">
+        select ba.*,bas.id as attachSourceId,bas.attach_extension,bas.diy_file_name,bas.source_id,
+               bas.file_physical_position filePhysicalPosition,bas.is_physical_save,
+               bas.source_type,
+               bas.safekeep_status,
+               bas.archive_no,
+               bas.permission_user_account,
+               bas.file_num,
+               bas.is_secrecy,
+               bas.upload_type,
+               bas.keeper,
+               bas.sort,
+               bas.sign_status,
+               bu.account createUserAccount,
+               bas.physical_position_info
+        FROM blade_attach ba LEFT JOIN blade_attach_source bas on ba.id = bas.attach_id
+                             left join blade_user bu on bu.id = bas.create_user
+        WHERE bas.original_id = #{originalId} and bas.is_deleted = 0
+        order by create_time desc
+    </select>
+
+</mapper>
