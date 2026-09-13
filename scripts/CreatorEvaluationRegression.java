@@ -26,6 +26,17 @@ public class CreatorEvaluationRegression extends Stage1Regression {
     call("{\"intent\":\"update_event\",\"eventAction\":{\"eventId\":\"302\",\"eventTime\":\"2099-01-02 15:00:00\",\"fact\":\"发起人同意改期\"}}");
     check(count("select count(*) from blade_smart_event_branch where event_id=302 and evaluation_requested_at is not null")==1,"creator confirmation parsed as event update also queues assessment");
     service.evaluateRequestedBranches();
+    event(308,1,2);future(308);
+    call("{\"intent\":\"update_event\",\"eventAction\":{\"eventId\":\"308\",\"nextEvaluateTime\":\"2026-09-13 15:57:00\"}}");
+    check(count("select count(*) from blade_smart_event_branch where event_id=308 and evaluation_requested_at is not null and next_evaluate_time='2099-01-01 14:00:00'")==1,"already elapsed explicit evaluation time queues immediately and preserves scheduled fallback");
+    check(count("select count(*) from blade_smart_notification where event_id=308")==0,"immediate request still goes through AI rather than forced notification");
+    service.evaluateRequestedBranches();
+    check(count("select count(*) from blade_smart_evaluation where event_id=308 and trigger_type='CREATOR_FEEDBACK'")==1,"now request evaluated even without changing task facts");
+    event(309,1,2);future(309);
+    db.update("insert into blade_smart_event_branch(id,event_id,recipient_user_id,next_evaluate_time) values(20309,309,3,'2099-01-01 14:00:00')");
+    call("{\"intent\":\"update_event\",\"eventAction\":{\"eventId\":\"309\",\"recipientName\":\"陈颖\",\"nextEvaluateTime\":\"2026-09-13 15:57:00\"}}");
+    check(count("select count(*) from blade_smart_event_branch where event_id=309 and evaluation_requested_at is not null and recipient_user_id=2")==1&&count("select count(*) from blade_smart_event_branch where event_id=309 and evaluation_requested_at is not null and recipient_user_id=3")==0,"immediate evaluation stays scoped to named recipient");
+    service.evaluateRequestedBranches();
     event(303,1,2);future(303);feedback(303,"第一版反馈");
     duringEvaluation=()->feedback(303,"最新反馈：改为下午四点");
     service.evaluateRequestedBranches();

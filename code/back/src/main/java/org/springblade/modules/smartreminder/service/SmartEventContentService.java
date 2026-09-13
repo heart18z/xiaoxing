@@ -95,21 +95,25 @@ public class SmartEventContentService {
 	/** Read-only and version checked: a stale AI overview can never hide a new arrangement. */
 	public String latestEventSummary(Long eventId, String fallback) {
 		var tasks=overviewTasks(eventId);
-		if(tasks.isEmpty())return fallback;
+		if(tasks.isEmpty())return displayText(fallback);
 		var cached=jdbc.queryForMap("select overview_summary,overview_source_hash from blade_smart_event where id=?",eventId);
 		if(overviewHash(overviewSource(eventId,tasks)).equals(cached.get("overview_source_hash")) && cached.get("overview_summary")!=null)
-			return cached.get("overview_summary").toString();
+			return displayText(cached.get("overview_summary"));
 		// Exact duplicate tasks are safely grouped while the semantic overview is generated.
 		Map<String,List<String>> grouped=new LinkedHashMap<>();
 		for(var row:tasks) {
 			String task=cleanTask(row.get("task"));
-			if(row.get("eventTime")!=null)task+="（时间："+row.get("eventTime")+"）";
-			if(row.get("deadlineTime")!=null)task+="（截止："+row.get("deadlineTime")+"）";
+			if(row.get("eventTime")!=null)task+="（时间："+displayText(row.get("eventTime"))+"）";
+			if(row.get("deadlineTime")!=null)task+="（截止："+displayText(row.get("deadlineTime"))+"）";
 			grouped.computeIfAbsent(task,key->new ArrayList<>()).add(row.get("recipient").toString());
 		}
 		List<String> lines=new ArrayList<>();
 		grouped.forEach((task,names)->lines.add(String.join("、",names)+"："+task));
-		return String.join("；",lines)+"。";
+		return displayText(String.join("；",lines)+"。");
+	}
+
+	private static String displayText(Object value) {
+		return Objects.toString(value,"").replaceAll("(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2})", "$1 $2");
 	}
 
 	/** Only the organizer overview needs synthesis; progress is read directly from branch facts. */

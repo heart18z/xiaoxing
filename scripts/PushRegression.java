@@ -57,7 +57,12 @@ public class PushRegression {
       check(count("select count(*) from blade_smart_chat_message where id=4")==0 && count("select count(*) from blade_smart_push_delivery where message_id=4")==0,"business rollback also rolls back push outbox");
       message(5,1,"assistant","REMINDER",false);worker.deliver(job(5));worker.deliver(job(5));
       check(apns.sends==1 && status(5).equals("SENT"),"claimed delivery sends once across repeated worker runs");
-      check(!json.writeValueAsString(apns.payload).contains("Private report") && apns.payload.get("recipientUserId").equals("1"),"lock-screen preview hides task content and scopes recipient");
+      check(json.writeValueAsString(apns.payload).contains("Private report") && apns.payload.get("recipientUserId").equals("1"),"notification shows this recipient's message content and retains recipient scope");
+      check(PushDeliveryWorker.notificationPreview("**报告**\n2026-09-13T16:05").equals("报告 2026-09-13 16:05"),"notification preview removes markdown and ISO separator");
+      String bounded=PushDeliveryWorker.notificationPreview("😀".repeat(500));
+      check(bounded.codePointCount(0,bounded.length())==401&&!bounded.contains("�"),"long unicode preview is bounded without splitting emoji");
+      var emptyPayload=PushDeliveryWorker.payload(Map.of("message_type","REMINDER","event_id",99,"message_id",5,"user_id",1));
+      check(json.writeValueAsString(emptyPayload).contains("你有一条新的事件提醒"),"empty message retains nonempty fallback");
       message(6,1,"assistant","FEEDBACK",false);db.update("update blade_smart_chat_message set is_read=1 where id=6");worker.deliver(job(6));
       check(status(6).equals("CANCELLED") && apns.sends==1,"read-before-send suppresses redundant push");
       message(7,1,"assistant","QUESTION",false);String second=register(2,installation,secret);worker.deliver(job(7));

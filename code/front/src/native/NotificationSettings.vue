@@ -2,7 +2,7 @@
   <section v-if="isNative" class="sr-card notification-settings">
     <h2>{{ en ? 'Phone notifications' : '手机通知' }}</h2>
     <p role="status">{{ status }}</p>
-    <small>{{ en ? 'Lock-screen previews hide task details. Tap a notification to open its event after signing in.' : '锁屏通知不显示任务详情，点击通知后登录查看对应事件。' }}</small>
+    <small>{{ en ? 'Notifications show your reminder content. Control lock-screen previews in iOS Settings. Tap to view the event.' : '通知将显示你的提醒内容，可在 iOS 设置中控制锁屏预览。点击通知查看对应事件。' }}</small>
     <button type="button" class="sr-button" :disabled="pushState.busy" @click="pushState.permission==='denied'?openNotificationSettings():enableNotifications(true)">{{ pushState.permission==='denied'?(en?'Open iOS Settings':'前往系统设置'):(en?'Enable / check notifications':'开启 / 检查通知') }}</button>
   </section>
 </template>

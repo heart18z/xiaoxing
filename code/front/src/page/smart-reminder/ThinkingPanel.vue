@@ -28,7 +28,7 @@ watch(()=>[props.content,props.open],async()=>{if(!props.open||!props.streaming)
 </script>
 
 <style scoped>
-.thinking-panel{width:100%;min-width:150px;contain:inline-size;color:#6d7890}
+.thinking-panel{box-sizing:border-box;width:100%;min-width:0;color:#6d7890}
 .thinking-toggle{display:flex;width:100%;min-width:0;align-items:center;gap:7px;padding:1px 0 7px;border:0;border-bottom:1px solid #edf0f6;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:left}
 .thinking-mark{display:inline-flex;flex:0 0 22px;width:22px;height:22px;align-items:center;justify-content:center;border-radius:8px;background:linear-gradient(145deg,#eef2ff,#e3eaff);color:#496cff}
 .thinking-mark svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}

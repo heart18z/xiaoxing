@@ -5,15 +5,15 @@
     <section v-if="detail.event" class="sr-card hero">
       <span class="sr-chip">{{ detail.event.event_no }}</span>
       <span class="summary-label">{{ mt(detail.creator?'事件概述':'我的任务') }}</span>
-      <h2 :class="{'overview-collapsed':overviewLong&&!overviewExpanded}">{{ detail.event.latest_summary || detail.event.event_summary }}</h2>
+      <h2 :class="{'overview-collapsed':overviewLong&&!overviewExpanded}">{{ displayText(detail.event.latest_summary || detail.event.event_summary) }}</h2>
       <button v-if="overviewLong" class="overview-toggle" type="button" :aria-expanded="overviewExpanded" @click="overviewExpanded=!overviewExpanded">{{ mt(overviewExpanded?'收起':'展开完整概述') }}</button>
       <div v-if="progressItems.length" class="overview-progress">
         <b>{{ mt('最新进展') }}</b>
         <p v-for="b in visibleProgress" :key="b.id"><span v-if="detail.creator">{{ b.name||b.realName||b.account }}： </span>{{ b.currentFact }}</p>
         <button v-if="progressItems.length>2" class="overview-toggle" type="button" :aria-expanded="progressExpanded" @click="progressExpanded=!progressExpanded">{{ mt(progressExpanded?'收起':'查看全部进展') }}</button>
       </div>
-      <p>{{ mt("事件时间：") }}{{ detail.event.event_time || mt('未设定') }}</p>
-      <p>{{ mt("截止时间：") }}{{ detail.event.deadline_time || mt('未设定') }}</p>
+      <p>{{ mt("事件时间：") }}{{ displayText(detail.event.event_time) || mt('未设定') }}</p>
+      <p>{{ mt("截止时间：") }}{{ displayText(detail.event.deadline_time) || mt('未设定') }}</p>
       <div v-if="detail.creator" class="conversation-entry creator-entry">
         <div><b>{{ mt("发起人对话") }}</b><small>{{ mt("查看事件创建、调整及反馈记录") }}</small></div>
         <button type="button" @click="viewConversation(detail.event.creator_user_id,detail.event.creatorName||detail.event.creatorRealName||'发起人')">{{ mt("查看对话") }}</button>
@@ -25,10 +25,10 @@
     <section v-for="b in detail.branches||[]" :key="b.id" class="sr-card branch">
       <div class="sr-row">
         <div class="sr-avatar"><img v-if="b.avatar" :src="b.avatar" alt=""/><template v-else>{{ (b.name||b.realName||b.account||'?').slice(0,1) }}</template></div>
-        <div class="branch-main"><h3>{{ b.name||b.realName||b.account }}</h3><p>{{ mt(branchStatus(b.branchStatus)) }}{{ mt("· 下次评估") }}{{ b.nextEvaluateTime||mt('无') }}</p></div>
+        <div class="branch-main"><h3>{{ b.name||b.realName||b.account }}</h3><p>{{ mt(branchStatus(b.branchStatus)) }}{{ mt("· 下次评估") }}{{ displayText(b.nextEvaluateTime)||mt('无') }}</p></div>
         <button type="button" class="conversation-button" @click="viewConversation(b.recipientUserId,b.name||b.realName||b.account)">{{ mt("查看对话") }}</button>
       </div>
-      <p v-if="b.latestSummary" class="branch-summary">{{ mt('当前任务：') }}{{ b.latestSummary }}</p>
+      <p v-if="b.latestSummary" class="branch-summary">{{ mt('当前任务：') }}{{ displayText(b.latestSummary) }}</p>
       <p v-if="b.currentFact">{{ mt("最新事实：") }}{{ b.currentFact }}</p>
     </section>
 
@@ -66,6 +66,7 @@ import { ElMessageBox,ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
 import { getEventConversation,getEventDetail,stopEvent } from '@/api/smartReminder';
 import { renderMarkdown } from './markdown';
+import { displayText } from './displayText.mjs';
 import { withMobileLoading } from './mobileLoading';
 
 const route=useRoute(),detail=ref({}),timelineBranch=ref('all'),showAiNodes=ref(true);

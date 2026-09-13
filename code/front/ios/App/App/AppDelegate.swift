@@ -57,6 +57,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 class XiaoxingViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(XiaoxingNativePlugin())
+        // Native keyboard resizing can expose the hosting view/window behind WKWebView.
+        let surface = UIColor(red: 244/255.0, green: 247/255.0, blue: 253/255.0, alpha: 1)
+        view.backgroundColor = surface
+        webView?.isOpaque = false
+        webView?.backgroundColor = surface
+        webView?.scrollView.backgroundColor = surface
     }
 }
 

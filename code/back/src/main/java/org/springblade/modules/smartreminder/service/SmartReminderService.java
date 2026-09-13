@@ -1590,6 +1590,7 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 		}
 		String nextText = nullableText(action.path("nextEvaluateTime"));
 		LocalDateTime next = parseTime(nextText);
+		Set<Long> immediateEvaluationBranches = new LinkedHashSet<>();
 		if (recipientUpdate) {
 			RecipientResolveResult recipientResult = resolveRecipientNames(userId, action.path("recipientNames"));
 			if (!recipientResult.questions().isEmpty()) return new EventActionResult(null, String.join("；", recipientResult.questions()));
@@ -1664,6 +1665,9 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 				List<Object> branchArgs = new ArrayList<>();
 				if (fact != null) { branchSets.add("current_fact=?"); branchArgs.add(fact); }
 				if (next != null && next.isAfter(now())) { branchSets.add("next_evaluate_time=?"); branchArgs.add(timestamp(next)); }
+				// Model output for "now" may already be seconds in the past by commit time.
+				// Queue a fresh AI evaluation without discarding the existing scheduled fallback.
+				if (next != null && !next.isAfter(now())) immediateEvaluationBranches.add(((Number)branch.get("branchId")).longValue());
 				if (!branchSets.isEmpty()) {
 					branchSets.add("evaluate_lock=0"); branchSets.add("update_time=now()");
 					branchArgs.add(((Number) branch.get("branchId")).longValue());
@@ -1706,7 +1710,8 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 		// New recipients already receive assignments; reassess changed existing branches only.
 		for(var entry:evaluationFacts(eventId).entrySet())
 			if(before.containsKey(entry.getKey())&&!Objects.equals(before.get(entry.getKey()),entry.getValue()))
-				requestCreatorEvaluation(eventId,entry.getKey());
+				immediateEvaluationBranches.add(entry.getKey());
+		for(Long branchId:immediateEvaluationBranches) requestCreatorEvaluation(eventId,branchId);
 		return new EventActionResult(eventId, null);
 	}
 

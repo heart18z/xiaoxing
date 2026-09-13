@@ -32,7 +32,7 @@ public class PushDeliveryWorker {
         String lease=UUID.randomUUID().toString(); Instant now=Instant.now();
         if(jdbc.update("update blade_smart_push_delivery set status='SENDING',lease_token=?,lease_until=? where id=? and expires_at>? and next_attempt_at<=? and (status='PENDING' or (status='SENDING' and lease_until<?))",lease,Timestamp.from(now.plusSeconds(60)),id,Timestamp.from(now),Timestamp.from(now),Timestamp.from(now))!=1)return;
         var rows=jdbc.queryForList("""
-            select o.*,d.device_token,d.environment,d.language,m.message_type
+            select o.*,d.device_token,d.environment,d.language,m.message_type,m.content as notification_content
             from blade_smart_push_delivery o
             join blade_smart_push_device d on d.id=o.device_id and d.user_id=o.user_id and d.binding_id=o.binding_id and d.enabled=1
             join blade_smart_chat_message m on m.id=o.message_id and m.user_id=o.user_id and m.event_id=o.event_id and m.is_read=0
@@ -67,12 +67,24 @@ public class PushDeliveryWorker {
     private void finish(long id,String lease,String status,String reason){jdbc.update("update blade_smart_push_delivery set status=?,last_error=?,lease_token=null where id=? and lease_token=?",status,reason,id,lease);}
     static Map<String,Object> payload(Map<String,Object> row) {
         boolean en="en-us".equals(row.get("language"));
-        // Lock-screen preview intentionally contains no task text, names or other participants' details.
+        // Only the message already authorized for this recipient is used, never a global event summary.
         String body=switch(Objects.toString(row.get("message_type"),"")) {
             case "FEEDBACK" -> en?"You have new event feedback. Tap to view.":"你有新的事件反馈，点击查看。";
             case "QUESTION","CONFLICT" -> en?"An event needs your attention. Tap to view.":"有一项事件需要你确认，点击查看。";
             default -> en?"You have a new event reminder. Tap to view.":"你有一条新的事件提醒，点击查看。";
         };
+        String preview=notificationPreview(row.get("notification_content"));
+        if(!preview.isBlank()) body=preview;
         return Map.of("aps",Map.of("alert",Map.of("title",en?"AI Xiaoxing":"AI小醒","body",body),"sound","default"),"eventId",row.get("event_id").toString(),"messageId",row.get("message_id").toString(),"recipientUserId",row.get("user_id").toString());
+    }
+    static String notificationPreview(Object content) {
+        String text=Objects.toString(content,"")
+            .replaceAll("!\\[([^]]*)\\]\\([^)]*\\)","$1")
+            .replaceAll("\\[([^]]+)\\]\\([^)]*\\)","$1")
+            .replaceAll("[*`#]", "")
+            .replaceAll("[\\p{Cntrl}\\s]+", " ").trim()
+            .replaceAll("(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2})", "$1 $2");
+        // Bound UTF-8 payload size while keeping surrogate pairs intact (APNs limit is 4096 bytes).
+        return text.codePointCount(0,text.length())>400?text.substring(0,text.offsetByCodePoints(0,400))+"…":text;
     }
 }
