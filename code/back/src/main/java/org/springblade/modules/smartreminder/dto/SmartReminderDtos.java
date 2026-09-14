@@ -61,6 +61,9 @@ public final class SmartReminderDtos {
 	@Data
 	public static class ProfileUpdateRequest {
 		private String nickname;
+		private String name;
+		private String phone;
+		private String email;
 		private String avatar;
 		private String aiAvatar;
 	}

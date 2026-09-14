@@ -40,7 +40,7 @@ public class SpeechService {
         var value=root.path("text");
         if(!value.isTextual())throw new ServiceException("语音服务返回格式不正确");
         String text=value.asText().trim();
-        if(text.isEmpty())throw new ServiceException("没有识别到清晰语音，请重新录制");
+        if(text.isEmpty())throw new ServiceException("语音服务未返回识别文字；如录音有声音，请联系管理员检查语音模型或服务通道");
         if(text.length()>20000)throw new ServiceException("识别内容过长，请分段录制");
         return Map.of("text",text,"model",config.modelName());
       }

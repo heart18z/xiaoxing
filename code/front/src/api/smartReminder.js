@@ -17,6 +17,11 @@ const jsonOptions = data =>
 const post = (url, data, params) =>
   request({ url, method: 'post', data, params, meta: { noProgress: true }, ...jsonOptions(data) });
 
+const accountPost = (action, data) => request({ url:'/api/app/account/'+action, method:'post', data, meta:{noProgress:true,silent:true,isToken:action!=='register'} });
+export const registerAccount = data => accountPost('register', data);
+export const changeOwnPassword = data => accountPost('password', data);
+export const silentReminder = (action, params) => request({url:'/api/app/reminder/'+action,method:'post',params,meta:{noProgress:true,silent:true}});
+
 let bootstrapRequest;
 // Share simultaneous shell/page requests, but do not cache user-specific results.
 export const bootstrap = () => bootstrapRequest || (bootstrapRequest = post('/api/app/reminder/bootstrap').finally(() => { bootstrapRequest = null; }));
@@ -101,7 +106,7 @@ export const getAiPrompts = () => post('/api/blade-smart/ai-config/prompts');
 export const saveAiPrompts = data => post('/api/blade-smart/ai-config/prompts/save',data);
 export const getModelSettings = () => post('/api/app/reminder/settings/models');
 export const saveModelSettings = data => post('/api/app/reminder/settings/models/save',data);
-export const transcribeAudio = (file,signal) => {const data=new FormData();data.append('file',file);return request({url:'/api/app/reminder/audio/transcriptions',method:'post',data,signal,timeout:125000,meta:{noProgress:true}});};
+export const transcribeAudio = (file,signal) => {const data=new FormData();data.append('file',file);return request({url:'/api/app/reminder/audio/transcriptions',method:'post',data,signal,timeout:125000,meta:{noProgress:true,silent:true}});};
 export const saveAiConfig = data => post('/api/blade-smart/ai-config/submit', data);
 export const testAiConfig = id => request({ url: '/api/blade-smart/ai-config/test', method: 'post', params:{id},timeout: 130000 });
 

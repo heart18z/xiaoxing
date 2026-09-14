@@ -242,6 +242,7 @@ blade:
         - /app/reminder/audio/**
         - /app/reminder/settings/**
         - /app/push/**
+        - /app/account/**
       #开启错误日志入库
       error-log: true
   #xss配置
@@ -253,6 +254,8 @@ blade:
       - /blade-flow/model/submit
       - /blade-unifiedMessagingSend/unifiedMessagingSend/submit
       - /app/reminder/**
+      - /app/account/register
+      - /app/account/password
       - /blade-smart/ai-config/**
   #安全框架配置
   secure:
@@ -261,6 +264,7 @@ blade:
       - /blade-test/**
       - /blade-system/param/login-page-param
       - /blade-system/param/favicon
+      - /app/account/register
       - /open/**
       - /unified-oauth/get-login-url
     #授权认证配置

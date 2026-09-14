@@ -10,7 +10,7 @@ export const startMobileLoading = () => {
   const token = Symbol('mobile-loading');
   pending.add(token);
   if (!showTimer && !visible.value) {
-    showTimer = setTimeout(() => { showTimer = null; visible.value = pending.size > 0; }, 120);
+    showTimer = setTimeout(() => { showTimer = null; visible.value = pending.size > 0; }, 350);
   }
   return () => {
     pending.delete(token);

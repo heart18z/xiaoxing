@@ -19,6 +19,7 @@ import App from './App.vue';
 import 'animate.css';
 import dayjs from 'dayjs';
 import 'styles/common.scss';
+import './page/smart-reminder/mobile-feedback.css';
 // 系统组件
 import debug from './debug';
 import VueClipboard from 'vue3-clipboard';

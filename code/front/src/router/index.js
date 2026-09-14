@@ -7,6 +7,7 @@ import i18n from '@/lang';
 import Store from '@/store/';
 import { startMobileLoading } from '@/page/smart-reminder/mobileLoading';
 import { isNative } from '@/native/runtime';
+import {pendingTab} from '@/page/smart-reminder/mobileNavigation';
 
 const constantRoutes = isNative ? [...PageRouter.filter(route => route.path.startsWith('/app')), { path: '/:pathMatch(.*)*', redirect: '/app/chat' }] : [...ExtRouter, ...PageRouter, ...ViewsRouter];
 
@@ -40,11 +41,12 @@ if (!isNative) Router.$avueRouter.formatRoutes(Store.getters.menuAll, true);
 
 let releaseRouteLoading;
 Router.beforeEach((to, from, next) => {
+  document.documentElement.classList.toggle('mobile-app-route', to.path === '/app' || to.path.startsWith('/app/'));
   releaseRouteLoading?.();
   releaseRouteLoading = to.path.startsWith('/app') && to.path !== from.path ? startMobileLoading() : null;
   next();
 });
-const finishRouteLoading = () => { releaseRouteLoading?.(); releaseRouteLoading = null; };
+const finishRouteLoading = () => { pendingTab.value='';releaseRouteLoading?.(); releaseRouteLoading = null; };
 Router.afterEach(finishRouteLoading);
 Router.onError(finishRouteLoading);
 

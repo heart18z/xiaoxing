@@ -14,6 +14,7 @@
       </div>
       <p>{{ mt("事件时间：") }}{{ displayText(detail.event.event_time) || mt('未设定') }}</p>
       <p>{{ mt("截止时间：") }}{{ displayText(detail.event.deadline_time) || mt('未设定') }}</p>
+      <AlarmControl :detail="detail" />
       <div v-if="detail.creator" class="conversation-entry creator-entry">
         <div><b>{{ mt("发起人对话") }}</b><small>{{ mt("查看事件创建、调整及反馈记录") }}</small></div>
         <button type="button" @click="viewConversation(detail.event.creator_user_id,detail.event.creatorName||detail.event.creatorRealName||'发起人')">{{ mt("查看对话") }}</button>
@@ -64,6 +65,7 @@ import { computed,onMounted,onBeforeUnmount,ref,watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessageBox,ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
+import AlarmControl from '@/native/AlarmControl.vue';
 import { getEventConversation,getEventDetail,stopEvent } from '@/api/smartReminder';
 import { renderMarkdown } from './markdown';
 import { displayText } from './displayText.mjs';

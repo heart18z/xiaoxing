@@ -97,7 +97,7 @@ html.smart-list-page,body.smart-list-page{height:100%;overflow:hidden;overscroll
 .sr-shell.skin-chat .composer-orb{flex:0 0 23px;width:23px;height:23px;margin:7px 0 0 3px;border-radius:50%;background:radial-gradient(ellipse at 30% 23%,#fff 0,transparent 26%),radial-gradient(ellipse at 65% 62%,#48e8ff 6%,transparent 45%),conic-gradient(#6775ff,#d155fa,#4863fa,#3ce2f5,#9367ff,#6775ff);box-shadow:inset 0 0 4px #ffffffb0,0 2px 6px #8a8fe844}
 .sr-shell.skin-chat .composer-box textarea{padding:7px 0 4px;min-height:34px;font-size:14px;line-height:22px;color:#303754}
 .sr-shell.skin-chat .composer-box textarea::placeholder{color:#9a9bb8}
-.sr-shell.skin-chat .composer-actions{display:flex;align-items:center;gap:9px;padding:3px 0 0}
+.sr-shell.skin-chat .composer-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:3px 0 0}
 .sr-shell.skin-chat .composer-actions .upload,.sr-shell.skin-chat .voice-button,.sr-shell.skin-chat .send-button{flex:0 0 36px;width:36px;height:36px;min-height:36px;padding:0;border:1px solid #f1f4fc;border-radius:50%;display:grid;place-items:center;color:#8782b8;background:#fff;box-shadow:0 2px 10px #7997d329;cursor:pointer}
 .sr-shell.skin-chat .composer-actions .ui-icon{width:21px;height:21px;stroke-width:2}
 .sr-shell.skin-chat .send-button{margin-left:auto;color:#746ac1}

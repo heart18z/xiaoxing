@@ -6,6 +6,6 @@
   "ios": { "contentInset": "never" },
   "plugins": {
     "PushNotifications": { "presentationOptions": ["banner", "list", "sound"] },
-    "Keyboard": { "resize": "native" }
+    "Keyboard": { "resize": "none" }
   }
 }

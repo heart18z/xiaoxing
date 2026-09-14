@@ -11,3 +11,9 @@ html.native-app .login-canvas{padding-top:env(safe-area-inset-top)}
 html.native-app.keyboard-open .sr-nav{display:none}
 html.native-app.keyboard-open .composer{padding-bottom:12px}
 html.native-app input,html.native-app textarea,html.native-app .sr-shell.skin-chat .composer-box textarea{font-size:16px!important}
+/* Native resize is disabled: respond at keyboardWillShow, not after Capacitor's delayed resize. */
+html.native-app .sr-shell,html.native-app .sr-shell.skin-chat,html.native-app .sr-shell.skin-events,html.native-app .sr-shell.skin-profile,html.native-app .login-page{height:calc(100dvh - var(--native-keyboard-height,0px));min-height:0;transition:height .25s ease-out}
+html.native-app select,html.native-app .el-select__input,html.native-app .el-select__selected-item{font-size:16px!important}
+html.native-app .el-dialog{max-height:calc(100dvh - var(--native-keyboard-height,0px) - 32px);overflow-y:auto}
+html.native-app .sr-main{min-width:0;max-width:100%;overflow-x:hidden}
+@media(prefers-reduced-motion:reduce){html.native-app .sr-shell{transition:none}}

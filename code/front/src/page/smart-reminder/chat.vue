@@ -29,6 +29,8 @@
               <p>{{ mt("接收人：") }}{{ (event.recipients || []).map(userName).join('、') }}</p>
               <p>{{ eventKind(event)==='macro' ? mt('目标周期') : mt('事件时间') }}：{{ event.timeDescription || event.eventTime || mt('持续跟进') }}</p>
               <p>{{ eventKind(event)==='macro' ? mt('首次跟进') : mt('首次评估') }}：{{ event.firstEvaluateTime }}</p>
+              <label v-if="item.messageType==='CANDIDATE'" class="alarm-choice"><input type="checkbox" :checked="wantsAlarm(item,index,event)" @change="alarmChoices[alarmKey(item,index)]=$event.target.checked" />同时设置本机系统闹铃（iOS 26+）</label>
+              <small v-if="item.messageType==='CANDIDATE'&&wantsAlarm(item,index,event)" class="alarm-hint">仅为自己接收的任务设置，需系统授权；其他手机不会自动设置。</small>
             </div>
             <button class="sr-button" :class="{confirmed:item.messageType!=='CANDIDATE'}" :disabled="item.messageType!=='CANDIDATE'||confirmingId===String(payload(item).candidateId)" @click="confirm(payload(item).candidateId,item)">{{ item.messageType==='CANDIDATE_CONFIRMED' ? mt('已创建') : item.messageType==='CANDIDATE_CANCELLED' ? mt('已取消') : item.messageType==='CANDIDATE_EXPIRED' ? mt('已失效') : confirmingId===String(payload(item).candidateId) ? mt('正在创建…') : hasScheduleConflict(item) ? mt('仍要安排') : candidateKind(item)==='macro' ? mt('确认开始跟进') : mt('确认创建') }}</button>
           </div>
@@ -71,6 +73,7 @@
           <ThinkingPanel v-if="item.messageRole==='assistant'&&reasoning(item)" :content="reasoning(item)" :open="item.thinkingOpen" :streaming="item.streaming&&!item.content" @toggle="item.thinkingOpen=!item.thinkingOpen" />
           <div v-if="item.messageRole==='assistant'&&item.content" class="markdown-content" v-html="renderMarkdown(item.content)"></div>
           <template v-else>{{ item.content }}</template>
+          <div v-if="item.messageType==='SYSTEM'&&payload(item).eventIds?.length" class="created-event-links"><button v-for="eventId in payload(item).eventIds" :key="eventId" type="button" class="event-text-link" @click="router.push('/app/event/'+eventId)">查看事件 / 设置本机闹铃 ›</button></div>
           <small v-if="item.messageRole==='user'&&payload(item).fileNames?.length" class="sent-files">{{ mt("附件：") }}{{ payload(item).fileNames.join('、') }}</small>
           <i v-if="item.streaming&&item.content" class="streaming-cursor"></i><ReplyProgress v-if="item.streaming&&!item.content&&!reasoning(item)" />
         </div>
@@ -89,13 +92,13 @@
         </span>
       </div>
       <div class="composer-box">
-        <div class="composer-input-row"><span class="composer-orb" aria-hidden="true"></span><textarea ref="textarea" v-model="text" rows="1" :placeholder="mt('说说你想提醒的事…')" @input="resizeInput" @paste="pasteFiles" @keydown="inputKeydown"></textarea></div>
+        <div class="composer-input-row"><span class="composer-orb" aria-hidden="true"></span><textarea ref="textarea" v-model="text" :readonly="voiceBusy" rows="1" :placeholder="mt('说说你想提醒的事…')" @input="resizeInput" @paste="pasteFiles" @keydown="inputKeydown"></textarea></div>
         <div class="composer-actions">
         <label class="upload" :title="mt('上传文件')" :aria-label="mt('上传文件')">
           <UiIcon name="plus" />
           <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.txt,.md,.doc,.docx,.pdf,.xlsx" @change="upload" />
         </label>
-        <VoiceInput :disabled="thinking" @text="appendSpeech" @busy="voiceBusy=$event" />
+        <VoiceInput :disabled="thinking" @begin="beginSpeech" @partial="updateSpeech" @cancel="cancelSpeech" @busy="voiceBusy=$event" />
         <button v-if="thinking" type="button" class="send-button stop-button" :aria-label="mt('停止生成')" :title="mt('停止生成')" :disabled="stopping" @click="stop"><span aria-hidden="true">■</span></button>
         <button v-else class="send-button" :aria-label="mt('发送')" :title="mt('发送')" :disabled="voiceBusy||files.some(file=>file.status!=='ready')"><UiIcon name="arrowUp" /></button>
         </div>
@@ -118,6 +121,8 @@ import UiIcon from './UiIcon.vue';
 import VoiceInput from './VoiceInput.vue';
 import { ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
+import {setEventAlarm} from '@/native/alarms';
+import {getEventDetail} from '@/api/smartReminder';
 import ThinkingPanel from './ThinkingPanel.vue';
 import ReplyProgress from './ReplyProgress.vue';
 import { avatarState } from './avatarState';
@@ -147,7 +152,10 @@ const clearCurrentContext=async()=>{
 const stopping=ref(false);let activeRequest,abortController,stopped=false;
 const inputKeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send();}};
 const stop=async()=>{if(!activeRequest||stopping.value)return;stopping.value=true;try{const response=await stopMessage(activeRequest);if(response.data.data?.stopped){stopped=true;abortController?.abort();}else{ElMessage.info(mt('本轮已完成生成或正在执行操作，无法撤回，请等待结果'));}}catch{ElMessage.error(mt('停止失败，请重试'));}finally{stopping.value=false;}};
-const appendSpeech=value=>{text.value+=(text.value.trim()?'\n':'')+value;nextTick(()=>{resizeInput();textarea.value?.focus();});};
+let speechDraft='';
+const beginSpeech=()=>{speechDraft=text.value;textarea.value?.blur();};
+const updateSpeech=value=>{text.value=speechDraft+(speechDraft.trim()?'\n':'')+value;nextTick(resizeInput);};
+const cancelSpeech=()=>{nextTick(resizeInput);}; // Cancelling recording never erases the user's draft.
 const trackScroll=()=>{const el=scroll.value;if(el)followLatest.value=el.scrollHeight-el.scrollTop-el.clientHeight<48;};
 const scrollToLatest=(force=false)=>{const el=scroll.value;if(el&&(force||followLatest.value)){el.scrollTop=el.scrollHeight;followLatest.value=true;}};
 const resizeInput=()=>{const el=textarea.value;if(!el)return;el.style.height='auto';const height=Math.min(el.scrollHeight,150);el.style.height=Math.max(40,height)+'px';el.style.overflowY=el.scrollHeight>150?'auto':'hidden';};
@@ -279,7 +287,32 @@ const addFiles=selected=>{for(const raw of selected){if(files.value.length>=6){E
 const upload=e=>{addFiles(Array.from(e.target.files||[]));e.target.value='';};
 const pasteFiles=e=>{const images=Array.from(e.clipboardData?.files||[]).filter(file=>file.type.startsWith('image/'));if(images.length){e.preventDefault();addFiles(images);}};
 const removeFile=key=>{const file=files.value.find(item=>item.key===key);if(file?.previewUrl)URL.revokeObjectURL(file.previewUrl);files.value=files.value.filter(item=>item.key!==key);};
-const confirm=async(id,item)=>{const key=String(id||'');if(!key||confirmingId.value||item.messageType!=='CANDIDATE')return;confirmingId.value=key;try{const res=await confirmCandidate(id,hasScheduleConflict(item));if(res.data.data?.confirmationRequired){ElMessage.warning(mt('发现新的日程冲突，请查看后确认是否仍要安排'));await load();return;}item.messageType='CANDIDATE_CONFIRMED';window.dispatchEvent(new Event('smart-reminder:badge-refresh'));ElMessage.success(mt('智能提醒已创建'));await load();}catch(e){await load();ElMessage.warning(e?.response?.data?.msg||mt('操作卡状态已变化，请刷新后重试'));}finally{confirmingId.value='';}};
+const alarmChoices=reactive({});
+const alarmKey=(item,index)=>String(payload(item).candidateId)+':'+index;
+const wantsAlarm=(item,index,event)=>alarmChoices[alarmKey(item,index)]??(event.alarmRequested===true);
+const confirm=async(id,item)=>{
+  const key=String(id||'');if(!key||confirmingId.value||item.messageType!=='CANDIDATE')return;
+  confirmingId.value=key;
+  const choices=(payload(item).events||[]).map((event,index)=>wantsAlarm(item,index,event));
+  try{
+    const res=await confirmCandidate(id,hasScheduleConflict(item));
+    if(res.data.data?.confirmationRequired){ElMessage.warning(mt('发现新的日程冲突，请查看后确认是否仍要安排'));await load();return;}
+    item.messageType='CANDIDATE_CONFIRMED';
+    window.dispatchEvent(new Event('smart-reminder:badge-refresh'));
+    ElMessage.success(mt('智能提醒已创建'));
+    const ids=res.data.data?.eventIds||[];
+    for(let index=0;index<choices.length;index++){
+      if(!choices[index])continue;
+      try{
+        if(!ids[index])throw Error('未返回事件编号，请到事件详情设置闹铃');
+        await setEventAlarm((await getEventDetail(String(ids[index]))).data.data);
+        ElMessage.success('本机系统闹铃已设置，可在事件详情取消');
+      }catch(e){ElMessage.warning({message:'事件已创建，但闹铃未设置：'+(e?.message||'请到事件详情重试'),duration:6000});}
+    }
+    await load();
+  }catch(e){await load();ElMessage.warning(e?.response?.data?.msg||mt('操作卡状态已变化，请刷新后重试'));}
+  finally{confirmingId.value='';}
+};
 const openEvent=item=>{if(item.eventId)router.push('/app/event/'+item.eventId);};
 onMounted(()=>{activate();resizeInput();composerObserver=new ResizeObserver(()=>scrollToLatest());if(composer.value)composerObserver.observe(composer.value);document.addEventListener('visibilitychange',resumeSync);window.addEventListener('online',resumeSync);});
 onActivated(activate);
@@ -288,6 +321,7 @@ onBeforeUnmount(()=>{pageActive=false;historyVersion++;clearTimeout(syncTimer);d
 </script>
 
 <style scoped>
+.alarm-choice{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:#5e6ca4}.alarm-choice input{width:17px;height:17px;accent-color:#576dff}.alarm-hint{display:block;font-size:11px;color:#8d97b0;margin-top:5px;line-height:1.6}
 .chat-history{position:relative;display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
 .back-to-latest{position:absolute;right:16px;bottom:12px;z-index:3;display:flex;align-items:center;gap:5px;min-height:36px;padding:7px 12px;border:1px solid #e1e9fa;border-radius:20px;background:#fffffff5;color:#5869b0;font-size:12px;box-shadow:0 4px 18px #5675ac25;cursor:pointer}
 .back-to-latest .ui-icon{width:16px;height:16px}.back-to-latest:focus-visible,.clear-context-button:focus-visible{outline:2px solid #6476ff;outline-offset:3px}.clear-context-button:disabled{opacity:.5;cursor:wait}

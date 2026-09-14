@@ -2,6 +2,7 @@ import Cookies from 'js-cookie';
 import website from '@/config/website';
 import { isNative } from '@/native/runtime';
 import { secureGet, secureSet } from '@/native/secureState';
+import { tokenCookieOptions } from './tokenExpiry.mjs';
 
 const TokenKey = website.tokenKey;
 const RefreshTokenKey = website.refreshTokenKey;
@@ -15,7 +16,7 @@ export function getToken() {
 
 export function setToken(token) {
   if (isNative) { if (!token) window.dispatchEvent(new Event('native:logout')); return secureSet('token', token); }
-  return Cookies.set(TokenKey, token);
+  return Cookies.set(TokenKey, token, tokenCookieOptions(token));
 }
 
 export function getRefreshToken() {
@@ -25,7 +26,7 @@ export function getRefreshToken() {
 
 export function setRefreshToken(token) {
   if (isNative) return secureSet('refreshToken', token);
-  return Cookies.set(RefreshTokenKey, token);
+  return Cookies.set(RefreshTokenKey, token, tokenCookieOptions(token));
 }
 
 export function removeToken() {

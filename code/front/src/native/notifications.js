@@ -79,7 +79,12 @@ export async function enableNotifications(requestPermission = true) {
     let status = await PushNotifications.checkPermissions();
     if (requestPermission && status.receive === 'prompt') status = await PushNotifications.requestPermissions();
     pushState.permission = status.receive;
-    if (status.receive === 'granted') await PushNotifications.register();
+    if (status.receive === 'granted') {
+      // Existing devices can verify the backend binding immediately, without waiting for
+      // a repeated APNs callback. First-time registration completes through its listener.
+      if (deviceToken) await bindDevice();
+      else await PushNotifications.register();
+    }
     else if (status.receive === 'denied') { rememberRevocation(secureGet('pushBinding')); secureSet('pushBinding', undefined); pushState.registered = false; await serial(revokePending); }
   } catch { pushState.error = 'connection'; }
   finally { pushState.busy = false; }
@@ -98,8 +103,14 @@ export async function startNativeNotifications(appRouter, appStore) {
     if (!isActive) return;
     refreshViews(); serial(revokePending).catch(() => {}); void enableNotifications(false); openPendingTap();
   });
-  await Keyboard.addListener('keyboardWillShow', () => document.documentElement.classList.add('keyboard-open'));
-  await Keyboard.addListener('keyboardWillHide', () => document.documentElement.classList.remove('keyboard-open'));
+  await Keyboard.addListener('keyboardWillShow', ({keyboardHeight}) => {
+    document.documentElement.style.setProperty('--native-keyboard-height', Math.max(0,keyboardHeight||0)+'px');
+    document.documentElement.classList.add('keyboard-open');
+  });
+  await Keyboard.addListener('keyboardWillHide', () => {
+    document.documentElement.style.setProperty('--native-keyboard-height','0px');
+    document.documentElement.classList.remove('keyboard-open');
+  });
   store.watch(() => store.getters.token && store.getters.userInfo?.user_id, (id, oldId) => {
     if (!id) return;
     if (oldId && String(oldId) !== String(id)) logout();

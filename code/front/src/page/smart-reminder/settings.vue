@@ -1,5 +1,10 @@
 <template>
-  <AppShell :title="mt('设置')" :subtitle="mt('模型与语言')" variant="event-detail" back back-to="/app/me">
+  <AppShell :title="mt('设置')" subtitle="账号、通知与偏好" variant="event-detail" back back-to="/app/me">
+    <section class="sr-card account-security">
+      <h2>账号安全</h2>
+      <button type="button" class="security-row" @click="passwordVisible=true"><span><b>重置密码</b><small>验证原密码，设置新的登录密码</small></span><UiIcon name="chevron" /></button>
+    </section>
+    <AccountForm v-model="passwordVisible" @success="passwordChanged" />
     <form class="settings-form" @submit.prevent="save">
       <NotificationSettings />
       <p v-if="loading" class="sr-card" role="status">{{ mt("正在读取设置…") }}</p>
@@ -28,6 +33,12 @@ import {mt} from './mobileLocale';
 import {onMounted,reactive,ref} from 'vue';
 import {ElMessage,ElSelect,ElOption} from 'element-plus';
 import AppShell from './AppShell.vue';
+import AccountForm from './AccountForm.vue';
+import UiIcon from './UiIcon.vue';
+import {useRouter} from 'vue-router';
+import {useStore} from 'vuex';
+const router=useRouter(),store=useStore(),passwordVisible=ref(false);
+const passwordChanged=async()=>{ElMessage.success('密码已修改，请重新登录');try{await store.dispatch('LogOut');}catch{await store.dispatch('FedLogOut');}router.replace('/app/login');};
 import NotificationSettings from '@/native/NotificationSettings.vue';
 import {getModelSettings,saveModelSettings} from '@/api/smartReminder';
 import {setMobileLanguage} from './mobileLocale';
@@ -41,8 +52,9 @@ const save=async()=>{if(saving.value||failed.value)return;error.value='';if(form
 onMounted(load);
 </script>
 <style scoped>
+.account-security{margin-bottom:14px}.account-security h2{font-size:17px;color:#293854;margin:0 0 8px}.security-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 0 4px;border:0;background:transparent;text-align:left;color:#5268c7;cursor:pointer}.security-row span{min-width:0}.security-row b{font-size:15px;font-weight:500;color:#40516b}.security-row small{display:block;font-size:12px;line-height:1.6;color:#8793a8;margin-top:5px}
 .settings-select{width:100%;min-width:0;--el-color-primary:#5269ed;--el-border-radius-base:14px}.settings-select :deep(.el-select__wrapper){min-height:46px;padding:10px 14px;border-radius:14px;background:#f8faff;box-shadow:0 0 0 1px #e0e7f4 inset}.settings-select :deep(.el-select__wrapper.is-focused){box-shadow:0 0 0 1px #8c9cef inset,0 0 0 3px #edf1ff}.settings-select :deep(.el-select__selected-item){font-size:14px;color:#3d4d6c}.settings-select :deep(.el-select__caret){color:#8b98b6;font-size:16px}
-.settings-form{display:grid;gap:14px;padding-bottom:24px}.model-settings,.language-settings,.personal-fields{display:flex;flex-direction:column;gap:11px}.model-settings h2{font-size:17px;margin:0 0 4px;color:#293854}.model-settings label,.language-settings label{font-size:14px;font-weight:600;color:#40516b}.settings-form small,.model-tip{font-size:12px;line-height:1.65;color:#8793a8}.model-tip{margin:4px 0;background:#f5f7fd;padding:12px;border-radius:12px}.settings-error{color:#bf5353;font-size:13px;line-height:1.6}.model-source{display:flex;flex-wrap:wrap;gap:13px;padding:10px 0;border-bottom:1px solid #edf0f7}.model-source label,.thinking-switch{display:flex;align-items:center;gap:5px}.personal-fields{padding-top:5px}.settings-form input[type=radio],.settings-form input[type=checkbox]{accent-color:#5067ee}.json-input{font:12px/1.6 Consolas,monospace;resize:vertical;min-height:105px}.settings-form .sr-input{width:100%;min-width:0}.save-settings{width:100%;min-height:44px}
+.settings-form{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding-bottom:24px;min-width:0;max-width:100%;overflow-wrap:anywhere}.settings-form :deep(*){box-sizing:border-box;min-width:0}.model-settings,.language-settings,.personal-fields{display:flex;flex-direction:column;gap:11px}.model-settings h2{font-size:17px;margin:0 0 4px;color:#293854}.model-settings label,.language-settings label{font-size:14px;font-weight:600;color:#40516b}.settings-form small,.model-tip{font-size:12px;line-height:1.65;color:#8793a8}.model-tip{margin:4px 0;background:#f5f7fd;padding:12px;border-radius:12px}.settings-error{color:#bf5353;font-size:13px;line-height:1.6}.model-source{display:flex;flex-wrap:wrap;gap:13px;padding:10px 0;border-bottom:1px solid #edf0f7}.model-source label,.thinking-switch{display:flex;align-items:center;gap:5px}.personal-fields{padding-top:5px}.settings-form input[type=radio],.settings-form input[type=checkbox]{accent-color:#5067ee}.json-input{font:16px/1.6 Consolas,monospace;resize:vertical;min-height:105px}.settings-form .sr-input{width:100%;min-width:0}.save-settings{width:100%;min-height:44px}
 </style>
 <style>
 .model-choice-menu.el-popper{border:1px solid #e6ebf7!important;border-radius:16px!important;background:#fff!important;box-shadow:0 10px 35px #4e679729!important;overflow:hidden;max-width:calc(100vw - 32px)}.model-choice-menu .el-select-dropdown__wrap{max-height:244px}.model-choice-menu .el-select-dropdown__list{padding:6px}.model-choice-menu .el-select-dropdown__item{height:auto;min-height:42px;line-height:1.5;display:flex;align-items:center;gap:8px;margin:2px 0;padding:10px 12px;border-radius:10px;font-size:14px;color:#56637e;white-space:normal;overflow-wrap:anywhere}.model-choice-menu .el-select-dropdown__item.is-hovering{background:#f3f6fd}.model-choice-menu .el-select-dropdown__item.is-selected{color:#4b62e7;background:#edf2ff;font-weight:600}.model-choice-label{flex:1;min-width:0}.model-default-badge{flex:0 0 auto;border-radius:6px;padding:2px 5px;background:#e8eeff;color:#697de0;font-size:10px;font-weight:500}

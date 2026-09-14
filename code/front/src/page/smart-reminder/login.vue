@@ -26,8 +26,9 @@
           <span v-if="loading" class="submit-spinner" aria-hidden="true"></span>
           {{ loading ? mt('正在登录…') : mt('登录') }}
         </button>
-        <p class="hint"><span>{{ mt("仅已分配“APP端使用人员”角色的账号可进入") }}</span></p>
+        <button class="register-entry" type="button" :disabled="loading" @click="registerVisible=true">没有账号？注册账号</button>
       </form>
+      <AccountForm v-model="registerVisible" register @success="registered" />
       <footer>{{ mt("更智能的提醒") }}<span>·</span>{{ mt("更从容的生活") }}</footer>
     </div>
   </div>
@@ -40,6 +41,9 @@ import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { bootstrap } from '@/api/smartReminder';
+import AccountForm from './AccountForm.vue';
+const registerVisible = ref(false);
+const registered = ({account}) => { form.username=account; form.password=''; ElMessage.success('注册成功，请使用刚设置的密码登录'); };
 
 const router = useRouter(); const store = useStore(); const loading = ref(false), showPassword = ref(false);
 const form = reactive({ tenantId:'000000', username:'', password:'', type:'account', deptId:'', roleId:'', key:'', code:'' });
@@ -60,6 +64,7 @@ const login = async () => {
 
 <style scoped>
 .login-page,.login-page *{box-sizing:border-box}
+.register-entry{display:block;margin:18px auto 0;padding:8px;border:0;background:none;color:#4264e9;font-size:14px}
 .login-page{min-height:100vh;min-height:100dvh;background:#eef3ff;font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222945}
 .login-canvas{container-type:inline-size;position:relative;width:100%;max-width:560px;min-height:100vh;min-height:100dvh;margin:auto;padding-bottom:max(30px,env(safe-area-inset-bottom));background:#f8fbff url('/images/login-background.png') top center/100% auto no-repeat;overflow:hidden}
 .login-brand{position:relative;height:73cqw;padding:12.4cqw 10cqw 0;color:white}

@@ -53,7 +53,7 @@ public class SmartReminderService {
 	public Map<String, Object> bootstrap() {
 		Long userId = AuthUtil.getUserId();
 		Map<String, Object> user = jdbcTemplate.queryForMap(
-			"select id,account,name,real_name as realName,avatar,phone from blade_user where id=? and is_deleted=0", userId);
+			"select id,account,name,real_name as realName,avatar,phone,email from blade_user where id=? and is_deleted=0", userId);
 		normalizeMapIds(user);
 		Integer unread = jdbcTemplate.queryForObject(
 			"select count(*) from blade_smart_chat_message m where user_id=? and is_read=0 and " + ChatContext.VISIBLE, Integer.class, userId);
@@ -86,8 +86,8 @@ public class SmartReminderService {
 
 	@Transactional(rollbackFor = Exception.class)
 	public Map<String, Object> updateProfile(ProfileUpdateRequest request) {
-		if (request == null) throw new ServiceException("请输入个人资料");
-		String nickname = Func.toStr(request.getNickname()).trim();
+		org.springblade.modules.smartreminder.support.ProfileUpdateRules.validate(request);
+		String nickname = Func.toStr(request.getName() != null ? request.getName() : request.getNickname()).trim();
 		String avatar = Func.toStr(request.getAvatar()).trim();
 		if (nickname.isBlank()) throw new ServiceException("昵称不能为空");
 		if (nickname.length() > 50) throw new ServiceException("昵称不能超过50个字符");
@@ -95,10 +95,10 @@ public class SmartReminderService {
 		SmartSocialService.validateAvatar(avatar);
 		Long userId = AuthUtil.getUserId();
 		socialService.saveAiAvatar(userId,request.getAiAvatar());
-		jdbcTemplate.update("update blade_user set name=?,avatar=?,update_user=?,update_time=now() where id=? and is_deleted=0",
-			nickname, avatar, userId, userId);
+		jdbcTemplate.update("update blade_user set name=?,real_name=coalesce(?,real_name),phone=coalesce(?,phone),email=coalesce(?,email),avatar=coalesce(?,avatar),update_user=?,update_time=now() where id=? and is_deleted=0",
+			nickname, request.getName(), request.getPhone(), request.getEmail(), request.getAvatar() == null ? null : avatar, userId, userId);
 		Map<String, Object> user = jdbcTemplate.queryForMap(
-			"select id,account,name,real_name as realName,avatar,phone from blade_user where id=? and is_deleted=0", userId);
+			"select id,account,name,real_name as realName,avatar,phone,email from blade_user where id=? and is_deleted=0", userId);
 		normalizeMapIds(user);
 		user.put("aiAvatar",socialService.aiAvatar(userId));
 		return user;
@@ -333,6 +333,8 @@ public class SmartReminderService {
 		return (Func.isBlank(config.intentPrompt())?SmartReminderPrompts.INTENT:config.intentPrompt())+"""
 
 		最新任务协议：发起人明确修改任务或同意改期时，使用update_event，recipientTasks输出受影响接收人的完整最新任务，不要漏掉其未修改的要求。
+		系统闹铃协议：仅当用户明确要求“闹铃/闹钟叫醒”等系统响铃时，在相应events元素增加布尔字段alarmRequested=true，普通提醒为false。eventTime填写用户要求响铃的准确时间，不是首次AI评估时间。
+		系统闹铃必须由用户手机授权后设置。你不能调用手机AlarmKit，禁止在reply里说“已设置闹钟/已安排闹铃/到点会响铃”。只能说明“请确认事件卡中的本机系统闹铃选项，实际结果以手机设置反馈为准”。好友手机需好友本人打开事件详情设置，不能承诺远程创建。
 		修改仅一个人时填写recipientName，recipientTasks只放该人；不要重写其他人的任务。修改所有人时逐人输出完整最新任务。
 		summary如果提供必须是整个事件全部任务的最新摘要，不得用一个人的任务覆盖其他任务。eventTime/deadlineTime仅在明确变更时填写。
 		接收人提出改期请求、普通已收到回执仍使用feedback，不应冒充发起人同意或直接更改有效安排。

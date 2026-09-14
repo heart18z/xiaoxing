@@ -26,6 +26,7 @@
 </template>
 
 <script setup>
+defineOptions({name:'SmartReminderEvents'});
 import {mt} from './mobileLocale';
 import { computed,onMounted,reactive,ref,watch } from 'vue';
 import { useRoute,useRouter } from 'vue-router';
@@ -33,6 +34,8 @@ import AppShell from './AppShell.vue';
 import UiIcon from './UiIcon.vue';
 import { bootstrap,getEvents } from '@/api/smartReminder';
 import { withMobileLoading } from './mobileLoading';
+import { useSilentRefresh } from './useSilentRefresh';
+import { silentReminder } from '@/api/smartReminder';
 
 const route=useRoute(),router=useRouter();
 const initialType=route.query.type==='received'?'received':'sent',initialStatus=route.query.status==='ALL'?'ALL':'ACTIVE';
@@ -41,6 +44,14 @@ const keyword=ref(String(route.query.q||''));
 const filteredEvents=computed(()=>{const q=keyword.value.trim().toLocaleLowerCase();return q?events.value.filter(item=>[item.eventSummary,item.eventNo,item.creatorName,item.creatorRealName,item.latestFact].some(v=>String(v||'').toLocaleLowerCase().includes(q))):events.value;});
 const loadCounts=async()=>{const data=(await bootstrap()).data.data||{};counts.sent=Number(data.sentActiveEventCount||0);counts.received=Number(data.receivedActiveEventCount||0);};
 let loadTicket=0;
+useSilentRefresh(async current=>{
+  if(loading.value)return;
+  const ticket=loadTicket, filter={type:type.value,status:status.value==='ALL'?'':status.value};
+  const [list, summary]=await Promise.all([silentReminder('events',filter),silentReminder('bootstrap')]);
+  if(!current()||ticket!==loadTicket)return;
+  events.value=list.data.data||[];
+  counts.sent=Number(summary.data.data?.sentActiveEventCount||0);counts.received=Number(summary.data.data?.receivedActiveEventCount||0);
+});
 const load=async(showPageLoading=false)=>{const task=async()=>{const ticket=++loadTicket;loading.value=true;try{const [,response]=await Promise.all([loadCounts(),getEvents(type.value,status.value==='ALL'?'':status.value)]);if(ticket===loadTicket)events.value=response.data.data||[];}finally{if(ticket===loadTicket)loading.value=false;}};return showPageLoading?withMobileLoading(task):task();};
 const syncLocation=()=>router.replace({path:'/app/events',query:{type:type.value,...(keyword.value?{q:keyword.value}:{}),...(status.value?{status:status.value}:{})}});
 const changeType=value=>{type.value=value;syncLocation();load();};

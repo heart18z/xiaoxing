@@ -10,6 +10,8 @@ async function start() {
   if (isNative) {
     await import('./native.css');
     const [{ default: router }, { default: store }, { startNativeNotifications, pushState }] = await Promise.all([import('../router'), import('../store'), import('./notifications')]);
+    const {startNativeAlarms}=await import('./alarms');
+    startNativeAlarms();
     await startNativeNotifications(router, store).catch(() => { pushState.error = 'initialization'; });
   }
 }

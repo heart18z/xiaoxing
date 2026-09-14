@@ -1,13 +1,8 @@
 <template>
-  <router-view v-slot="{Component}"><Transition :name="isMobilePage?'mobile-route':''" mode="out-in"><KeepAlive :include="isMobilePage && route.path!=='/app/login' ? ['SmartReminderChat'] : []"><component :is="Component" /></KeepAlive></Transition></router-view>
+  <div class="route-stage" :class="{'mobile-route-stage':isMobilePage}"><router-view v-slot="{Component}"><Transition :name="isMobilePage?'mobile-route':''" :duration="isMobilePage?180:0" @before-leave="el=>{if(isMobilePage)el.inert=true}" @after-leave="el=>el.inert=false" @before-enter="el=>el.inert=false"><KeepAlive :include="isMobilePage && route.path!=='/app/login' ? ['SmartReminderChat','SmartReminderEvents','SmartReminderMe'] : []" :max="3"><component :is="Component" /></KeepAlive></Transition></router-view></div>
   <transition name="mobile-loader-fade">
     <div v-if="isMobilePage && mobileLoadingVisible" class="mobile-page-loader" role="status" aria-live="polite" aria-label="页面加载中">
-      <div class="loader-mark">
-        <span class="loader-orbit"></span>
-        <b>AI</b>
-      </div>
-      <strong>{{ mt('正在准备内容') }}</strong>
-      <span class="loader-dots"><i></i><i></i><i></i></span>
+      <span class="loading-track"></span><span class="sr-only">{{ mt('正在准备内容') }}</span>
     </div>
   </transition>
 </template>
@@ -32,16 +27,19 @@ watch(()=>['/app/events','/app/me'].includes(route.path),value=>{
 </script>
 
 <style>
-.mobile-route-enter-active,.mobile-route-leave-active{transition:opacity .16s ease}.mobile-route-enter-from,.mobile-route-leave-to{opacity:0}
+.route-stage:not(.mobile-route-stage){height:100%;min-height:0}
+.route-stage{min-height:100%;position:relative}.mobile-route-stage{background:#edf4ff;isolation:isolate;min-height:100dvh}.mobile-route-leave-active{position:absolute!important;inset:0;width:100%;pointer-events:none;z-index:0}.mobile-route-enter-active{position:relative;z-index:1}.mobile-route-enter-active .sr-main,.mobile-route-enter-active .sr-header{transition:opacity .18s ease,translate .18s cubic-bezier(.22,1,.36,1)}.mobile-route-enter-from .sr-main,.mobile-route-enter-from .sr-header{opacity:.65;translate:0 7px}.mobile-route-leave-active .sr-main{pointer-events:none}.mobile-route-enter-active .sr-nav,.mobile-route-leave-active .sr-nav{opacity:1}
 .smart-mobile-app .el-dialog,.smart-mobile-app .el-message-box{max-width:calc(100vw - 40px);border-radius:22px}
 .mobile-sheet-enter-active,.mobile-sheet-leave-active{transition:opacity .22s ease}.mobile-sheet-enter-active .permission-sheet,.mobile-sheet-leave-active .permission-sheet{transition:transform .26s cubic-bezier(.22,1,.36,1)}.mobile-sheet-enter-from,.mobile-sheet-leave-to{opacity:0}.mobile-sheet-enter-from .permission-sheet,.mobile-sheet-leave-to .permission-sheet{transform:translateY(100%)}
 .smart-mobile-app button,.smart-mobile-app .sr-nav a{transition:background-color .18s,box-shadow .18s,scale .15s}.smart-mobile-app button:active,.smart-mobile-app .sr-nav a:active{scale:.97}
 @media(prefers-reduced-motion:reduce){.mobile-route-enter-active,.mobile-route-leave-active,.mobile-sheet-enter-active,.mobile-sheet-leave-active,.mobile-sheet-enter-active .permission-sheet,.mobile-sheet-leave-active .permission-sheet,.smart-mobile-app button,.smart-mobile-app .sr-nav a{transition:none!important}.smart-mobile-app button:active,.smart-mobile-app .sr-nav a:active{scale:1}}
+@media(prefers-reduced-motion:reduce){.mobile-route-enter-active .sr-main,.mobile-route-enter-active .sr-header{transition:none!important}.mobile-route-enter-from .sr-main,.mobile-route-enter-from .sr-header{opacity:1;translate:none}}
 html,
 body,
 #app {
   width: 100%;
   height: 100%;
 }
-.mobile-page-loader{position:fixed;z-index:9999;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:rgba(239,247,255,.92);backdrop-filter:blur(12px);color:#233052;font-family:"PingFang SC","Microsoft YaHei",sans-serif}.loader-mark{position:relative;width:74px;height:74px;display:grid;place-items:center}.loader-mark b{position:relative;z-index:2;width:48px;height:48px;display:grid;place-items:center;border-radius:17px;background:linear-gradient(145deg,#278cff,#526cff);color:#fff;font-size:17px;box-shadow:0 12px 28px rgba(49,91,255,.28)}.loader-orbit{position:absolute;inset:0;border:2px solid rgba(49,91,255,.15);border-top-color:#315bff;border-right-color:#45c8dd;border-radius:50%;animation:mobile-loader-spin 1s linear infinite}.mobile-page-loader>strong{font-size:15px;letter-spacing:.04em}.loader-dots{display:flex;gap:5px;height:8px}.loader-dots i{width:6px;height:6px;border-radius:50%;background:#6b83e9;animation:mobile-loader-bounce .8s ease-in-out infinite alternate}.loader-dots i:nth-child(2){animation-delay:.16s}.loader-dots i:nth-child(3){animation-delay:.32s}.mobile-loader-fade-enter-active,.mobile-loader-fade-leave-active{transition:opacity .2s ease}.mobile-loader-fade-enter-from,.mobile-loader-fade-leave-to{opacity:0}@keyframes mobile-loader-spin{to{transform:rotate(360deg)}}@keyframes mobile-loader-bounce{to{opacity:.3;transform:translateY(-4px)}}
+.mobile-page-loader{position:fixed;z-index:9999}.mobile-loader-fade-enter-active,.mobile-loader-fade-leave-active{transition:opacity .15s ease}.mobile-loader-fade-enter-from,.mobile-loader-fade-leave-to{opacity:0}
+.mobile-page-loader{inset:auto;top:env(safe-area-inset-top,0px);left:50%;transform:translateX(-50%);width:min(100%,760px);height:3px;display:block;background:#dce5ff60;backdrop-filter:none;overflow:hidden;pointer-events:none}.loading-track{display:block;width:35%;height:100%;border-radius:3px;background:linear-gradient(90deg,#6375ff,#68d7f9);animation:loading-track 1.2s ease-in-out infinite}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}@keyframes loading-track{from{transform:translateX(-100%)}to{transform:translateX(290%)}}@media(prefers-reduced-motion:reduce){.loading-track{animation:none;width:100%}}
 </style>
