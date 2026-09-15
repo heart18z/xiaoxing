@@ -1,10 +1,12 @@
 <template>
   <AppShell :title="mt('AI小醒')" variant="chat">
-    <template #leading><button class="chat-toolbar-button" :aria-label="mt('查看我的事件')" :title="mt('我的事件')" @click="router.push('/app/events')"><UiIcon name="menu" /></button></template>
+    <template #leading><button class="chat-toolbar-button" :aria-label="mt('查看我的事件')" :title="mt('提醒列表')" @click="drawerOpen=true"><UiIcon name="menu" /></button></template>
     <template #title><div class="chat-brand" :aria-label="mt('AI小醒')"><strong>{{ mt("AI小醒") }}</strong><small>{{ mt("智能提醒助手") }}</small></div></template>
     <template #action><button class="chat-toolbar-button clear-context-button" :aria-label="mt('清除当前上下文')" :title="mt('清除当前上下文')" :disabled="clearing" @click="requestClear"><UiIcon name="eraser" /></button></template>
+    <ReminderDrawer v-model="drawerOpen" />
+    <div v-if="recoveryNotice" class="chat-recovery" role="status">{{recoveryNotice}}<template v-if="!thinking"><button @click="resumePending">重新查询</button><button @click="drawerOpen=true">核对事件</button><button @click="dismissPending">结束等待</button></template></div>
     <div class="chat-history">
-    <div ref="scroll" class="messages" role="region" :aria-label="mt('对话消息')" tabindex="0" @scroll.passive="trackScroll">
+    <div ref="scroll" class="messages" role="region" :aria-label="mt('对话消息')" tabindex="0" @scroll.passive="trackScroll" @touchstart.passive="stopLayoutFollow" @pointerdown="stopLayoutFollow" @wheel.passive="stopLayoutFollow">
       <div v-if="historyLoading || historyError" class="welcome sr-card" role="status" aria-live="polite">
         <p>{{ historyLoading ? mt('正在加载对话记录…') : mt('对话记录加载失败，请检查网络后重试。') }}</p>
         <button v-if="historyError" class="sr-button" @click="load()">{{ mt("重新加载") }}</button>
@@ -92,7 +94,7 @@
         </span>
       </div>
       <div class="composer-box">
-        <div class="composer-input-row"><span class="composer-orb" aria-hidden="true"></span><textarea ref="textarea" v-model="text" :readonly="voiceBusy" rows="1" :placeholder="mt('说说你想提醒的事…')" @input="resizeInput" @paste="pasteFiles" @keydown="inputKeydown"></textarea></div>
+        <div class="composer-input-row"><span class="composer-orb" aria-hidden="true"></span><textarea ref="textarea" v-model="text" :readonly="voiceBusy" rows="1" :placeholder="mt('说说你想提醒的事…')" @focus="followInputLayout" @input="resizeInput" @paste="pasteFiles" @keydown="inputKeydown"></textarea></div>
         <div class="composer-actions">
         <label class="upload" :title="mt('上传文件')" :aria-label="mt('上传文件')">
           <UiIcon name="plus" />
@@ -114,6 +116,7 @@
 
 <script setup>
 import {mt} from './mobileLocale';
+import {mobileError} from './mobileError.mjs';
 defineOptions({name:'SmartReminderChat'});
 import { nextTick, onActivated, onDeactivated, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -121,6 +124,9 @@ import UiIcon from './UiIcon.vue';
 import VoiceInput from './VoiceInput.vue';
 import { ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
+import ReminderDrawer from './ReminderDrawer.vue';
+import {pendingChat,rememberPendingChat,clearPendingChat,followChatJob} from './pendingChat';
+import {ElMessageBox} from 'element-plus';
 import {setEventAlarm} from '@/native/alarms';
 import {getEventDetail} from '@/api/smartReminder';
 import ThinkingPanel from './ThinkingPanel.vue';
@@ -130,7 +136,8 @@ import { clearChatContext, confirmCandidate, getMessages, syncMessages, readMess
 import { renderMarkdown } from './markdown';
 
 const router=useRouter(), messages=ref([]), text=ref(''), files=ref([]), thinking=ref(false), confirmingId=ref(''), scroll=ref();
-const textarea=ref(),composer=ref(),followLatest=ref(true);let composerObserver,historyLoaded=false;
+const drawerOpen=ref(false),recoveryNotice=ref('');let disposed=false;
+const textarea=ref(),composer=ref(),followLatest=ref(true);let composerObserver,historyLoaded=false,layoutFrame=0,layoutUntil=0,lastMessagesHeight=0;
 const voiceBusy=ref(false);
 const clearDialog=ref(false),clearing=ref(false);let historyVersion=0;
 const requestClear=()=>{
@@ -151,12 +158,26 @@ const clearCurrentContext=async()=>{
 };
 const stopping=ref(false);let activeRequest,abortController,stopped=false;
 const inputKeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send();}};
-const stop=async()=>{if(!activeRequest||stopping.value)return;stopping.value=true;try{const response=await stopMessage(activeRequest);if(response.data.data?.stopped){stopped=true;abortController?.abort();}else{ElMessage.info(mt('本轮已完成生成或正在执行操作，无法撤回，请等待结果'));}}catch{ElMessage.error(mt('停止失败，请重试'));}finally{stopping.value=false;}};
+const stop=async()=>{if(!activeRequest||stopping.value)return;stopping.value=true;try{const response=await stopMessage(activeRequest);if(response.data.data?.stopped){stopped=true;recoveryNotice.value='正在停止，请等待服务器确认…';}else{ElMessage.info(mt('本轮已完成生成或正在执行操作，无法撤回，请等待结果'));}}catch{ElMessage.error(mt('停止失败，请重试'));}finally{stopping.value=false;}};
 let speechDraft='';
 const beginSpeech=()=>{speechDraft=text.value;textarea.value?.blur();};
 const updateSpeech=value=>{text.value=speechDraft+(speechDraft.trim()?'\n':'')+value;nextTick(resizeInput);};
 const cancelSpeech=()=>{nextTick(resizeInput);}; // Cancelling recording never erases the user's draft.
-const trackScroll=()=>{const el=scroll.value;if(el)followLatest.value=el.scrollHeight-el.scrollTop-el.clientHeight<48;};
+const stopLayoutFollow=()=>{layoutUntil=0;cancelAnimationFrame(layoutFrame);layoutFrame=0;};
+const followInputLayout=()=>{
+  if(!pageActive)return;
+  stopLayoutFollow();followLatest.value=true;layoutUntil=performance.now()+450;
+  const follow=()=>{if(!pageActive)return;scrollToLatest(true);if(performance.now()<layoutUntil)layoutFrame=requestAnimationFrame(follow);else{layoutUntil=0;layoutFrame=0;}};
+  layoutFrame=requestAnimationFrame(follow);
+};
+const keyboardLayout=()=>{if(pageActive&&followLatest.value)followInputLayout();};
+const trackScroll=()=>{
+  const el=scroll.value;if(!el)return;
+  const resized=lastMessagesHeight!==el.clientHeight;lastMessagesHeight=el.clientHeight;
+  // Viewport shrink is layout, not a user's request to leave the latest message.
+  if(layoutUntil>performance.now()||(resized&&followLatest.value)){scrollToLatest(true);return;}
+  followLatest.value=el.scrollHeight-el.scrollTop-el.clientHeight<48;
+};
 const scrollToLatest=(force=false)=>{const el=scroll.value;if(el&&(force||followLatest.value)){el.scrollTop=el.scrollHeight;followLatest.value=true;}};
 const resizeInput=()=>{const el=textarea.value;if(!el)return;el.style.height='auto';const height=Math.min(el.scrollHeight,150);el.style.height=Math.max(40,height)+'px';el.style.overflowY=el.scrollHeight>150?'auto':'hidden';};
 watch(text,()=>nextTick(resizeInput));
@@ -220,7 +241,7 @@ const refreshMessages=async()=>{
 const resumeSync=()=>{if(pageActive&&!document.hidden)scheduleSync(0);else clearTimeout(syncTimer);};
 onMounted(()=>window.addEventListener('smart-reminder:push-refresh',resumeSync));
 onBeforeUnmount(()=>window.removeEventListener('smart-reminder:push-refresh',resumeSync));
-const activate=()=>{pageActive=true;load();scheduleSync();};
+const activate=()=>{pageActive=true;void resumePending();load();scheduleSync();};
 const load=(force=false)=>{
   if(clearing.value)return Promise.resolve();
   if(thinking.value&&!force)return Promise.resolve();
@@ -242,6 +263,7 @@ const load=(force=false)=>{
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const send=async()=>{
   if((!text.value.trim()&&!files.value.length)||thinking.value||clearing.value||clearDialog.value||voiceBusy.value||files.value.some(file=>file.status!=='ready'))return;
+  if(pendingChat()){void resumePending();ElMessage.info('请先确认上一条消息的处理结果');return;}
   const content=text.value.trim(),fileIds=files.value.map(x=>x.id),now=Date.now();
   historyVersion++;historyRequest=null;historyLoading.value=false;
   const submittedFiles=[...files.value];text.value='';files.value=[];thinking.value=true;
@@ -249,39 +271,35 @@ const send=async()=>{
 	const assistant=reactive({id:`stream-${now}`,messageRole:'assistant',messageType:'TEXT',content:'',reasoningContent:'',thinkingOpen:true,streaming:true});
   messages.value.push({id:`user-${now}`,messageRole:'user',messageType:'TEXT',content,payload:{fileNames:submittedFiles.map(file=>file.name)}},assistant);
   await nextTick();scrollToLatest(true);
-  const queue=[];let cursor=0,streamDone=false;
-  const typing= (async()=>{
-    while(!stopped&&(!streamDone||cursor<queue.length)){
-      if(cursor>=queue.length){await delay(12);continue;}
-      const remaining=queue.length-cursor,batch=remaining>400?6:remaining>180?3:1;
-      assistant.content+=queue.slice(cursor,cursor+batch).join('');cursor+=batch;
-      await nextTick();scrollToLatest();
-      await delay(32);
-    }
-  })();
   try{
-	await streamMessage({content,fileIds,requestId:activeRequest},{signal:abortController.signal,
-	  onReasoning:delta=>{assistant.reasoningContent+=delta;if(!assistant.content)assistant.thinkingOpen=true;nextTick(()=>scrollToLatest());},
-	  onDelta:delta=>{if(assistant.reasoningContent)assistant.thinkingOpen=false;queue.push(...Array.from(delta));}
-	});
-    streamDone=true;
-    await typing;
+    const request=await rememberPendingChat({content,fileIds,requestId:activeRequest,fileNames:submittedFiles.map(file=>file.name)});
+    const result=await followChatJob(request,{signal:abortController.signal,onReasoning:value=>{assistant.reasoningContent=value;nextTick(()=>scrollToLatest());},onWaiting:value=>{recoveryNotice.value=value;}});
+    assistant.content=result?.reply||'已处理';assistant.thinkingOpen=false;recoveryNotice.value='';
     assistant.streaming=false;
     window.dispatchEvent(new Event('smart-reminder:badge-refresh'));
-    await load(true);
+    // History enriches cards in the background; it must not lock the composer.
+    void load(true);
     submittedFiles.forEach(file=>{if(file.previewUrl)URL.revokeObjectURL(file.previewUrl);});
   }catch(e){
     while(stopping.value)await delay(20);
-    streamDone=true;
-    await typing;
     assistant.streaming=false;
+    if(e.pending||disposed){recoveryNotice.value=e.message;assistant.content='正在等待处理结果，返回 App 后将继续查询。';return;}
+    recoveryNotice.value='';
     if(stopped){assistant.content+=(assistant.content?'\n':'') +mt('已停止生成');assistant.thinkingOpen=false;submittedFiles.forEach(file=>{if(file.previewUrl)URL.revokeObjectURL(file.previewUrl);});return;}
     if(!assistant.content)messages.value=messages.value.filter(x=>x!==assistant);
-    ElMessage.error(mt(e?.message||'发送失败'));
+    ElMessage.error(mt(mobileError(e,'发送未完成，请检查事件状态后重试')));
     if(!text.value)text.value=content;
     files.value.push(...submittedFiles);
   }finally{thinking.value=false;activeRequest=null;abortController=null;syncRevision='';scheduleSync(0);}
 };
+const resumePending=async()=>{
+  const request=pendingChat();if(!request||thinking.value||disposed)return;
+  thinking.value=true;activeRequest=request.requestId;abortController=new AbortController();recoveryNotice.value='正在恢复上一条消息的处理结果…';
+  try{const result=await followChatJob(request,{signal:abortController.signal,onWaiting:v=>{recoveryNotice.value=v;}});recoveryNotice.value='';messages.value.push({id:'recovered-'+request.requestId,messageRole:'assistant',messageType:'TEXT',content:result?.reply||'已处理',streaming:false});void load(true);window.dispatchEvent(new Event('smart-reminder:badge-refresh'));}
+  catch(e){recoveryNotice.value=e.message;if(e.definite){recoveryNotice.value='';ElMessage.info(e.message);}}
+  finally{thinking.value=false;activeRequest=null;abortController=null;scheduleSync(0);}
+};
+const dismissPending=async()=>{const request=pendingChat();if(!request)return;try{await ElMessageBox.confirm('这只结束本机等待，不会取消服务器任务。请先核对事件，避免重复发送。','结束等待？',{confirmButtonText:'已核对，结束等待',cancelButtonText:'继续等待',closeOnClickModal:false});}catch{return;}clearPendingChat(request.requestId);recoveryNotice.value='';void load(true);};
 const uploadOne=async item=>{item.status='uploading';try{const res=await uploadFile(item.raw);if(res.data.data.extractStatus!=='SUCCESS')throw new Error(res.data.data.extractMessage||'解析失败');Object.assign(item,res.data.data,{status:'ready'});}catch(error){item.status='error';ElMessage.error(error.message||'附件解析失败');}};
 const addFiles=selected=>{for(const raw of selected){if(files.value.length>=6){ElMessage.warning(mt('每条消息最多附加6个文件'));break;}const ext=raw.name.split('.').pop().toLowerCase(),isImage=['png','jpg','jpeg','gif','webp'].includes(ext);if(!['png','jpg','jpeg','gif','webp','pdf','doc','docx','txt','md','xlsx'].includes(ext)){ElMessage.warning(mt('暂不支持该文件格式'));continue;}if(raw.size>(isImage?8:20)*1024*1024){ElMessage.warning(isImage?'图片最大8MB':'文档最大20MB');continue;}const item=reactive({key:Date.now().toString(36)+Math.random().toString(36).slice(2),name:raw.name,raw,status:'uploading',previewUrl:isImage?URL.createObjectURL(raw):''});files.value.push(item);uploadOne(item);}};
 const upload=e=>{addFiles(Array.from(e.target.files||[]));e.target.value='';};
@@ -314,10 +332,10 @@ const confirm=async(id,item)=>{
   finally{confirmingId.value='';}
 };
 const openEvent=item=>{if(item.eventId)router.push('/app/event/'+item.eventId);};
-onMounted(()=>{activate();resizeInput();composerObserver=new ResizeObserver(()=>scrollToLatest());if(composer.value)composerObserver.observe(composer.value);document.addEventListener('visibilitychange',resumeSync);window.addEventListener('online',resumeSync);});
+onMounted(()=>{activate();resizeInput();composerObserver=new ResizeObserver(()=>{if(pageActive){scrollToLatest();lastMessagesHeight=scroll.value?.clientHeight||0;}});if(composer.value)composerObserver.observe(composer.value);if(scroll.value)composerObserver.observe(scroll.value);document.addEventListener('visibilitychange',resumeSync);window.addEventListener('online',resumeSync);window.addEventListener('native:keyboard-layout',keyboardLayout);window.visualViewport?.addEventListener('resize',keyboardLayout);});
 onActivated(activate);
-onDeactivated(()=>{pageActive=false;historyVersion++;historyRequest=null;clearTimeout(syncTimer);});
-onBeforeUnmount(()=>{pageActive=false;historyVersion++;clearTimeout(syncTimer);document.removeEventListener('visibilitychange',resumeSync);window.removeEventListener('online',resumeSync);if(activeRequest){stopMessage(activeRequest).catch(()=>{});stopped=true;abortController?.abort();}composerObserver?.disconnect();files.value.forEach(file=>{if(file.previewUrl)URL.revokeObjectURL(file.previewUrl);});});
+onDeactivated(()=>{pageActive=false;drawerOpen.value=false;stopLayoutFollow();historyVersion++;historyRequest=null;clearTimeout(syncTimer);});
+onBeforeUnmount(()=>{disposed=true;pageActive=false;stopLayoutFollow();historyVersion++;clearTimeout(syncTimer);document.removeEventListener('visibilitychange',resumeSync);window.removeEventListener('online',resumeSync);window.removeEventListener('native:keyboard-layout',keyboardLayout);window.visualViewport?.removeEventListener('resize',keyboardLayout);abortController?.abort();composerObserver?.disconnect();files.value.forEach(file=>{if(file.previewUrl)URL.revokeObjectURL(file.previewUrl);});});
 </script>
 
 <style scoped>

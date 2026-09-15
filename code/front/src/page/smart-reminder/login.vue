@@ -42,22 +42,26 @@ import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { bootstrap } from '@/api/smartReminder';
 import AccountForm from './AccountForm.vue';
+import {lastLoginAccount,rememberLoginAccount} from './loginMemory';
+import {mobileError} from './mobileError.mjs';
 const registerVisible = ref(false);
 const registered = ({account}) => { form.username=account; form.password=''; ElMessage.success('注册成功，请使用刚设置的密码登录'); };
 
 const router = useRouter(); const store = useStore(); const loading = ref(false), showPassword = ref(false);
-const form = reactive({ tenantId:'000000', username:'', password:'', type:'account', deptId:'', roleId:'', key:'', code:'' });
+const form = reactive({ tenantId:'000000', username:lastLoginAccount(), password:'', type:'account', deptId:'', roleId:'', key:'', code:'', mobile:true });
 const forgotPassword = () => ElMessageBox.alert(mt('请联系管理员重置账号密码，重置后即可重新登录。'), mt('忘记密码'), {confirmButtonText:mt('知道了')}).catch(()=>{});
 const login = async () => {
   if (loading.value) return;
+  ElMessage.closeAll();
   if (!form.username || !form.password) return ElMessage.warning(mt('请输入账号和密码'));
   loading.value = true;
   try {
     await store.dispatch('LoginByUsername', form);
     if (!store.getters.token) throw new Error('登录失败，请检查账号密码');
+    rememberLoginAccount(form.username);
     await bootstrap();
     await router.replace('/app/chat');
-  } catch (e) { await store.dispatch('FedLogOut'); ElMessage.error(mt(e?.message || '登录失败')); }
+  } catch (e) { await store.dispatch('FedLogOut'); ElMessage.error({message:mt(mobileError(e,'登录未完成，请稍后重试')),grouping:true}); }
   finally { loading.value = false; }
 };
 </script>

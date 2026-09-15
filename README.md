@@ -27,7 +27,7 @@ npm run ios:open
 
 不要从 Windows 拷贝 `node_modules`，也不要跳过 `ios:sync`；同步会按 Mac 环境重新生成 Swift Package 路径。
 
-Bundle ID `com.dfyj.xiaoxing`，Team ID `7U8S8PWU2W`。原生资源打包到 App，API 入口在 `.env.native` 中配置为 `https://www.chentong.xyz`。
+Bundle ID `com.dfyj.xiaoxing`，Team ID `7U8S8PWU2W`。原生资源打包到 App，API 入口在 `.env.native` 中配置为 `https://47.100.172.149`。IP HTTPS 证书与续期说明见 [部署记录](docs/ip-https-release-20260915.md)。
 
 首轮代码已通过 Windows 前后端构建、离线回归与模拟浏览器检查；**尚未通过 Xcode 编译、苹果签名或真实手机 APNs 验证**。当前使用默认工程图标；测试上架前再替换正式图标。Production 推送通过 TestFlight 验证；常规 Debug 真机推送需要另配 Sandbox key。
 

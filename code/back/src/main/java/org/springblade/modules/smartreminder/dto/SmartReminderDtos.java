@@ -82,6 +82,12 @@ public final class SmartReminderDtos {
 	}
 
 	@Data
+	public static class FriendRemarkRequest {
+		private Long targetUserId;
+		private String remark;
+	}
+
+	@Data
 	public static class StopRequest {
 		private Long eventId;
 		private Long branchId;

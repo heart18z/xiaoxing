@@ -48,6 +48,7 @@ export async function loginWithConfirm(requestFn, onSuccess, options = {}) {
         return;
       }
       if (retryData.error_description && !retryData.access_token) {
+        if(options.throwErrors)throw new Error(retryData.error_description);
         ElMessage({
           message: retryData.error_description,
           type: 'error',
@@ -59,6 +60,7 @@ export async function loginWithConfirm(requestFn, onSuccess, options = {}) {
     }
 
     if (data.error_description && !data.access_token) {
+      if(options.throwErrors)throw new Error(data.error_description);
       ElMessage({
         message: data.error_description,
         type: 'error',

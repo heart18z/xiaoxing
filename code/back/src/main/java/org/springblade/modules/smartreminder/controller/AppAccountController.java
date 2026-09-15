@@ -37,6 +37,12 @@ public class AppAccountController {
         return R.data(true);
     }
 
+    @PostMapping("suggest-account")
+    public R<String> suggestAccount(HttpServletRequest request) {
+        accounts.limit("suggest:" + request.getRemoteAddr(), 30);
+        return R.data(accounts.suggestAccount());
+    }
+
     @PostMapping("password")
     public R<Boolean> password(@Valid @RequestBody PasswordChange input) {
         AppRoleGuard.requireAppUser();
@@ -54,6 +60,10 @@ public class AppAccountController {
         @ToString.Exclude @NotBlank @Size(min=8,max=64, message="密码须为8–64个字符") private String password;
         @Pattern(regexp="^$|^1[3-9][0-9]{9}$", message="请输入正确的11位手机号") private String phone;
         @Email(message="请输入正确的邮箱") @Size(max=45, message="邮箱最多45个字符") private String email;
+        @AssertTrue(message="手机号和邮箱至少填写一项")
+        public boolean isContactProvided() {
+            return (phone != null && !phone.isBlank()) || (email != null && !email.isBlank());
+        }
     }
 
     @Data

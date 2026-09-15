@@ -3,6 +3,8 @@ import { getToken } from '@/utils/auth';
 import website from '@/config/website';
 import { Base64 } from 'js-base64';
 import { apiUrl, isNative } from '@/native/runtime';
+import store from '@/store';
+import { consumeChatStream, requestChatStream } from './chatStream.mjs';
 
 // 该项目的本地 Vite 代理在 Windows 上会破坏 JSON 中的多字节字符，
 // 将非 ASCII 字符转为标准 JSON unicode escape，服务端解析后仍是原始中文。
@@ -19,6 +21,7 @@ const post = (url, data, params) =>
 
 const accountPost = (action, data) => request({ url:'/api/app/account/'+action, method:'post', data, meta:{noProgress:true,silent:true,isToken:action!=='register'} });
 export const registerAccount = data => accountPost('register', data);
+export const suggestAccount = () => request({url:'/api/app/account/suggest-account',method:'post',meta:{noProgress:true,silent:true,isToken:false}});
 export const changeOwnPassword = data => accountPost('password', data);
 export const silentReminder = (action, params) => request({url:'/api/app/reminder/'+action,method:'post',params,meta:{noProgress:true,silent:true}});
 
@@ -26,6 +29,7 @@ let bootstrapRequest;
 // Share simultaneous shell/page requests, but do not cache user-specific results.
 export const bootstrap = () => bootstrapRequest || (bootstrapRequest = post('/api/app/reminder/bootstrap').finally(() => { bootstrapRequest = null; }));
 export const updateProfile = data => post('/api/app/reminder/profile/update', data);
+export const saveFriendRemark = data => post('/api/app/reminder/friends/remark', data);
 export const uploadAvatar = file => {
   const data = new FormData();
   data.append('file', file);
@@ -37,7 +41,7 @@ export const uploadAvatar = file => {
     meta: { noProgress: true },
   });
 };
-export const getMessages = limit => request({url:'/api/app/reminder/chat/messages',method:'post',params:{limit},timeout:15000,meta:{noProgress:true}});
+export const getMessages = limit => request({url:'/api/app/reminder/chat/messages',method:'post',params:{limit},timeout:15000,meta:{noProgress:true,silent:true}});
 export const syncMessages = revision => request({url:'/api/app/reminder/chat/sync',method:'post',params:{limit:150,revision},timeout:15000,meta:{noProgress:true,silent:true}});
 export const sendMessage = data =>
   request({ url: '/api/app/reminder/chat/send', method: 'post', data, timeout: 300000, meta: { noProgress: true }, ...jsonOptions(data) });
@@ -48,34 +52,15 @@ export const streamMessage = async (data, handlers = {}) => {
     Accept: 'text/event-stream',
     'Blade-Requested-With': 'BladeHttpRequest',
   };
-  const token = getToken();
-  if (token) headers[website.tokenHeader] = `bearer ${token}`;
-  const response = await fetch(apiUrl('/api/app/reminder/chat/stream'), {
+  const response = await requestChatStream(() => {
+    const token = getToken();
+    if(token) headers[website.tokenHeader]=`bearer ${token}`;
+    else delete headers[website.tokenHeader];
+    return fetch(apiUrl('/api/app/reminder/chat/stream'), {
     method: 'POST', headers, body: asciiJson(data), credentials: isNative ? 'omit' : 'include', signal:handlers.signal,
-  });
-  if (!response.ok || !response.body) throw new Error(`流式请求失败（${response.status}）`);
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let buffer = '', result;
-  const consume = block => {
-    const json = block.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5)).join('');
-    if (!json) return;
-    const event = JSON.parse(json);
-    if (event.type === 'delta') handlers.onDelta?.(event.content || '');
-    if (event.type === 'reasoning') handlers.onReasoning?.(event.content || '');
-    if (event.type === 'result') { result = event.data; handlers.onResult?.(event.data); }
-    if (event.type === 'error') throw new Error(event.message || 'AI服务暂时不可用');
-  };
-  while (true) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() || '';
-    blocks.forEach(consume);
-    if (done) break;
-  }
-  if (buffer.trim()) consume(buffer);
-  return result;
+    });
+  }, () => store.dispatch('RefreshToken'), handlers.signal);
+  return consumeChatStream(response, handlers);
 };
 export const readMessages = messageIds => post('/api/app/reminder/chat/read', { messageIds });
 export const clearChatContext = () => post('/api/app/reminder/chat/context/clear');
@@ -95,6 +80,9 @@ export const removeFriend = targetUserId => post('/api/app/reminder/friends/remo
 export const getEvents = (type, status = '') => post('/api/app/reminder/events', null, { type, status });
 export const getEventCounts = type => post('/api/app/reminder/events/counts', null, { type });
 export const getEventDetail = eventId => post('/api/app/reminder/event/detail', null, { eventId });
+export const getReminderDrawer = type => request({url:'/api/app/reminder/events/drawer',method:'post',params:{type},meta:{noProgress:true,silent:true}});
+export const submitChatJob = data => request({url:'/api/app/reminder/chat/jobs/submit',method:'post',data,timeout:15000,meta:{noProgress:true,silent:true}});
+export const getChatJob = requestId => request({url:'/api/app/reminder/chat/jobs/status',method:'post',data:{requestId},meta:{noProgress:true,silent:true}});
 export const getEventConversation = (eventId, participantUserId) => request({url:'/api/app/reminder/event/conversation',method:'post',params:{eventId,participantUserId},timeout:30000,meta:{noProgress:true}});
 export const stopEvent = data => post('/api/app/reminder/event/stop', data);
 

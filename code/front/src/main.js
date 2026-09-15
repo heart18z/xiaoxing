@@ -1,4 +1,4 @@
-import { createApp } from 'vue';
+import { createApp, nextTick } from 'vue';
 import website from './config/website';
 import axios from './axios';
 import router from './router/';
@@ -130,3 +130,7 @@ app.use(VueClipboard, {
 });
 app.config.globalProperties.$message = setMessageConfig(6);
 app.mount('#app');
+// Keep the startup cover until the initial route and its lazy component have rendered.
+router.isReady().then(() => nextTick()).then(() => {
+  requestAnimationFrame(() => window.xiaoxingStartup?.ready());
+}).catch(() => window.xiaoxingStartup?.fail());

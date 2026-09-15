@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { notificationRoute } from '../src/native/notificationRoute.mjs';
+
+test('native API uses HTTPS IP without disabling ATS or TLS verification',()=>{
+  assert.match(readFileSync('.env.native','utf8'),/^VITE_APP_API=https:\/\/47\.100\.172\.149$/m);
+  const plist=readFileSync('ios/App/App/Info.plist','utf8');
+  assert.match(plist,/<key>47\.100\.172\.149<\/key>\s*<dict\/>/);
+  assert.doesNotMatch(plist,/NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads/);
+});
 test('notification opens only its authenticated recipient event', () => {
   assert.equal(notificationRoute({ recipientUserId: '123', eventId: '9223372036854775807' }, '123'), '/app/event/9223372036854775807');
   for (const user of ['', '124', null]) assert.equal(notificationRoute({ recipientUserId: '123', eventId: '99' }, user), null);

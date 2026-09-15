@@ -33,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @RestController
+@lombok.extern.slf4j.Slf4j
 @RequiredArgsConstructor
 @RequestMapping("app/reminder")
 public class SmartReminderController {
@@ -44,6 +45,15 @@ public class SmartReminderController {
 	private final org.springblade.modules.smartreminder.service.AiConfigService aiConfigService;
 	private final org.springblade.modules.smartreminder.service.SpeechService speechService;
 	private final org.springblade.modules.smartreminder.service.ChatRunRegistry chatRuns;
+	private final org.springblade.modules.smartreminder.service.ChatJobService chatJobs;
+	private final org.springblade.modules.smartreminder.service.ReminderDrawerService drawer;
+
+	@PostMapping("/chat/jobs/submit")
+	public R<Object> submitJob(@RequestBody ChatRequest request){AppRoleGuard.requireAppUser();return R.data(chatJobs.submit(AuthUtil.getUserId(),AuthUtil.getUserAccount(),request));}
+	@PostMapping("/chat/jobs/status")
+	public R<Object> jobStatus(@RequestBody ChatRequest request){AppRoleGuard.requireAppUser();return R.data(chatJobs.status(AuthUtil.getUserId(),request.getRequestId()));}
+	@PostMapping("/events/drawer")
+	public R<Object> drawer(@RequestParam(defaultValue="sent") String type){AppRoleGuard.requireAppUser();return R.data(drawer.list(AuthUtil.getUserId(),"received".equals(type)));}
 
 	@PostMapping("/chat/stop")
 	public R<Object> stopChat(@RequestBody ChatRequest request){AppRoleGuard.requireAppUser();return R.data(Map.of("stopped",chatRuns.stop(AuthUtil.getUserId(),request.getRequestId())));}
@@ -73,6 +83,13 @@ public class SmartReminderController {
 		AppRoleGuard.requireAppUser();
 		socialService.removeFriend(AuthUtil.getUserId(),request.getTargetUserId());
 		return R.success("好友关系已解除，历史事件与消息仍保留");
+	}
+
+	@PostMapping("/friends/remark")
+	public R<Object> saveFriendRemark(@RequestBody org.springblade.modules.smartreminder.dto.SmartReminderDtos.FriendRemarkRequest request) {
+		AppRoleGuard.requireAppUser();
+		socialService.saveRemark(AuthUtil.getUserId(), request.getTargetUserId(), request.getRemark());
+		return R.success("好友备注已保存");
 	}
 
 	@PostMapping("/bootstrap")
@@ -114,6 +131,8 @@ public class SmartReminderController {
 		if(request.getRequestId()==null)request.setRequestId(java.util.UUID.randomUUID().toString());
 		var run=chatRuns.register(userId,request.getRequestId());
 		StreamingResponseBody body = output -> {
+			long started=System.nanoTime();
+			String trace=java.util.UUID.randomUUID().toString().substring(0,8);
 			try {
 				chatRuns.attach(run);
 				// Flush an SSE frame immediately so the client knows the stream is connected
@@ -122,9 +141,13 @@ public class SmartReminderController {
 				Map<String, Object> result = reminderService.sendChatStream(request, userId, account,
 					delta -> writeUnchecked(output, Map.of("type", "delta", "content", delta)),
 					delta -> writeUnchecked(output, Map.of("type", "reasoning", "content", delta)));
+				// sendChatStream has returned through its transactional proxy: commit succeeded.
+				writeSse(output, Map.of("type", "delta", "content", java.util.Objects.toString(result.get("reply"), "")));
 				writeSse(output, Map.of("type", "result", "data", result));
 			} catch (Exception e) {
-				writeSse(output, Map.of("type", "error", "message", safeMessage(e)));
+				// No prompts, credentials, SQL parameters or raw exception messages in logs/UI.
+				log.warn("chat_stream_failed trace={} user={} elapsedMs={} errorType={}",trace,userId,(System.nanoTime()-started)/1_000_000,e.getClass().getSimpleName());
+				writeSse(output, Map.of("type", "error", "message", safeMessage(e)+"（编号："+trace+"）"));
 			} finally {chatRuns.finish(run);}
 		};
 		return ResponseEntity.ok()
@@ -151,8 +174,11 @@ public class SmartReminderController {
 	private String safeMessage(Exception exception) {
 		Throwable cause = exception instanceof UncheckedIOException && exception.getCause() != null
 			? exception.getCause() : exception;
-		String message = cause.getMessage();
-		return message == null || message.isBlank() ? "AI服务暂时不可用" : message;
+		if(cause instanceof org.springblade.core.log.exception.ServiceException) {
+			String message=cause.getMessage();
+			if(message!=null&&!message.isBlank()&&message.length()<=160&&!message.matches("(?is).*\\b(sql|jdbc|java\\.)\\b.*"))return message;
+		}
+		return "本次操作未完成，请检查事件状态后重试";
 	}
 
 	@PostMapping("/chat/read")

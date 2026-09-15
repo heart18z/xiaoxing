@@ -2,7 +2,14 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DEFAULT_PASSWORD,registrationError,passwordError,profileError} from '../src/page/smart-reminder/accountRules.mjs';
-const valid=()=>({account:'staff_123',name:'测试用户',password:DEFAULT_PASSWORD,phone:'',email:''});
+const valid=()=>({account:'staff_123',name:'测试用户',password:DEFAULT_PASSWORD,phone:'',email:'fixture@example.com'});
+test('registration requires a contact and uses the new editable default password',()=>{
+  assert.equal(DEFAULT_PASSWORD,'admin@123');
+  assert.ok(registrationError({...valid(),phone:'',email:''}));
+  assert.equal(registrationError({...valid(),phone:'13800138000',email:''}),'');
+  assert.equal(registrationError({...valid(),phone:'',email:'fixture@example.com'}),'');
+  assert.equal(registrationError({...valid(),password:'custom-password'}),'');
+});
 test('profile edits validate contact details and allow clearing optional fields',()=>{
   assert.equal(profileError(valid()),'');
   assert.equal(profileError({...valid(),phone:'13800138000',email:'fixture@example.com'}),'');

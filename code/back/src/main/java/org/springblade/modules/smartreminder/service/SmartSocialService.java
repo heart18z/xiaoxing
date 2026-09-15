@@ -14,6 +14,34 @@ import java.util.*;
 public class SmartSocialService {
     private final JdbcTemplate jdbc;
 
+    @Transactional(rollbackFor=Exception.class)
+    public void saveRemark(Long owner, Long person, String remark) {
+        if (person == null || person.equals(owner) || remark == null)
+            throw new ServiceException("请选择好友并填写备注，留空可清除备注");
+        String value = remark.trim();
+        if (value.codePointCount(0, value.length()) > 30 || value.chars().anyMatch(Character::isISOControl))
+            throw new ServiceException("好友备注不能超过30字，不能包含换行或控制字符");
+        // The caller's identity comes only from authentication, never a client-supplied owner.
+        List<Map<String,Object>> rows = jdbc.queryForList(
+            "select id from blade_friendship where owner_user_id=? and friend_user_id=? and status='ACTIVE' for update", owner, person);
+        if (rows.isEmpty()) throw new ServiceException("只能修改自己的现有好友备注");
+        jdbc.update("update blade_friendship set friend_remark=?,update_time=now() where owner_user_id=? and friend_user_id=? and status='ACTIVE'",
+            value.isEmpty() ? null : value, owner, person);
+    }
+
+    @Transactional(rollbackFor=Exception.class)
+    public void rememberRemarks(Long owner, JsonNode updates) {
+        if (!updates.isArray()) return;
+        if (updates.size() > 20) throw new ServiceException("一次最多设置20个好友备注");
+        for (JsonNode item : updates) {
+            Long person;
+            try { person = Long.valueOf(item.path("personUserId").asText()); }
+            catch (Exception e) { throw new ServiceException("请先确认备注对应哪位好友"); }
+            if (!item.path("remark").isTextual()) throw new ServiceException("请提供好友备注");
+            saveRemark(owner, person, item.path("remark").asText());
+        }
+    }
+
     public List<Map<String,Object>> aliases(Long owner) {
         List<Map<String,Object>> rows=jdbc.queryForList("""
             select a.alias_name as aliasName,a.person_user_id as personUserId,u.account,u.name

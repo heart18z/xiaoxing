@@ -44,7 +44,7 @@ async page=>{
   await page.setViewportSize({width:390,height:844});await page.goto(origin+'/app/event/99');
   const set=page.getByRole('button',{name:'设置本机闹铃',exact:true});await set.waitFor();
   await page.evaluate(()=>window.__alarmMode='denied');await set.click();await page.locator('.alarm-control [role=status]').filter({hasText:'未授权系统闹铃'}).waitFor();
-  if(await page.getByText('已设置：',{exact:false}).count())throw Error('denial falsely reported scheduled');checks.push('denial never reports success');
+  if(await page.locator('.alarm-time').count())throw Error('denial falsely reported scheduled');checks.push('denial never reports success');
   await page.evaluate(()=>window.__alarmMode='unconfirmed');await set.click();await page.locator('.alarm-control [role=status]').filter({hasText:'系统未确认'}).waitFor();checks.push('missing native acknowledgment rejected');
   await page.evaluate(()=>window.__alarmMode='ok');await set.click();await page.getByText('系统已确认：本机闹铃设置成功',{exact:true}).waitFor();
   const scheduled=await page.evaluate(()=>window.__alarms[0]);if(scheduled.timestamp!==Date.parse('2030-09-14T08:30:00Z')/1000||scheduled.owner!=='1')throw Error('wrong time/account');

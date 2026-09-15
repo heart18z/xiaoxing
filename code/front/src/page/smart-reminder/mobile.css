@@ -1,5 +1,7 @@
 :root { --sr-blue:#315bff; --sr-ink:#182033; --sr-muted:#7d8699; --sr-bg:#f1f6fc; }
 * { box-sizing:border-box; }
+/* Include each nested scroll target; a rule only on the shell is not sufficient. */
+.sr-shell,.sr-shell * { touch-action:manipulation; }
 .sr-shell { min-height:100vh; background:radial-gradient(circle at 8% 15%,rgba(68,177,255,.18),transparent 29%),radial-gradient(circle at 92% 45%,rgba(80,214,210,.12),transparent 28%),linear-gradient(180deg,#dff3ff 0,#edf7ff 145px,#f4f8fc 330px,#f3f6fb 100%); color:var(--sr-ink); max-width:760px; margin:0 auto; padding-bottom:76px; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
 .sr-header { height:82px; padding:14px 18px; display:flex; align-items:center; gap:12px; color:#fff; background:linear-gradient(125deg,#278cff 0%,#36b9f6 56%,#53d4d7 100%); position:sticky; top:0; z-index:9; border-bottom:0; overflow:hidden; box-shadow:none; }
 .sr-header:before,.sr-header:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none}.sr-header:before{width:130px;height:130px;left:10%;top:35px}.sr-header:after{width:170px;height:70px;right:-30px;top:42px;border-radius:50% 50% 0 0}.sr-header>*{position:relative;z-index:1}.sr-header>div { flex:1; min-width:0; } .sr-header strong { display:block; font-size:21px; text-shadow:0 1px 2px rgba(10,75,145,.15); } .sr-header small { display:block; color:rgba(255,255,255,.82); margin-top:2px; }

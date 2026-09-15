@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 export const isNative = Capacitor.isNativePlatform();
-export const nativeApiOrigin = import.meta.env.VITE_APP_API || 'https://www.chentong.xyz';
+export const nativeApiOrigin = import.meta.env.VITE_APP_API || 'https://47.100.172.149';
 export function apiUrl(path) {
   return isNative && path.startsWith('/api/') ? nativeApiOrigin.replace(/\/$/, '') + path : path;
 }

@@ -36,27 +36,30 @@
       </div>
 
       <div v-if="friendTab==='friends'" class="friend-area">
-        <div class="search"><div class="friend-search-input"><UiIcon name="search" /><input v-model.trim="keyword" class="sr-input" :aria-label="mt('查找好友')" :placeholder="mt('账号、姓名或手机号')" @keyup.enter="search" /></div><button class="sr-button" :disabled="searching" @click="search"><span v-if="searching" class="search-spinner"></span>{{ searching?mt('查找中'):mt('查找好友') }}</button></div>
-        <el-dialog v-model="searchVisible" :title="mt('查找好友')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog">
+        <div class="search"><div class="friend-search-input"><UiIcon name="search" /><input v-model.trim="friendKeyword" maxlength="100" class="sr-input" :aria-label="mt('查找现有好友')" :placeholder="mt('查找现有好友')" /></div><button class="sr-button" @click="openAddFriend">{{ mt('添加好友') }}</button></div>
+        <el-dialog v-model="searchVisible" :title="mt('添加好友')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog" @closed="resetSearch">
+          <form class="search" @submit.prevent="search"><div class="friend-search-input"><input v-model.trim="keyword" maxlength="100" class="sr-input" :aria-label="mt('搜索新好友')" :placeholder="mt('账号（人员号）/ 手机号 / 邮箱')" /></div><button class="sr-button" :disabled="searching||!keyword">{{ searching?mt('查找中'):mt('查找') }}</button></form>
+          <p class="search-empty">{{ mt('请输入完整账号、手机号或邮箱，不支持姓名搜索') }}</p>
           <div class="search-results" aria-live="polite">
             <div v-if="searching" class="search-loading" role="status"><span></span><span></span><span></span>{{ mt("正在查找好友…") }}</div>
-            <p v-else-if="searchError" class="search-empty">{{ mt("查找失败，请关闭弹窗后重试") }}</p>
+            <p v-else-if="searchError" class="search-empty">{{ mt("查找失败，请重试") }}</p>
             <p v-else-if="searched&&!results.length" class="search-empty">{{ mt("没有找到匹配的用户") }}</p>
             <div v-for="user in results" :key="user.id" class="person">
               <div class="sr-avatar"><img v-if="user.avatar" :src="user.avatar" alt=""/><template v-else>{{ userInitial(user) }}</template></div>
-              <div><b>{{ userDisplay(user) }}</b><p>{{ user.account }} · {{ user.phone||mt('未留手机') }}</p></div>
+              <div><b>{{ userDisplay(user) }}</b><p>@{{ user.account }}</p></div>
               <button v-if="user.relationStatus==='NONE'" class="sr-button secondary" @click="openPermission(user,'FRIEND')">{{ mt("添加") }}</button><span v-else class="relation">{{ mt(relation(user.relationStatus)) }}</span>
             </div>
           </div>
         </el-dialog>
         <div class="friend-scroll">
-          <section v-if="friends.length" class="sr-card people-card friend-list">
-            <div v-for="user in friends" :key="user.id" class="person">
+          <section v-if="filteredFriends.length" class="sr-card people-card friend-list">
+            <div v-for="user in filteredFriends" :key="user.id" class="person">
               <div class="sr-avatar"><img v-if="user.avatar" :src="user.avatar" alt=""/><template v-else>{{ userInitial(user) }}</template></div>
-              <div><b>{{ userDisplay(user) }}</b><p>@{{ user.account }}<template v-if="user.phone"> · {{ user.phone }}</template></p><small>{{ mt(permissionLabel(user.permissionMode)) }}</small></div><button class="permission-change" @click="openPermission(user,'PERMISSION')">{{ mt("管理") }}</button>
+              <div><b>{{ userDisplay(user) }}</b><p><template v-if="user.friendRemark">{{ user.name||user.realName }} · </template>@{{ user.account }}</p><small>{{ mt(permissionLabel(user.permissionMode)) }}</small></div>
+              <div class="friend-row-actions"><button type="button" class="friend-permission-button" @click="openPermission(user,'PERMISSION')">{{ mt('权限设定') }}</button><button type="button" class="friend-edit-button" @click="openFriend(user)">{{ mt('编辑资料') }}</button></div>
             </div>
           </section>
-          <div v-else class="sr-card sr-empty">{{ mt("暂无好友，可以通过账号、姓名或手机号查找") }}</div>
+          <div v-else class="sr-card sr-empty">{{ mt(friends.length?'没有匹配的好友':'暂无好友，点击“添加好友”开始查找') }}</div>
         </div>
       </div>
 
@@ -79,6 +82,15 @@
           <div v-if="!pendingCount" class="sr-card sr-empty">{{ mt("暂无待通过的好友申请") }}</div>
         </div>
       </div>
+      <el-dialog v-model="friendDetailVisible" :title="mt('好友资料')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog" :close-on-click-modal="!remarkSaving" :show-close="!remarkSaving" :close-on-press-escape="!remarkSaving">
+        <form v-if="selectedFriend" class="profile-edit-form friend-detail-form" @submit.prevent="saveRemark">
+          <dl><dt>姓名</dt><dd>{{ selectedFriend.name||selectedFriend.realName||'未填写' }}</dd><dt>账号（人员号）</dt><dd>{{ selectedFriend.account }}</dd><dt>手机号</dt><dd>{{ selectedFriend.phone||'未填写' }}</dd><dt>邮箱</dt><dd>{{ selectedFriend.email||'未填写' }}</dd></dl>
+          <label for="friend-remark">备注（昵称）</label><input id="friend-remark" v-model="remarkDraft" maxlength="30" class="sr-input" placeholder="仅自己可见，最多30字" :disabled="remarkSaving" />
+          <small>不修改好友本名。可在 AI 对话中使用此备注；留空可清除。</small>
+          <p v-if="remarkError" class="profile-error" role="alert">{{ remarkError }}</p>
+          <button class="sr-button" :disabled="remarkSaving">{{ remarkSaving?'保存中…':'保存备注' }}</button>
+        </form>
+      </el-dialog>
       <button class="logout" @click="logout"><UiIcon name="logout" />{{ mt("退出登录") }}</button>
       <Transition name="mobile-sheet"><div v-if="permissionDialog.open" class="sheet-mask" @click.self="permissionDialog.open=false">
         <section class="permission-sheet sr-card">
@@ -101,6 +113,8 @@ defineOptions({name:'SmartReminderMe'});
 import {onDeactivated,onActivated} from 'vue';
 import {mt} from './mobileLocale';
 import UiIcon from './UiIcon.vue';
+import {saveFriendRemark} from '@/api/smartReminder';
+import {watch} from 'vue';
 const editingProfile=ref(false),profileDraft=reactive({name:'',phone:'',email:''}),profileErrorMessage=ref('');
 let friendsRevision=0;
 import { profileError } from './accountRules.mjs';
@@ -113,6 +127,23 @@ useSilentRefresh(async current=>{
   friends.value=list.data.data||[];Object.assign(requests,pending.data.data||{incoming:[],outgoing:[]});
 });
 const searchVisible=ref(false),searchError=ref(false);
+const friendKeyword=ref(''),friendDetailVisible=ref(false),selectedFriendId=ref(''),remarkDraft=ref(''),remarkSaving=ref(false),remarkError=ref('');
+const filteredFriends=computed(()=>{const query=friendKeyword.value.toLocaleLowerCase();return friends.value.filter(user=>[user.friendRemark,user.name,user.realName,user.account,user.phone,user.email].some(value=>String(value||'').toLocaleLowerCase().includes(query)));});
+const selectedFriend=computed(()=>friends.value.find(user=>String(user.id)===selectedFriendId.value));
+const openFriend=user=>{selectedFriendId.value=String(user.id);remarkDraft.value=user.friendRemark||'';remarkError.value='';friendDetailVisible.value=true;};
+const saveRemark=async()=>{
+  if(!selectedFriend.value||remarkSaving.value)return;
+  const targetUserId=selectedFriendId.value,remark=remarkDraft.value.trim();
+  if(Array.from(remark).length>30||/[\u0000-\u001f\u007f-\u009f]/.test(remark)){remarkError.value='备注不能超过30字或包含控制字符';return;}
+  remarkSaving.value=true;remarkError.value='';++friendsRevision;
+  try{await saveFriendRemark({targetUserId,remark});++friendsRevision;friends.value=friends.value.map(user=>String(user.id)===targetUserId?{...user,friendRemark:remark}:user);friendDetailVisible.value=false;ElMessage.success(mt('好友备注已保存'));}
+  catch(error){remarkError.value=error?.message||'保存失败，请重试';}
+  finally{remarkSaving.value=false;}
+};
+let searchTicket=0;
+const resetSearch=()=>{++searchTicket;keyword.value='';results.value=[];searched.value=false;searching.value=false;searchError.value=false;};
+const openAddFriend=()=>{resetSearch();searchVisible.value=true;};
+watch(searchVisible,visible=>{if(!visible)++searchTicket;});
 const openProfileEditor=()=>{Object.assign(profileDraft,{name:profile.nickname,phone:data.value.user?.phone||'',email:data.value.user?.email||''});profileErrorMessage.value='';editingProfile.value=true;};
 const saveProfile=async()=>{
   if(saving.value)return;
@@ -135,22 +166,36 @@ const loadFriends=async()=>{const revision=++friendsRevision;const [list,pending
 const save=async()=>{if(!profile.nickname){ElMessage.warning(mt('请输入昵称'));return;}saving.value=true;try{const res=await updateProfile({nickname:profile.nickname,avatar:profile.avatar,aiAvatar:profile.aiAvatar});applyUser(res.data.data||{});window.dispatchEvent(new Event('smart-reminder:profile-updated'));ElMessage.success(mt('个人资料已保存'));}finally{saving.value=false;}};
 const chooseAvatar=async url=>{if(saving.value||uploading.value)return;const field=avatarTarget.value==='ai'?'aiAvatar':'avatar',previous=profile[field];profile[field]=url;try{await save();avatarTarget.value='';}catch(error){profile[field]=previous;ElMessage.error(mt(error?.message||'保存头像失败'));}};
 const changeAvatar=async file=>{if(!file||uploading.value||saving.value)return;if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)||file.size>2*1024*1024){ElMessage.warning(mt('请选择 2MB 以内的 JPG、PNG、GIF 或 WEBP 图片'));return;}uploading.value=true;try{const res=await uploadAvatar(file),value=res.data.data,url=value?.link||value?.url||value;if(typeof url!=='string'||!url)throw new Error('未获得头像地址');uploading.value=false;await chooseAvatar(url);}catch(error){ElMessage.error(mt(error?.message||'头像上传失败'));}finally{uploading.value=false;}};
-const search=async()=>{if(!keyword.value||searching.value)return;searchVisible.value=true;searchError.value=false;searching.value=true;searched.value=false;results.value=[];const query=keyword.value;try{const response=await searchUsers(query);if(keyword.value===query){results.value=response.data.data||[];searched.value=true;}}catch(error){searchError.value=true;ElMessage.error(mt(error?.message||'查找失败，请重试'));}finally{searching.value=false;}};
-const unfriend=async()=>{const user=permissionDialog.user;if(!user||removing.value)return;try{await ElMessageBox.confirm(mt('解除与 {name} 的好友关系后，双方不能再新建提醒或恢复提醒分支。历史事件与消息仍保留。',{name:userDisplay(user)}),mt('解除好友关系'),{confirmButtonText:mt('解除关系'),cancelButtonText:mt('保留好友'),type:'warning'});}catch{return;}removing.value=true;try{await removeFriend(user.id);permissionDialog.open=false;await loadFriends();if(keyword.value)await search();window.dispatchEvent(new Event('smart-reminder:badge-refresh'));ElMessage.success(mt('好友关系已解除'));}finally{removing.value=false;}};
+const search=async()=>{if(!keyword.value||keyword.value.length>100||searching.value)return;const ticket=++searchTicket;searchError.value=false;searching.value=true;searched.value=false;results.value=[];try{const response=await searchUsers(keyword.value);if(ticket===searchTicket&&searchVisible.value){results.value=response.data.data||[];searched.value=true;}}catch(error){if(ticket===searchTicket)searchError.value=true;}finally{if(ticket===searchTicket)searching.value=false;}};
+const unfriend=async()=>{const user=permissionDialog.user;if(!user||removing.value)return;try{await ElMessageBox.confirm(mt('解除与 {name} 的好友关系后，双方不能再新建提醒或恢复提醒分支。历史事件与消息仍保留。',{name:userDisplay(user)}),mt('解除好友关系'),{confirmButtonText:mt('解除关系'),cancelButtonText:mt('保留好友'),type:'warning'});}catch{return;}removing.value=true;try{await removeFriend(user.id);permissionDialog.open=false;await loadFriends();window.dispatchEvent(new Event('smart-reminder:badge-refresh'));ElMessage.success(mt('好友关系已解除'));}finally{removing.value=false;}};
 const openPermission=(user,type)=>{searchVisible.value=false;permissionDialog.user=user;permissionDialog.type=type;permissionDialog.mode=type==='PERMISSION'?(user.permissionMode||'MUTUAL'):'MUTUAL';permissionDialog.open=true;};
-const submitPermission=async()=>{const user=permissionDialog.user;if(!user||permissionDialog.submitting)return;permissionDialog.submitting=true;try{await requestFriend({targetUserId:user.id,permissionMode:permissionDialog.mode,message:permissionDialog.type==='FRIEND'?'我想添加你为智能提醒好友':'申请变更好友提醒权限'});ElMessage.success(mt(permissionDialog.type==='FRIEND'?'好友申请已发送':'权限变更申请已发送'));permissionDialog.open=false;await Promise.all([keyword.value?search():Promise.resolve(),loadFriends()]);}finally{permissionDialog.submitting=false;}};
+const submitPermission=async()=>{const user=permissionDialog.user;if(!user||permissionDialog.submitting)return;permissionDialog.submitting=true;try{await requestFriend({targetUserId:user.id,permissionMode:permissionDialog.mode,message:permissionDialog.type==='FRIEND'?'我想添加你为智能提醒好友':'申请变更好友提醒权限'});ElMessage.success(mt(permissionDialog.type==='FRIEND'?'好友申请已发送':'权限变更申请已发送'));permissionDialog.open=false;await loadFriends();}finally{permissionDialog.submitting=false;}};
 const reply=async(id,accept)=>{await replyFriend({requestId:id,accept});ElMessage.success(mt(accept?'申请已同意':'已拒绝'));await loadFriends();window.dispatchEvent(new Event('smart-reminder:badge-refresh'));};
 const exitSession=async()=>{try{await store.dispatch('LogOut');}catch{await store.dispatch('FedLogOut');}router.replace('/app/login');};
-const logout=async()=>{try{await ElMessageBox.confirm('确定退出当前账号吗？','退出登录',{confirmButtonText:'退出登录',cancelButtonText:'取消',type:'warning'});}catch{return;}await exitSession();};
+const logout=async()=>{try{await ElMessageBox.confirm('退出后需要重新登录，聊天与事件记录仍会保留。','退出当前账号？',{confirmButtonText:'退出登录',cancelButtonText:'暂不退出',type:'warning',customClass:'app-logout-confirm',showClose:false,closeOnClickModal:false,autofocus:false});}catch{return;}await exitSession();};
+watch(keyword,()=>{++searchTicket;results.value=[];searched.value=false;searching.value=false;searchError.value=false;});
+watch(selectedFriend,user=>{if(!user)friendDetailVisible.value=false;});
 onMounted(()=>withMobileLoading(()=>Promise.all([loadProfile(),loadFriends()])));
 let profileActivated=false;
 onActivated(()=>{if(profileActivated)void loadProfile().catch(()=>{});profileActivated=true;});
-onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;avatarTarget.value='';permissionDialog.open=false;});
+onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;friendDetailVisible.value=false;resetSearch();avatarTarget.value='';permissionDialog.open=false;});
 </script>
+<style scoped>
+.friend-detail-form dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;margin:0 0 16px}.friend-detail-form dt{color:#8993a8}.friend-detail-form dd{margin:0;overflow-wrap:anywhere;color:#263653}.friend-detail-form .permission-change{margin-top:12px;min-height:40px}.search-results{max-height:42dvh;overflow-y:auto}.friend-list .permission-change{white-space:nowrap}
+</style>
+<style scoped>
+.me-page .person>.friend-row-actions{flex:0 0 82px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.friend-row-actions button{min-height:36px;border-radius:11px;padding:0 10px;font-size:12px;white-space:nowrap;font-weight:550;cursor:pointer;touch-action:manipulation;transition:transform .15s,box-shadow .15s}
+.friend-permission-button{color:#647393;background:#f7f9fd;border:1px solid #e5eaf4}
+.friend-edit-button{color:#5269d8;background:linear-gradient(135deg,#eef5ff,#f2f0ff);border:1px solid #e3e9ff}
+.friend-row-actions button:active{transform:scale(.96);box-shadow:inset 0 1px 5px #748bd51a}
+@media(max-width:360px){.me-page .person>.friend-row-actions{flex-basis:76px}.friend-row-actions button{padding:0 6px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.friend-row-actions button{transition:none}}
+</style>
 
 <style scoped>
 .profile-edit-form input{font-size:16px;min-width:0;width:100%}.profile-edit-form small{color:#8b96aa;font-size:12px;line-height:1.5}.profile-error{color:#b84444;font-size:13px;margin:0}.profile-edit-form{max-height:70dvh;overflow-y:auto;padding:2px}
-:global(.friend-search-dialog.el-dialog){padding:18px;border-radius:22px;max-height:80dvh;box-sizing:border-box}
+:global(.friend-search-dialog.el-dialog){padding:18px;border-radius:22px;max-height:80dvh;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain}
 :global(.friend-search-dialog .el-dialog__header){padding:0 28px 14px 0;margin:0;border-bottom:1px solid #edf0f5}
 :global(.friend-search-dialog .el-dialog__title){font-size:17px;font-weight:650;color:#263653}
 :global(.friend-search-dialog .el-dialog__body){padding:12px 0 0}
@@ -188,6 +233,7 @@ onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;avatarTa
 .me-page .search{gap:9px;margin-bottom:10px}
 .friend-search-input{display:flex;align-items:center;gap:9px;padding-left:13px;border:1px solid #e9edf5;border-radius:13px;background:#ffffffec;min-width:0;color:#919cb1}
 .friend-search-input .ui-icon{width:19px;height:19px}
+.friend-list b{overflow-wrap:anywhere}
 .friend-search-input:focus-within{border-color:#8ea9ff;box-shadow:0 0 0 3px #edf1ff}
 .friend-search-input .sr-input{border:0;background:transparent;padding-left:0;box-shadow:none;min-width:0;font-size:13px;min-height:39px}
 .me-page .search>.sr-button{min-height:39px;font-size:13px;padding:0 14px;border-radius:12px;background:linear-gradient(135deg,#4266ff,#4b64fc);white-space:nowrap}

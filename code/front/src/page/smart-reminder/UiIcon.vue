@@ -2,6 +2,7 @@
 <script setup>
 defineProps({name:String});
 const paths={
+  reset:'M3 10a9 9 0 1 1 2 8M3 4v6h6',
   check:'m5 12 4 4L19 6',
   menu:'M5 6h14M5 12h14M5 18h14',
   list:'M9 5h12M9 12h12M9 19h12M3 5h.01M3 12h.01M3 19h.01',

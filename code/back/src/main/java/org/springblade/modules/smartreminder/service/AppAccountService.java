@@ -21,6 +21,25 @@ public class AppAccountService {
     private static final String TENANT = "000000";
     private final Map<String, long[]> attempts = new HashMap<>();
 
+    /** Persisted daily counter: suggestions are distinct across app instances/restarts.
+     * The blade_user unique index remains the final arbiter if a user edits an account. */
+    @Transactional(rollbackFor=Exception.class)
+    public String suggestAccount() {
+        String day = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
+            .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        jdbc.update("insert into blade_app_account_sequence(account_day,next_value) values(?,0) on duplicate key update account_day=account_day", day);
+        Long value = jdbc.queryForObject("select next_value from blade_app_account_sequence where account_day=? for update", Long.class, day);
+        for (int i=0;i<1000;i++) {
+            if (value == null || value >= 999999999L) throw new ServiceException("暂时无法生成账号，请手动填写");
+            String account = day + String.format(Locale.ROOT, "%02d", ++value);
+            if (jdbc.queryForObject("select count(*) from blade_user where tenant_id=? and account=?", Integer.class, TENANT, account) == 0) {
+                jdbc.update("update blade_app_account_sequence set next_value=? where account_day=?", value, day);
+                return account;
+            }
+        }
+        throw new ServiceException("暂时无法生成账号，请手动填写");
+    }
+
     // Bounded per-instance abuse protection; deployments should also rate-limit at the gateway.
     public synchronized void limit(String key, int maximum) {
         long now = System.currentTimeMillis();
@@ -32,12 +51,21 @@ public class AppAccountService {
 
     @Transactional(rollbackFor=Exception.class)
     public void register(Registration input) {
+        input.setPhone(Objects.toString(input.getPhone(),"").trim());
+        input.setEmail(Objects.toString(input.getEmail(),"").trim().toLowerCase(Locale.ROOT));
+        if (!input.isContactProvided()) throw new ServiceException("手机号和邮箱至少填写一项");
         // Fail closed until the additive migration is installed. The database constraint
         // arbitrates concurrent signups AND administrative account creation.
         Integer indexes = jdbc.queryForObject("select count(*) from information_schema.statistics where table_schema=database() and table_name='blade_user' and index_name='uk_app_account_tenant' and non_unique=0", Integer.class);
         if (indexes == null || indexes < 1) throw new ServiceException("注册服务尚未就绪，请联系管理员");
+        Integer contactIndexes=jdbc.queryForObject("select count(distinct index_name) from information_schema.statistics where table_schema=database() and table_name='blade_user' and index_name in ('uk_app_phone_tenant','uk_app_email_tenant') and non_unique=0",Integer.class);
+        if (contactIndexes == null || contactIndexes != 2) throw new ServiceException("联系方式唯一性保护尚未安装，请联系管理员");
         if (jdbc.queryForObject("select count(*) from blade_user where tenant_id=? and account=?", Integer.class, TENANT, input.getAccount()) > 0)
-            throw new ServiceException("账号已存在，请更换人员号");
+            throw new ServiceException("账号已存在，请更换账号");
+        if (!input.getPhone().isEmpty() && jdbc.queryForObject("select count(*) from blade_user where tenant_id=? and is_deleted=0 and trim(phone)=?",Integer.class,TENANT,input.getPhone())>0)
+            throw new ServiceException("手机号已被使用，请更换手机号");
+        if (!input.getEmail().isEmpty() && jdbc.queryForObject("select count(*) from blade_user where tenant_id=? and is_deleted=0 and lower(trim(email))=?",Integer.class,TENANT,input.getEmail())>0)
+            throw new ServiceException("邮箱已被使用，请更换邮箱");
         List<Long> roles = jdbc.queryForList("select id from blade_role where tenant_id=? and role_alias='app_user' and is_deleted=0", Long.class, TENANT);
         if (roles.size() != 1) throw new ServiceException("APP使用人员角色尚未配置，请联系管理员");
         User user = new User();
@@ -47,7 +75,7 @@ public class AppAccountService {
         user.setRoleId(String.valueOf(roles.get(0))); user.setUserType("1");
         user.setStatus(1); user.setIsDeleted(0); user.setCreateTime(new Date());
         try { if (!users.submit(user)) throw new ServiceException("注册失败，请稍后重试"); }
-        catch (DuplicateKeyException duplicate) { throw new ServiceException("账号已存在，请更换人员号"); }
+        catch (DuplicateKeyException duplicate) { throw new ServiceException("账号、手机号或邮箱已被使用，请检查后重试"); }
     }
 
     @Transactional(rollbackFor=Exception.class)

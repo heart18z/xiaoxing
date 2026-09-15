@@ -104,7 +104,7 @@ const user = {
               confirm
             ),
           data => applyLoginData(commit, data),
-          { onCancel: () => resolve() }
+          { onCancel: () => resolve(), throwErrors:userInfo.mobile===true }
         )
           .then(() => resolve())
           .catch(err => reject(err));

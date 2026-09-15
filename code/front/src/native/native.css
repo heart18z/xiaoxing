@@ -1,5 +1,8 @@
 html.native-app,html.native-app body,html.native-app #app{height:100%;overflow:hidden}
 html.native-app,html.native-app body{background:#f4f7fd}
+/* Cover nested scrollers and body-teleported dialogs, not only the tab buttons.
+   Disable accidental double-tap zoom without blocking pan, pinch or text selection. */
+html.native-app,html.native-app *{touch-action:manipulation}
 html.native-app .sr-shell{padding-top:env(safe-area-inset-top);box-sizing:border-box;height:100dvh;min-height:0}
 html.native-app .sr-shell.skin-chat,html.native-app .sr-shell.skin-events,html.native-app .sr-shell.skin-profile{height:100dvh}
 html.native-app .skin-event-detail .sr-main{padding-bottom:calc(24px + env(safe-area-inset-bottom))}

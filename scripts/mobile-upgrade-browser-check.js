@@ -63,6 +63,7 @@ async (page) => {
   await form.getByRole('button',{name:'隐藏密码',exact:true}).click();
   if(await registrationPassword.getAttribute('type')!=='password')throw Error('password not masked');
   checks.push('registration password eye reveals and masks without changing value');
+  await form.getByLabel('手机号',{exact:true}).fill('13800138000');
   await form.getByRole('button',{name:'注册',exact:true}).click();
   await form.getByRole('alert').filter({hasText:'账号已存在'}).waitFor();
   await page.screenshot({path:'output/playwright/upgrade-register-320.png'});

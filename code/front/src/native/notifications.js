@@ -104,10 +104,12 @@ export async function startNativeNotifications(appRouter, appStore) {
     refreshViews(); serial(revokePending).catch(() => {}); void enableNotifications(false); openPendingTap();
   });
   await Keyboard.addListener('keyboardWillShow', ({keyboardHeight}) => {
+    window.dispatchEvent(new Event('native:keyboard-layout'));
     document.documentElement.style.setProperty('--native-keyboard-height', Math.max(0,keyboardHeight||0)+'px');
     document.documentElement.classList.add('keyboard-open');
   });
   await Keyboard.addListener('keyboardWillHide', () => {
+    window.dispatchEvent(new Event('native:keyboard-layout'));
     document.documentElement.style.setProperty('--native-keyboard-height','0px');
     document.documentElement.classList.remove('keyboard-open');
   });

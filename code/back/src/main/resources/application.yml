@@ -255,6 +255,7 @@ blade:
       - /blade-unifiedMessagingSend/unifiedMessagingSend/submit
       - /app/reminder/**
       - /app/account/register
+      - /app/account/suggest-account
       - /app/account/password
       - /blade-smart/ai-config/**
   #安全框架配置
@@ -265,6 +266,7 @@ blade:
       - /blade-system/param/login-page-param
       - /blade-system/param/favicon
       - /app/account/register
+      - /app/account/suggest-account
       - /open/**
       - /unified-oauth/get-login-url
     #授权认证配置

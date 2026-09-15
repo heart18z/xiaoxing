@@ -12,8 +12,8 @@
         <p v-for="b in visibleProgress" :key="b.id"><span v-if="detail.creator">{{ b.name||b.realName||b.account }}： </span>{{ b.currentFact }}</p>
         <button v-if="progressItems.length>2" class="overview-toggle" type="button" :aria-expanded="progressExpanded" @click="progressExpanded=!progressExpanded">{{ mt(progressExpanded?'收起':'查看全部进展') }}</button>
       </div>
-      <p>{{ mt("事件时间：") }}{{ displayText(detail.event.event_time) || mt('未设定') }}</p>
-      <p>{{ mt("截止时间：") }}{{ displayText(detail.event.deadline_time) || mt('未设定') }}</p>
+      <p>{{ mt("事件时间：") }}{{ detail.event.event_timeVaries?mt('按接收人分别设置'):displayText(detail.event.event_time) || mt('未设定') }}</p>
+      <p>{{ mt("截止时间：") }}{{ detail.event.deadline_timeVaries?mt('按接收人分别设置'):displayText(detail.event.deadline_time) || mt('未设定') }}</p>
       <AlarmControl :detail="detail" />
       <div v-if="detail.creator" class="conversation-entry creator-entry">
         <div><b>{{ mt("发起人对话") }}</b><small>{{ mt("查看事件创建、调整及反馈记录") }}</small></div>
@@ -30,6 +30,8 @@
         <button type="button" class="conversation-button" @click="viewConversation(b.recipientUserId,b.name||b.realName||b.account)">{{ mt("查看对话") }}</button>
       </div>
       <p v-if="b.latestSummary" class="branch-summary">{{ mt('当前任务：') }}{{ displayText(b.latestSummary) }}</p>
+      <p class="branch-event-time">{{ mt('事件时间：') }}{{ displayText(b.taskEventTime)||mt('未设定') }}</p>
+      <p v-if="b.taskDeadlineTime">{{ mt('截止时间：') }}{{ displayText(b.taskDeadlineTime) }}</p>
       <p v-if="b.currentFact">{{ mt("最新事实：") }}{{ b.currentFact }}</p>
     </section>
 
@@ -40,7 +42,8 @@
     <div class="timeline"><div v-for="item in displayTimeline" :key="item.id" :class="['node',{ai:isAiAction(item)}]"><i></i><div><b><span v-if="isAiAction(item)" class="ai-mark">AI</span>{{ item.nodeType==='BRANCH_TASK_UPDATED'?mt('任务已更新'):mt(nodeName(item)) }}</b><p>{{ item.content }}</p><small>{{ mt("操作人：") }}{{ timelineActor(item) }} · </small><small>{{ item.createTime }}</small></div></div><div v-if="!displayTimeline.length" class="sr-empty">{{ mt("当前分支暂无时间轴记录") }}</div></div>
 
     <el-dialog v-model="conversationVisible" :title="conversationTitle" width="min(92vw,560px)" top="8vh" append-to-body destroy-on-close class="event-conversation-dialog">
-      <div v-if="conversationLoading" class="conversation-empty">{{ mt("正在读取对话…") }}</div>
+      <div class="conversation-frame" :aria-busy="conversationLoading">
+      <div v-if="conversationLoading" class="conversation-empty" role="status">{{ mt("正在读取对话…") }}</div>
       <div v-else-if="!conversation.messages?.length" class="conversation-empty">{{ mt("该事件暂时没有对话记录") }}</div>
       <div v-else class="conversation-list">
         <div v-for="message in conversation.messages" :key="message.id" :class="['conversation-message',message.messageRole]">
@@ -55,9 +58,14 @@
           </div>
         </div>
       </div>
+      </div>
     </el-dialog>
   </AppShell>
 </template>
+<style scoped>
+.conversation-frame{height:min(68vh,620px);height:min(68dvh,620px);overflow:hidden}.conversation-frame .conversation-list{height:100%;box-sizing:border-box;overscroll-behavior:contain}.conversation-frame .conversation-empty{height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+:global(.event-conversation-dialog .el-dialog__title){display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:24px}
+</style>
 
 <script setup>
 import {mt} from './mobileLocale';

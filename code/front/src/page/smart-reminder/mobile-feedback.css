@@ -2,7 +2,28 @@
 html.mobile-app-route .el-message {
   margin-top: max(44px, env(safe-area-inset-top, 0px));
   max-width: min(440px, calc(100vw - 32px));
-  padding: 12px 16px;
-  border-radius: 12px;
+  padding: 14px 18px;
+  border-radius: 20px;
+  width:max-content;
+  border:1px solid #ffffffdc;
+  box-shadow:0 10px 32px #25365925;
+  background:#ffffffed;
+  backdrop-filter:blur(18px);
+  gap:10px;
 }
-html.mobile-app-route .el-message__content { line-height: 1.5; overflow-wrap: anywhere; }
+html.mobile-app-route .el-message__content { line-height: 1.5; overflow-wrap: anywhere; color:#354362;font-size:14px;font-weight:500; }
+html.mobile-app-route .el-message__icon{flex:none;font-size:21px}
+html.mobile-app-route .el-message--error{border-color:#f5dadd;background:#fff8f8f5}
+html.mobile-app-route .el-message--success{border-color:#d5ebe5;background:#f7fffcf5}
+html.mobile-app-route .el-message-box{width:min(360px,calc(100vw - 40px));padding:24px;border:1px solid #fff;border-radius:26px;box-shadow:0 20px 70px #23345930;max-height:calc(100dvh - 100px);overflow-y:auto}
+html.mobile-app-route .el-message-box__header{padding:0 0 14px}
+html.mobile-app-route .el-message-box__title{font-size:19px;font-weight:650;color:#24304b}
+html.mobile-app-route .el-message-box__content{padding:0;color:#78849b;line-height:1.7}
+html.mobile-app-route .el-message-box__btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:22px 0 0}
+html.mobile-app-route .el-message-box__btns .el-button{margin:0;min-height:46px;border:0;border-radius:14px;font-size:15px;background:#f0f3fa;color:#64728d}
+html.mobile-app-route .el-message-box__btns .el-button--primary{background:linear-gradient(120deg,#507cff,#6263ff);color:#fff}
+html.mobile-app-route .app-logout-confirm{text-align:center;padding:28px 24px 24px}
+html.mobile-app-route .app-logout-confirm .el-message-box__status{display:none}
+html.mobile-app-route .app-logout-confirm .el-message-box__message{padding:0}
+html.mobile-app-route .app-logout-confirm .el-message-box__header:before{content:'';display:block;width:54px;height:54px;margin:0 auto 16px;border-radius:18px;background:#fff0f1 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23df6571' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4H4v16h5M9 12h12m-4-4 4 4-4 4'/%3E%3C/svg%3E") center/27px no-repeat}
+html.mobile-app-route .app-logout-confirm .el-button--primary{background:#fff0f1;color:#d75060}
