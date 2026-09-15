@@ -48,13 +48,14 @@ async page=>{
   await filter.fill('不存在');if(await page.locator('.friend-list .person').count())throw Error('empty filter failed');
   await filter.fill('');checks.push('existing friends filter locally by remark/name/contact');
   const firstFriend=page.locator('.friend-list .person').first();
-  if(await firstFriend.getByRole('button').count()!==2)throw Error('friend needs two independent actions');
+  if(await firstFriend.getByRole('button').count()!==1)throw Error('friend needs one management action');
   await page.waitForTimeout(400);await page.screenshot({path:'output/playwright/ui-three-friends.png'});
-  await firstFriend.getByRole('button',{name:'权限设定',exact:true}).click();
+  await firstFriend.getByRole('button',{name:'管理',exact:true}).click();
+  await page.getByRole('dialog',{name:'好友资料',exact:true}).getByRole('button',{name:'权限设定',exact:true}).click();
   await page.getByRole('heading',{name:'申请变更权限'}).waitFor();
   if(await page.getByRole('dialog',{name:'好友资料'}).isVisible())throw Error('permissions opened profile');
   await page.locator('.sheet-head button').click();await page.locator('.sheet-mask').waitFor({state:'hidden'});
-  await firstFriend.getByRole('button',{name:'编辑资料',exact:true}).click();
+  await firstFriend.getByRole('button',{name:'管理',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'好友资料',exact:true});
   await dialog.getByText('friend@example.com',{exact:true}).waitFor();
   await dialog.getByLabel('备注（昵称）').fill('老陈');

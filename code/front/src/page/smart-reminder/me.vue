@@ -56,7 +56,7 @@
             <div v-for="user in filteredFriends" :key="user.id" class="person">
               <div class="sr-avatar"><img v-if="user.avatar" :src="user.avatar" alt=""/><template v-else>{{ userInitial(user) }}</template></div>
               <div><b>{{ userDisplay(user) }}</b><p><template v-if="user.friendRemark">{{ user.name||user.realName }} · </template>@{{ user.account }}</p><small>{{ mt(permissionLabel(user.permissionMode)) }}</small></div>
-              <div class="friend-row-actions"><button type="button" class="friend-permission-button" @click="openPermission(user,'PERMISSION')">{{ mt('权限设定') }}</button><button type="button" class="friend-edit-button" @click="openFriend(user)">{{ mt('编辑资料') }}</button></div>
+              <button type="button" class="permission-change" @click="openFriend(user)">{{ mt('管理') }}</button>
             </div>
           </section>
           <div v-else class="sr-card sr-empty">{{ mt(friends.length?'没有匹配的好友':'暂无好友，点击“添加好友”开始查找') }}</div>
@@ -89,6 +89,7 @@
           <small>不修改好友本名。可在 AI 对话中使用此备注；留空可清除。</small>
           <p v-if="remarkError" class="profile-error" role="alert">{{ remarkError }}</p>
           <button class="sr-button" :disabled="remarkSaving">{{ remarkSaving?'保存中…':'保存备注' }}</button>
+          <button type="button" class="permission-change" :disabled="remarkSaving" @click="manageSelectedFriend">{{ mt('权限设定') }}</button>
         </form>
       </el-dialog>
       <button class="logout" @click="logout"><UiIcon name="logout" />{{ mt("退出登录") }}</button>
@@ -131,6 +132,7 @@ const friendKeyword=ref(''),friendDetailVisible=ref(false),selectedFriendId=ref(
 const filteredFriends=computed(()=>{const query=friendKeyword.value.toLocaleLowerCase();return friends.value.filter(user=>[user.friendRemark,user.name,user.realName,user.account,user.phone,user.email].some(value=>String(value||'').toLocaleLowerCase().includes(query)));});
 const selectedFriend=computed(()=>friends.value.find(user=>String(user.id)===selectedFriendId.value));
 const openFriend=user=>{selectedFriendId.value=String(user.id);remarkDraft.value=user.friendRemark||'';remarkError.value='';friendDetailVisible.value=true;};
+const manageSelectedFriend=()=>{if(!selectedFriend.value||remarkSaving.value)return;friendDetailVisible.value=false;openPermission(selectedFriend.value,'PERMISSION');};
 const saveRemark=async()=>{
   if(!selectedFriend.value||remarkSaving.value)return;
   const targetUserId=selectedFriendId.value,remark=remarkDraft.value.trim();
@@ -182,15 +184,6 @@ onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;friendDe
 </script>
 <style scoped>
 .friend-detail-form dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;margin:0 0 16px}.friend-detail-form dt{color:#8993a8}.friend-detail-form dd{margin:0;overflow-wrap:anywhere;color:#263653}.friend-detail-form .permission-change{margin-top:12px;min-height:40px}.search-results{max-height:42dvh;overflow-y:auto}.friend-list .permission-change{white-space:nowrap}
-</style>
-<style scoped>
-.me-page .person>.friend-row-actions{flex:0 0 82px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
-.friend-row-actions button{min-height:36px;border-radius:11px;padding:0 10px;font-size:12px;white-space:nowrap;font-weight:550;cursor:pointer;touch-action:manipulation;transition:transform .15s,box-shadow .15s}
-.friend-permission-button{color:#647393;background:#f7f9fd;border:1px solid #e5eaf4}
-.friend-edit-button{color:#5269d8;background:linear-gradient(135deg,#eef5ff,#f2f0ff);border:1px solid #e3e9ff}
-.friend-row-actions button:active{transform:scale(.96);box-shadow:inset 0 1px 5px #748bd51a}
-@media(max-width:360px){.me-page .person>.friend-row-actions{flex-basis:76px}.friend-row-actions button{padding:0 6px;font-size:11px}}
-@media(prefers-reduced-motion:reduce){.friend-row-actions button{transition:none}}
 </style>
 
 <style scoped>
