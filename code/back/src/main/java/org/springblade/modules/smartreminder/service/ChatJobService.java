@@ -71,15 +71,37 @@ public class ChatJobService {
   }
   public Map<String,Object> status(Long user,String id){
     if(id==null||!id.matches("[A-Za-z0-9-]{16,80}"))throw new ServiceException("无效的请求编号");
-    var rows=db.queryForList("select job_status,result_json,error_message,created_at from blade_app_chat_job where user_id=? and request_id=?",user,id);
+    // MySQL DATETIME is returned as LocalDateTime, while H2 returns Timestamp.
+    // Compare in SQL instead of casting a driver-specific temporal object.
+    var rows=db.queryForList("select job_status,result_json,error_message,case when created_at < ? then 1 else 0 end as expired from blade_app_chat_job where user_id=? and request_id=?",new java.sql.Timestamp(System.currentTimeMillis()-900000),user,id);
     if(rows.isEmpty())return Map.of("status","NOT_FOUND","requestId",id);
     var row=rows.get(0);String state=Objects.toString(row.get("job_status"));
-    if(List.of("QUEUED","RUNNING").contains(state)&&((java.util.Date)row.get("created_at")).getTime()<System.currentTimeMillis()-900000)state="UNKNOWN";
+    if(List.of("QUEUED","RUNNING").contains(state)&&((Number)row.get("expired")).intValue()==1)state="UNKNOWN";
     Map<String,Object> result=new LinkedHashMap<>();result.put("requestId",id);result.put("status",state);
+    result.put("streamSupported",true);
     result.put("reasoning",thoughts.getOrDefault(user+":"+id,""));
     if(row.get("error_message")!=null)result.put("message",row.get("error_message"));
     if(row.get("result_json")!=null)try{result.put("result",mapper.readValue(row.get("result_json").toString(),Map.class));}catch(Exception e){throw new IllegalStateException(e);}
     return result;
+  }
+  /** Read-only observation: losing a connection must never stop the background worker. */
+  public void observe(Long user,String id,java.util.function.Consumer<Map<String,Object>> emit) throws InterruptedException {
+    Map<String,Object> current=status(user,id); // Validates request id and owner before reading thoughts.
+    long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(25),nextStatus=0;
+    String previous=null,key=user+":"+id;
+    while(true){
+      long now=System.nanoTime();
+      if(now>=nextStatus){current=status(user,id);nextStatus=now+TimeUnit.SECONDS.toNanos(1);}
+      String state=Objects.toString(current.get("status"));
+      if(!Set.of("QUEUED","RUNNING").contains(state)){
+        emit.accept(Map.of("type","result","data",current));return;
+      }
+      String reasoning=thoughts.getOrDefault(key,"");
+      // Full snapshots let a reconnect replace text without duplicating already displayed tokens.
+      if(!reasoning.equals(previous)){emit.accept(Map.of("type","snapshot","reasoning",reasoning));previous=reasoning;}
+      if(now>=until){emit.accept(Map.of("type","result","data",current));return;}
+      Thread.sleep(80);
+    }
   }
   @PreDestroy public void close(){executor.shutdown();}
 }

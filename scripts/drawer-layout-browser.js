@@ -9,9 +9,12 @@ async page=>{
   await page.setViewportSize({width:320,height:740});await page.waitForTimeout(250);
   const result=await page.locator('.reminder-drawer').evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,overflow:el.scrollWidth>el.clientWidth}));
   if(result.overflow||result.width>result.viewport)throw Error('drawer overflows narrow device');
-  await page.getByRole('button',{name:'选择日期范围'}).click();await page.locator('input[aria-label="开始日期"]').fill(day(1));await page.locator('input[aria-label="结束日期"]').fill(day(0));
-  await page.getByRole('alert').filter({hasText:'结束日期不能早于开始日期'}).waitFor();
+  await page.getByRole('button',{name:'选择日期范围'}).click();
+  const calendar=page.getByRole('dialog',{name:'选择提醒日期'});
+  await calendar.getByRole('button',{name:'明天',exact:true}).click();
   await page.screenshot({path:'output/playwright/reminder-drawer-narrow.png'});
+  await calendar.getByRole('button',{name:'确认筛选',exact:true}).click();
+  await page.getByText('把合同发给小王',{exact:true}).waitFor();
   await page.getByRole('button',{name:'还原'}).click();
-  return{narrow:result,invalidDateFeedback:true};
+  return{narrow:result,customCalendar:true};
 }

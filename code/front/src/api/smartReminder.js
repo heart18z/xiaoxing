@@ -83,6 +83,21 @@ export const getEventDetail = eventId => post('/api/app/reminder/event/detail', 
 export const getReminderDrawer = type => request({url:'/api/app/reminder/events/drawer',method:'post',params:{type},meta:{noProgress:true,silent:true}});
 export const submitChatJob = data => request({url:'/api/app/reminder/chat/jobs/submit',method:'post',data,timeout:15000,meta:{noProgress:true,silent:true}});
 export const getChatJob = requestId => request({url:'/api/app/reminder/chat/jobs/status',method:'post',data:{requestId},meta:{noProgress:true,silent:true}});
+// Observe accepted work only; closing this connection never cancels the server job.
+export const watchChatJob = async (requestId,{signal,onReasoning}={}) => {
+  const controller=new AbortController(),abort=()=>controller.abort(),hidden=()=>{if(document.hidden)abort();};
+  const timer=setTimeout(abort,35000);
+  signal?.addEventListener('abort',abort,{once:true});document.addEventListener('visibilitychange',hidden);
+  if(signal?.aborted||document.hidden)abort();
+  try{
+    const response=await requestChatStream(()=>{
+      const headers={Authorization:`Basic ${Base64.encode(`${website.clientId}:${website.clientSecret}`)}`,'Content-Type':'application/json;charset=UTF-8',Accept:'text/event-stream','Blade-Requested-With':'BladeHttpRequest'};
+      const token=getToken();if(token)headers[website.tokenHeader]=`bearer ${token}`;
+      return fetch(apiUrl('/api/app/reminder/chat/jobs/watch'),{method:'POST',headers,body:asciiJson({requestId}),credentials:isNative?'omit':'include',signal:controller.signal});
+    },()=>store.dispatch('RefreshToken'),controller.signal);
+    return await consumeChatStream(response,{onSnapshot:event=>onReasoning?.(event.reasoning||'')});
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);document.removeEventListener('visibilitychange',hidden);}
+};
 export const getEventConversation = (eventId, participantUserId) => request({url:'/api/app/reminder/event/conversation',method:'post',params:{eventId,participantUserId},timeout:30000,meta:{noProgress:true}});
 export const stopEvent = data => post('/api/app/reminder/event/stop', data);
 

@@ -112,14 +112,15 @@ async page=>{
   await page.screenshot({path:'output/playwright/ui-three-drawer.png'});
   const tabHeight=await page.getByRole('tab',{name:'全部',exact:true}).evaluate(el=>el.getBoundingClientRect().height);
   if(tabHeight>35)throw Error('drawer tabs are not compact');
-  await page.getByRole('button',{name:'选择日期范围'}).click();await page.locator('input[aria-label="开始日期"]').fill('2030-09-14');await page.locator('input[aria-label="结束日期"]').fill('2030-09-15');
+  await page.getByRole('button',{name:'选择日期范围'}).click();await page.getByRole('dialog',{name:'选择提醒日期'}).getByRole('button',{name:'未来7天',exact:true}).click();
   await page.setViewportSize({width:320,height:740});await page.waitForTimeout(200);
   if(await page.locator('.reminder-drawer').evaluate(el=>el.scrollWidth>el.clientWidth))throw Error('date row overflows');
   await page.screenshot({path:'output/playwright/ui-three-drawer-date-320.png'});
+  await page.getByRole('button',{name:'确认筛选',exact:true}).click();
   await page.getByRole('button',{name:'还原',exact:true}).click();await page.getByRole('button',{name:'选择日期范围'}).waitFor();
   await page.getByRole('button',{name:'关闭提醒列表'}).click();await page.waitForTimeout(400);
   await page.screenshot({path:'output/playwright/ui-three-tab.png'});
-  checks.push('two independent friend actions, smaller drawer tabs, date/reset/narrow screen');
+  checks.push('single friend management action, smaller drawer tabs, custom calendar/reset/narrow screen');
   if(errors.length)throw Error(errors.join('\n'));
   return {checks,searches,remarkWrites,dialogHeight:after.height,errors};
 }

@@ -242,13 +242,13 @@ axios.interceptors.response.use(
         message: message,
         type: 'error',
       });
-      return Promise.reject(new Error(message));
+      return Promise.reject(Object.assign(new Error(message), { response: res, status }));
     }
     return res;
   },
   error => {
     if (!error.config?.meta?.noProgress) NProgress.done();
-    return Promise.reject(new Error(error));
+    return Promise.reject(error);
   }
 );
 

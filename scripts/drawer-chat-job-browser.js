@@ -33,7 +33,8 @@ async page=>{
   await region.hover();await page.mouse.wheel(0,600);await page.waitForTimeout(250);if(await region.evaluate(el=>el.scrollTop)<=0)throw Error('drawer cannot scroll');
   if(await page.getByRole('tab',{name:'全部',exact:true}).getAttribute('aria-selected')!=='true')throw Error('all is not default');
   await page.getByRole('button',{name:'选择日期范围'}).click();
-  await page.locator('input[aria-label="开始日期"]').fill(day(1));await page.locator('input[aria-label="结束日期"]').fill(day(1));
+  await page.getByRole('dialog',{name:'选择提醒日期'}).getByRole('button',{name:'明天',exact:true}).click();
+  await page.getByRole('button',{name:'确认筛选',exact:true}).click();
   if(await page.getByText('待办事项 1',{exact:true}).count())throw Error('date filter retained today');
   await page.getByText('明日提交合同',{exact:true}).waitFor();
   await page.getByRole('button',{name:'还原'}).click();await page.getByText('待办事项 1',{exact:true}).waitFor();

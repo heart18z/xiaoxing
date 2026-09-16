@@ -126,6 +126,7 @@ import { ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
 import ReminderDrawer from './ReminderDrawer.vue';
 import {pendingChat,rememberPendingChat,clearPendingChat,followChatJob} from './pendingChat';
+import {revealReply} from './revealReply.mjs';
 import {ElMessageBox} from 'element-plus';
 import {setEventAlarm} from '@/native/alarms';
 import {getEventDetail} from '@/api/smartReminder';
@@ -266,7 +267,7 @@ const send=async()=>{
   if(pendingChat()){void resumePending();ElMessage.info('请先确认上一条消息的处理结果');return;}
   const content=text.value.trim(),fileIds=files.value.map(x=>x.id),now=Date.now();
   historyVersion++;historyRequest=null;historyLoading.value=false;
-  const submittedFiles=[...files.value];text.value='';files.value=[];thinking.value=true;
+  const submittedFiles=[...files.value];text.value='';files.value=[];thinking.value=true;recoveryNotice.value='';
   stopped=false;abortController=new AbortController();activeRequest=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
 	const assistant=reactive({id:`stream-${now}`,messageRole:'assistant',messageType:'TEXT',content:'',reasoningContent:'',thinkingOpen:true,streaming:true});
   messages.value.push({id:`user-${now}`,messageRole:'user',messageType:'TEXT',content,payload:{fileNames:submittedFiles.map(file=>file.name)}},assistant);
@@ -274,7 +275,9 @@ const send=async()=>{
   try{
     const request=await rememberPendingChat({content,fileIds,requestId:activeRequest,fileNames:submittedFiles.map(file=>file.name)});
     const result=await followChatJob(request,{signal:abortController.signal,onReasoning:value=>{assistant.reasoningContent=value;nextTick(()=>scrollToLatest());},onWaiting:value=>{recoveryNotice.value=value;}});
-    assistant.content=result?.reply||'已处理';assistant.thinkingOpen=false;recoveryNotice.value='';
+    assistant.thinkingOpen=false;recoveryNotice.value='';
+    await revealReply(result?.reply||'已处理',value=>{assistant.content=value;nextTick(()=>scrollToLatest());},{signal:abortController.signal,instant:document.hidden||window.matchMedia('(prefers-reduced-motion: reduce)').matches});
+    if(disposed||abortController.signal.aborted)return;
     assistant.streaming=false;
     window.dispatchEvent(new Event('smart-reminder:badge-refresh'));
     // History enriches cards in the background; it must not lock the composer.

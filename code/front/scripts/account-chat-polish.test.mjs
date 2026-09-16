@@ -19,6 +19,11 @@ test('EOF without commit or server errors never count as success',async()=>{
   await assert.rejects(consumeChatStream(response(frame({type:'delta',content:'已处理'}))),/结果待确认/);
   await assert.rejects(consumeChatStream(response(frame({type:'error',message:'没有权限'}))),/没有权限/);
 });
+test('job observer snapshots are replacements and lease endings need not imply task completion',async()=>{
+  const snapshots=[];
+  const value=await consumeChatStream(response(frame({type:'snapshot',reasoning:'第一段'})+frame({type:'snapshot',reasoning:'第一段第二段'})+frame({type:'result',data:{status:'RUNNING',streamSupported:true}})),{onSnapshot:value=>snapshots.push(value.reasoning)});
+  assert.deepEqual(snapshots,['第一段','第一段第二段']);assert.equal(value.status,'RUNNING');
+});
 test('retry exactly once on HTTP 401 only, never on network or business errors',async()=>{
   let sends=0,refreshes=0;
   const r=await requestChatStream(async()=>new Response('',{status:++sends===1?401:200}),async()=>{refreshes++;});

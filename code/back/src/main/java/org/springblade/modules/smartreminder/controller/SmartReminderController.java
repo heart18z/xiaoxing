@@ -52,6 +52,18 @@ public class SmartReminderController {
 	public R<Object> submitJob(@RequestBody ChatRequest request){AppRoleGuard.requireAppUser();return R.data(chatJobs.submit(AuthUtil.getUserId(),AuthUtil.getUserAccount(),request));}
 	@PostMapping("/chat/jobs/status")
 	public R<Object> jobStatus(@RequestBody ChatRequest request){AppRoleGuard.requireAppUser();return R.data(chatJobs.status(AuthUtil.getUserId(),request.getRequestId()));}
+	@PostMapping(value="/chat/jobs/watch", produces=MediaType.TEXT_EVENT_STREAM_VALUE)
+	public ResponseEntity<StreamingResponseBody> watchJob(@RequestBody ChatRequest request){
+		AppRoleGuard.requireAppUser();
+		Long user=AuthUtil.getUserId();String id=request.getRequestId();
+		chatJobs.status(user,id);
+		StreamingResponseBody body=output->{
+			try{writeSse(output,Map.of("type","ready"));chatJobs.observe(user,id,event->writeUnchecked(output,event));}
+			catch(UncheckedIOException disconnected){/* Observer disconnected; accepted work continues. */}
+			catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+		};
+		return ResponseEntity.ok().cacheControl(CacheControl.noCache()).header("X-Accel-Buffering","no").contentType(MediaType.TEXT_EVENT_STREAM).body(body);
+	}
 	@PostMapping("/events/drawer")
 	public R<Object> drawer(@RequestParam(defaultValue="sent") String type){AppRoleGuard.requireAppUser();return R.data(drawer.list(AuthUtil.getUserId(),"received".equals(type)));}
 

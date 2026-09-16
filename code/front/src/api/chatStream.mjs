@@ -10,6 +10,7 @@ export async function consumeChatStream(response, handlers={}) {
     const event=JSON.parse(json);
     if(event.type==='delta')handlers.onDelta?.(event.content||'');
     if(event.type==='reasoning')handlers.onReasoning?.(event.content||'');
+    if(event.type==='snapshot')handlers.onSnapshot?.(event);
     if(event.type==='error')throw new Error(event.message||'AI服务暂时不可用');
     if(event.type==='result'){result=event.data;completed=true;handlers.onResult?.(result);}
   };

@@ -2,7 +2,7 @@
   <el-drawer v-model="opened" direction="ltr" size="min(92vw,440px)" :with-header="false" append-to-body class="reminder-drawer" @open="refresh" @closed="rows=[]">
     <header class="drawer-heading"><div><h2>提醒列表</h2><p>查看与管理全部提醒</p></div><button aria-label="关闭提醒列表" @click="opened=false">×</button></header>
     <div class="drawer-filter"><button class="drawer-date-trigger" :class="{'has-range':startDate||endDate}" :aria-expanded="datesOpen" @click="datesOpen=!datesOpen"><span class="drawer-date-icon"><UiIcon name="calendar"/></span><span class="drawer-date-label">{{dateLabel}}</span><UiIcon class="drawer-date-chevron" name="chevron"/></button><button class="drawer-reset" @click="reset"><UiIcon name="reset"/><span>还原</span></button></div>
-    <div v-if="datesOpen" class="drawer-date-fields"><label>开始日期<input v-model="startDate" type="date" :max="endDate||undefined" aria-label="开始日期"/></label><label>结束日期<input v-model="endDate" type="date" :min="startDate||undefined" aria-label="结束日期"/></label><p v-if="invalidRange" role="alert">结束日期不能早于开始日期</p><p v-else>按卡片显示的提醒日期筛选</p></div>
+    <ReminderDateRange v-model="datesOpen" :start="startDate" :end="endDate" @apply="applyDates"/>
     <div class="drawer-tabs" role="tablist" aria-label="提醒归属"><button v-for="tab in tabs" :key="tab.key" role="tab" :aria-selected="type===tab.key" @click="type=tab.key">{{tab.title}}</button></div>
     <div class="drawer-events" role="region" aria-label="分组提醒列表" tabindex="0">
       <p v-if="loading" class="drawer-empty" role="status">正在读取提醒…</p>
@@ -19,6 +19,7 @@
 import {computed,ref,watch} from 'vue';
 import {useRouter} from 'vue-router';
 import UiIcon from './UiIcon.vue';
+import ReminderDateRange from './ReminderDateRange.vue';
 import {getReminderDrawer} from '@/api/smartReminder';
 import {reminderGroups,reminderDateLabel} from './reminderGroups.mjs';
 import {useSilentRefresh} from './useSilentRefresh';
@@ -26,6 +27,7 @@ const props=defineProps({modelValue:Boolean}),emit=defineEmits(['update:modelVal
 const opened=computed({get:()=>props.modelValue,set:v=>emit('update:modelValue',v)}),router=useRouter();
 const tabs=[{key:'all',title:'全部'},{key:'sent',title:'我发起的'},{key:'received',title:'我收到的'}],type=ref('all'),rows=ref([]),loading=ref(false),error=ref(false),now=ref(Date.now());let ticket=0;
 const startDate=ref(''),endDate=ref(''),datesOpen=ref(false);
+const applyDates=range=>{startDate.value=range.start;endDate.value=range.end;};
 const invalidRange=computed(()=>Boolean(startDate.value&&endDate.value&&startDate.value>endDate.value));
 const dateLabel=computed(()=>startDate.value||endDate.value?`${startDate.value.replaceAll('-','/')||'不限'} — ${endDate.value.replaceAll('-','/')||'不限'}`:'选择日期范围');
 const groups=computed(()=>reminderGroups(invalidRange.value?[]:rows.value,now.value,[startDate.value,endDate.value]));
@@ -35,7 +37,7 @@ const refresh=async(silent=false)=>{if(!props.modelValue)return;const current=++
   const results=await Promise.all(sources.map(async source=>{const response=await getReminderDrawer(source);return(response.data.data||[]).map(row=>({...row,source}));}));
   if(current===ticket&&props.modelValue){rows.value=results.flat();now.value=Date.now();}
 }catch{if(current===ticket&&!silent)error.value=true;}finally{if(current===ticket)loading.value=false;}};
-watch(type,()=>{rows.value=[];void refresh();});watch(()=>props.modelValue,value=>{if(!value){ticket++;loading.value=false;}});
+watch(type,()=>{rows.value=[];void refresh();});watch(()=>props.modelValue,value=>{if(!value){ticket++;loading.value=false;datesOpen.value=false;}});
 useSilentRefresh(()=>refresh(true));
 const openEvent=item=>{opened.value=false;router.push({path:'/app/event/'+item.eventId,query:{from:item.source}});};
 </script>
