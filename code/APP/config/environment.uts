@@ -1,0 +1,19 @@
+// Client identification matches the existing public App; no server secrets belong here.
+// Browser deployments use their own API proxy, including isolated LAN releases.
+function apiOrigin(): string {
+  // #ifdef WEB
+  return '';
+  // #endif
+  // #ifndef WEB
+  return 'https://47.100.172.149';
+  // #endif
+}
+export const ASSET_ORIGIN = apiOrigin();
+export const BASE_URL = ASSET_ORIGIN + '/api';
+export const BASIC_AUTH = 'Basic c2FiZXI6c2FiZXJfc2VjcmV0';
+export const TENANT = '000000';
+export const SM2_PUBLIC_KEY =
+  '04ddcbd16c70e495a0cc4107fef6df86bce8997c53daa6a421e520a79c18993054c4cd87c8173022543fda4e281642f6e8a080deac7c0e776b17594295058484aa';
+export const BUNDLE_ID = 'com.dfyj.xiaoxing';
+// Change to sandbox only for a development provisioning profile.
+export const PUSH_ENVIRONMENT = 'production';

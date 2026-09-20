@@ -1,0 +1,82 @@
+import { reactive } from 'vue';
+import { secureRead, secureWrite, randomHex } from '@/uni_modules/xiaoxing-native';
+import { s, n, obj, parseObject } from '@/core/json.uts';
+export type SessionState = {
+  token: string;
+  refresh: string;
+  userId: string;
+  expiresAt: number;
+  revision: number;
+  visible: boolean;
+  profile: UTSJSONObject;
+  summary: UTSJSONObject;
+  language: string;
+};
+export const session = reactive<SessionState>({
+  token: '',
+  refresh: '',
+  userId: '',
+  expiresAt: 0,
+  revision: 0,
+  visible: true,
+  profile: {} as UTSJSONObject,
+  summary: {} as UTSJSONObject,
+  language: 'zh-cn',
+});
+export function persist(key: string, value: string): void {
+  if (!secureWrite(key, value)) throw new Error('无法安全保存数据，请重试');
+}
+export function restoreSession(): void {
+  try {
+    const data = parseObject(secureRead('session'));
+    session.token = s(data, 'token');
+    session.refresh = s(data, 'refresh');
+    session.userId = s(data, 'userId');
+    session.expiresAt = n(data, 'expiresAt');
+  } catch (_) {
+    session.token = '';
+    session.refresh = '';
+    session.userId = '';
+  }
+}
+export function saveSession(data: UTSJSONObject): void {
+  const token = s(data, 'access_token'),
+    refresh = s(data, 'refresh_token'),
+    userId = s(data, 'user_id', session.userId);
+  if (token.length == 0 || refresh.length == 0 || userId.length == 0)
+    throw new Error('登录响应不完整');
+  const expiresAt = Date.now() + n(data, 'expires_in') * 1000;
+  persist(
+    'session',
+    JSON.stringify({ token: token, refresh: refresh, userId: userId, expiresAt: expiresAt }),
+  );
+  session.token = token;
+  session.refresh = refresh;
+  session.userId = userId;
+  session.expiresAt = expiresAt;
+}
+export function clearSession(): void {
+  persist('session', '');
+  session.revision++;
+  session.token = '';
+  session.refresh = '';
+  session.userId = '';
+  session.profile = {};
+  session.summary = {};
+}
+export function applyBootstrap(data: UTSJSONObject): void {
+  session.profile = obj(data, 'user');
+  session.summary = data;
+  session.language = s(data, 'language', 'zh-cn');
+}
+export function requestId(): string {
+  return randomHex(20);
+}
+export function hasSession(): boolean {
+  return session.token.length > 0;
+}
+export function requireSession(): boolean {
+  if (hasSession()) return true;
+  uni.reLaunch({ url: '/pages/login/index' });
+  return false;
+}

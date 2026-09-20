@@ -1,0 +1,5 @@
+import { NativeResult } from '../interface.uts'
+export function secureRead(key: string): string {return XiaoxingBridge.read(key)}
+export function secureWrite(key: string,value: string): boolean {return XiaoxingBridge.write(key,value)}
+export function randomHex(length: number): string {return XiaoxingBridge.random(length.toInt())}
+export function nativeCall(action: string,input: string,callback: NativeResult): void {XiaoxingBridge.call(action,input,callback)}

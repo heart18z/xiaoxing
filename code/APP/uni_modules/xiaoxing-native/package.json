@@ -1,0 +1,1 @@
+{"id":"xiaoxing-native","displayName":"小醒原生能力","version":"1.0.0","description":"安全存储、直接 APNs、系统闹铃和文件选择","uni_modules":{"dependencies":[],"encrypt":[],"platforms":{"client":{"App":{"app-ios":"y","app-android":"y"},"H5-mobile":{"Safari":"y","Android Browser":"y"}}}}}

@@ -33,3 +33,15 @@ output/
 sql/init_main.sql
 **/xcuserdata/
 **/DerivedData/
+
+# Native APP local tools, caches and signing files
+**/unpackage/
+**/.hbuilderx/
+**/output/
+**/.playwright-cli/
+**/Pods/
+**/__pycache__/
+*.keystore
+*.jks
+*.pfx
+code/APP/config/local.uts

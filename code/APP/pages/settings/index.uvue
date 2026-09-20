@@ -1,0 +1,265 @@
+<template>
+  <AppFrame
+    :loading="loading"
+    :title="t('设置')"
+    :subtitle="t('账号、通知与偏好')"
+    :back-button="true"
+  >
+    <scroll-view scroll-y class="scroll">
+      <view class="padded">
+        <view class="card">
+          <text class="heading">{{ t('账号安全') }}</text>
+          <view class="between" @click="passwordOpen = true">
+            <view class="grow">
+              <text class="body-text">{{ t('重置密码') }}</text>
+              <text class="muted">{{ t('验证原密码，设置新的登录密码') }}</text>
+            </view>
+            <UiIcon name="chevron" tone="blue" :size="22" />
+          </view>
+        </view>
+        <view class="card">
+          <text class="heading">{{ t('手机通知') }}</text>
+          <text class="notification-copy">
+            {{
+              pushState.registered
+                ? t('设备已绑定。实际提醒还受网络、专注模式等系统设置影响。')
+                : pushState.supported
+                  ? t('设备尚未完成推送绑定，请点击下方按钮开启或检查通知。')
+                  : t('请在手机 App 中开启通知。')
+            }}
+          </text>
+          <text class="notification-copy">
+            {{ t('通知将显示你的提醒内容，可在系统设置中控制锁屏预览。点击通知查看对应事件。') }}
+          </text>
+          <text v-if="pushState.error.length > 0" class="error">{{ pushState.error }}</text>
+          <button class="primary notification-button" @click="checkNotification()">
+            {{ t('开启 / 检查通知') }}
+          </button>
+        </view>
+        <text v-if="loading" class="muted">{{ t('正在读取设置…') }}</text>
+        <text v-if="error.length > 0" class="error">{{ error }}</text>
+        <view v-if="!loading" class="settings-fields">
+          <view class="card">
+            <text class="label">{{ t('界面语言') }}</text>
+            <SelectField
+              :options="['中文', 'English']"
+              :value="language == 'en-us' ? 1 : 0"
+              @change="selectLanguage"
+            />
+            <text class="muted">{{ t('保存后生效，历史消息保持原文。') }}</text>
+          </view>
+          <ModelSettings kind="LLM" :form="llm" :models="models" />
+          <ModelSettings kind="SPEECH" :form="speech" :models="models" />
+          <button v-if="failed" class="primary" @click="load()">{{ t('重新加载') }}</button>
+          <button v-else class="primary" :loading="saving" :disabled="saving" @click="save()">
+            {{ t('保存设置') }}
+          </button>
+        </view>
+      </view>
+    </scroll-view>
+  </AppFrame>
+  <AccountForm
+    :open="passwordOpen"
+    :register="false"
+    @close="passwordOpen = false"
+    @success="passwordChanged"
+  />
+</template>
+<script setup lang="uts">
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { reactive, ref } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import SelectField from '@/components/SelectField.uvue';
+import AccountForm from '@/components/AccountForm.uvue';
+import ModelSettings from '@/components/ModelSettings.uvue';
+import { ModelForm, blankModel } from '@/core/models.uts';
+import { reminder } from '@/api/request.uts';
+import { requireSession, session } from '@/store/session.uts';
+import { s, b, obj, arr, message, parseObject } from '@/core/json.uts';
+import { toast } from '@/core/ui.uts';
+import {
+  PushState,
+  pushState as _pushState,
+  syncPush as _syncPush,
+  callNative,
+  logout,
+} from '@/services/native.uts';
+function syncPush(requestPermission: boolean = false): Promise<void> {
+  return _syncPush(requestPermission);
+}
+const pushState: PushState = _pushState;
+function t(value: string): string {
+  return _t(value);
+}
+const passwordOpen = ref(false),
+  loading = ref(false),
+  saving = ref(false),
+  failed = ref(false),
+  error = ref(''),
+  language = ref('zh-cn'),
+  models = ref<UTSJSONObject[]>([]),
+  llm = reactive(blankModel()),
+  speech = reactive(blankModel());
+function selectLanguage(index: number) {
+  language.value = index == 1 ? 'en-us' : 'zh-cn';
+}
+function applyModel(form: ModelForm, data: UTSJSONObject, key: string) {
+  const personal = obj(data, key);
+  form.mode = s(data, key + 'Mode', 'SYSTEM');
+  form.configId = s(data, key + 'ConfigId');
+  form.baseUrl = s(personal, 'baseUrl');
+  form.modelName = s(personal, 'modelName');
+  form.apiKey = '';
+  form.extraBody = s(personal, 'extraBody', '{}');
+  form.showThinking = personal['showThinking'] != false;
+}
+function apply(data: UTSJSONObject) {
+  models.value = arr(data, 'models');
+  language.value = s(data, 'language', 'zh-cn');
+  applyModel(llm, data, 'llm');
+  applyModel(speech, data, 'speech');
+}
+async function load() {
+  loading.value = true;
+  error.value = '';
+  failed.value = false;
+  try {
+    apply(obj(await reminder('settings/models'), 'value'));
+  } catch (e) {
+    failed.value = true;
+    error.value = message(e);
+  } finally {
+    loading.value = false;
+  }
+}
+function personal(form: ModelForm): UTSJSONObject | null {
+  return form.mode != 'PERSONAL'
+    ? null
+    : {
+        baseUrl: form.baseUrl.trim(),
+        modelName: form.modelName.trim(),
+        apiKey: form.apiKey,
+        extraBody: form.extraBody,
+        showThinking: form.showThinking,
+      };
+}
+async function save() {
+  if (saving.value || failed.value) return;
+  error.value = '';
+  for (const form of [llm, speech])
+    if (
+      form.mode == 'PERSONAL' &&
+      (!form.baseUrl.startsWith('https://') || form.modelName.trim().length == 0)
+    ) {
+      error.value = '请填写 HTTPS 接口地址和模型名称';
+      return;
+    }
+  if (llm.mode == 'PERSONAL') {
+    try {
+      const text = llm.extraBody.trim();
+      if (!text.startsWith('{') || !text.endsWith('}')) throw new Error('object');
+      const extra = JSON.parseObject(text);
+      if (
+        extra == null ||
+        ['model', 'messages', 'stream'].some((key: string): boolean =>
+          UTSJSONObject.keys(extra!).includes(key),
+        )
+      )
+        throw new Error('reserved');
+    } catch (_) {
+      error.value = '额外 body 必须是 JSON 对象，且不能覆盖 model、messages、stream';
+      return;
+    }
+  }
+  saving.value = true;
+  try {
+    const result = await reminder('settings/models/save', {
+      language: language.value,
+      llmConfigId: llm.configId.length > 0 ? llm.configId : null,
+      speechConfigId: speech.configId.length > 0 ? speech.configId : null,
+      llmMode: llm.mode,
+      speechMode: speech.mode,
+      llm: personal(llm),
+      speech: personal(speech),
+    });
+    apply(obj(result, 'value'));
+    session.language = language.value;
+    toast('设置已保存');
+    void syncPush();
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function passwordChanged() {
+  toast('密码已修改，请重新登录');
+  await logout();
+}
+async function openSettings() {
+  try {
+    const result = await callNative('settings');
+    if (result['supported'] == false) toast('请在手机系统设置中管理权限');
+  } catch (e) {
+    toast(message(e));
+  }
+}
+function checkNotification() {
+  if (pushState.permission == 'denied') {
+    void openSettings();
+  } else {
+    void syncPush(true);
+  }
+}
+onShow(() => {
+  if (requireSession()) {
+    void load();
+    void syncPush();
+  }
+});
+function languageChanged(event: UniPickerChangeEvent) {
+  language.value = parseInt(`${event.detail.value}`) == 1 ? 'en-us' : 'zh-cn';
+}
+</script>
+<style scoped>
+.language {
+  padding: 14px;
+  background-color: #f8faff;
+  border-radius: 13px;
+  margin-bottom: 10px;
+}
+.padded {
+  padding-top: 16px;
+  padding-bottom: 60px;
+}
+.card {
+  padding: 20px 17px;
+  margin-bottom: 26px;
+  overflow: visible;
+}
+.heading {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+.body-text {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.notification-copy {
+  font-size: 13px;
+  line-height: 21px;
+  color: #9297a2;
+}
+.notification-button {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+.label {
+  margin-bottom: 14px;
+}
+.settings-fields {
+  overflow: visible;
+}
+</style>

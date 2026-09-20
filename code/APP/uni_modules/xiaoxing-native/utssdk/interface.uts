@@ -1,0 +1,5 @@
+export type NativeResult = (json: string) => void
+export type NativeCall = (action: string, input: string, callback: NativeResult) => void
+export type SecureRead = (key: string) => string
+export type SecureWrite = (key: string, value: string) => boolean
+export type RandomHex = (length: number) => string

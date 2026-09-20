@@ -1,0 +1,67 @@
+import { s, firstText } from './json.uts';
+import { timeOf, dayOf } from './time.uts';
+export type ReminderGroup = { key: string; title: string; items: UTSJSONObject[] };
+export function reminderGroups(
+  rows: UTSJSONObject[],
+  now: number = Date.now(),
+  start: string = '',
+  end: string = '',
+): ReminderGroup[] {
+  const today = dayOf(now),
+    tomorrow = dayOf(now + 86400000);
+  const groups: ReminderGroup[] = [
+    { key: 'today', title: '今日待提醒', items: [] },
+    { key: 'sent', title: '今日已提醒', items: [] },
+    { key: 'tomorrow', title: '明日待提醒', items: [] },
+    { key: 'later', title: '历史创建 · 未到期', items: [] },
+  ];
+  const put = (index: number, row: UTSJSONObject, display: string) => {
+    const ms = timeOf(display),
+      date = Number.isFinite(ms) ? dayOf(ms) : '';
+    if (
+      (start.length > 0 || end.length > 0) &&
+      (date.length == 0 || (start.length > 0 && date < start) || (end.length > 0 && date > end))
+    )
+      return;
+    const found = groups[index].items.find(
+      (x: UTSJSONObject): boolean => s(x, 'eventId') == s(row, 'eventId'),
+    );
+    if (found != null) {
+      found['people'] = s(found, 'people') + '、' + s(row, 'recipientName');
+      if (s(found, 'displayTime') != display) found['differentTimes'] = true;
+    } else {
+      const item = JSON.parseObject(JSON.stringify(row))!;
+      item['displayTime'] = display;
+      item['people'] = s(row, 'recipientName');
+      groups[index].items.push(item);
+    }
+  };
+  rows.forEach((row: UTSJSONObject) => {
+    const nextText = firstText(row, ['nextEvaluateTime', 'eventTime', 'deadlineTime']),
+      sent = timeOf(s(row, 'lastRemindedAt')),
+      next = timeOf(nextText),
+      deadline = timeOf(firstText(row, ['deadlineTime', 'eventTime']));
+    const sentToday = Number.isFinite(sent) && dayOf(sent) == today;
+    if (sentToday) put(1, row, s(row, 'lastRemindedAt'));
+    if (
+      s(row, 'eventStatus') != 'ACTIVE' ||
+      s(row, 'branchStatus') != 'ACTIVE' ||
+      (sentToday && !(next > sent))
+    )
+      return;
+    if (Number.isFinite(next) && dayOf(next) <= today && (!Number.isFinite(sent) || next > sent))
+      put(0, row, nextText);
+    else if (Number.isFinite(next) && dayOf(next) == tomorrow) put(2, row, nextText);
+    else if (!Number.isFinite(deadline) || deadline >= now)
+      put(3, row, firstText(row, ['eventTime', 'deadlineTime', 'nextEvaluateTime']));
+  });
+  groups.forEach((g: ReminderGroup) => {
+    g.items.sort((a: UTSJSONObject, b: UTSJSONObject): number => sortTime(a) - sortTime(b));
+  });
+  return groups;
+}
+
+function sortTime(row: UTSJSONObject): number {
+  const value = timeOf(s(row, 'displayTime'));
+  return Number.isFinite(value) ? value : Infinity;
+}

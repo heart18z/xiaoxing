@@ -1,0 +1,42 @@
+export function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  const value = row[key];
+  return value == null ? fallback : `${value}`;
+}
+export function n(row: UTSJSONObject, key: string): number {
+  return parseFloat(s(row, key, '0'));
+}
+export function b(row: UTSJSONObject, key: string): boolean {
+  return row[key] == true;
+}
+export function obj(row: UTSJSONObject, key: string): UTSJSONObject {
+  return (row[key] as UTSJSONObject | null) ?? {};
+}
+export function arr(row: UTSJSONObject, key: string): UTSJSONObject[] {
+  return (row[key] as UTSJSONObject[] | null) ?? [];
+}
+export function strings(row: UTSJSONObject, key: string): string[] {
+  return (row[key] as string[] | null) ?? [];
+}
+export function parseObject(text: string): UTSJSONObject {
+  return text.trim().length == 0 ? {} : (JSON.parseObject(text) ?? {});
+}
+export function payload(row: UTSJSONObject): UTSJSONObject {
+  if (row['payload'] != null) return obj(row, 'payload');
+  try {
+    return parseObject(s(row, 'payloadJson', '{}'));
+  } catch (_) {
+    return {};
+  }
+}
+export function message(error: any | null): string {
+  if (error instanceof Error) return error.message;
+  return '操作未完成，请稍后重试';
+}
+
+export function firstText(row: UTSJSONObject, keys: string[]): string {
+  for (const key of keys) {
+    const value = s(row, key);
+    if (value.length > 0) return value;
+  }
+  return '';
+}

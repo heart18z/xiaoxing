@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="smart-reminder.scheduler-enabled", havingValue="true", matchIfMissing=true)
 @RequiredArgsConstructor
 public class SmartReminderScheduler {
 

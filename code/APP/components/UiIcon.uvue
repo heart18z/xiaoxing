@@ -1,0 +1,28 @@
+<template>
+  <image
+    :src="iconSource(name, tone)"
+    :style="{ width: size + 'px', height: size + 'px' }"
+    class="ui-icon"
+    mode="aspectFit"
+  />
+</template>
+<script setup lang="uts">
+function iconSource(name: string, tone: string): string {
+  let extension = '.png';
+  // #ifdef WEB
+  if (['settings', 'scan', 'qr', 'close', 'tipInfo', 'tipSuccess', 'tipError'].includes(name))
+    extension = '.svg';
+  // #endif
+  return '/static/icons/' + name + '-' + tone + extension;
+}
+defineProps({
+  name: { type: String, default: 'note' },
+  tone: { type: String, default: 'muted' },
+  size: { type: Number, default: 22 },
+});
+</script>
+<style scoped>
+.ui-icon {
+  flex-shrink: 0;
+}
+</style>

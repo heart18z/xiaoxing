@@ -1,0 +1,10 @@
+{
+  "deploymentTarget": "15.0",
+  "frameworks": [
+    "Security.framework",
+    "UserNotifications.framework",
+    "UniformTypeIdentifiers.framework",
+    "AVFoundation.framework",
+    "Speech.framework"
+  ]
+}

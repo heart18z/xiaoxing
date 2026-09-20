@@ -1,0 +1,97 @@
+<template>
+  <!-- #ifndef WEB -->
+  <StartupMask />
+  <!-- #endif -->
+  <view
+    v-if="tip.rendered"
+    :class="['top-tip', 'tip-' + tip.tone]"
+    :style="{
+      top: topStyle,
+      left: side + 'px',
+      right: side + 'px',
+      opacity: tip.visible ? 1 : 0,
+      transform: tip.visible ? 'translateY(0px)' : 'translateY(-6px)',
+    }"
+  >
+    <view :class="['tip-mark', 'mark-' + tip.tone]">
+      <UiIcon
+        :name="tip.tone == 'success' ? 'tipSuccess' : tip.tone == 'error' ? 'tipError' : 'tipInfo'"
+        :tone="tip.tone == 'success' ? 'green' : tip.tone == 'error' ? 'red' : 'blue'"
+        :size="19"
+      />
+    </view>
+    <text class="tip-text">{{ tip.text }}</text>
+  </view>
+</template>
+<script setup lang="uts">
+import StartupMask from './StartupMask.uvue';
+import UiIcon from './UiIcon.uvue';
+import { tip as _tip, TipState } from '@/store/tip.uts';
+const tip: TipState = _tip;
+const info = uni.getWindowInfo();
+const side = Math.max(24, (info.windowWidth - 360) / 2);
+const top = Math.max(info.safeAreaInsets.top, info.statusBarHeight) + 72;
+let topStyle = top + 'px';
+// #ifdef WEB
+topStyle = 'max(' + top + 'px, calc(env(safe-area-inset-top, 0px) + 72px))';
+// #endif
+</script>
+<style scoped>
+.top-tip {
+  pointer-events: none;
+  position: fixed;
+  z-index: 9999;
+  flex-direction: row;
+  align-items: center;
+  padding: 11px 14px;
+  border-radius: 17px;
+  background-color: #fafcff;
+  border: 1px solid #e4eaf5;
+  box-shadow: 0 6px 20px #26395916;
+  transition-property: opacity, transform;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+.tip-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+.mark-info {
+  background-color: #eaf0ff;
+}
+.mark-success {
+  background-color: #dff5ec;
+}
+.mark-error {
+  background-color: #ffe9e9;
+}
+.tip-text {
+  flex: 1;
+  color: #43516a;
+  font-size: 14px;
+  line-height: 21px;
+}
+.tip-success {
+  background-color: #f1fbf6;
+  border-color: #d9eee3;
+}
+.tip-error {
+  background-color: #fff8f7;
+  border-color: #f3e0de;
+}
+/* #ifdef WEB */
+.tip-text {
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .top-tip {
+    transition-duration: 0ms;
+  }
+}
+/* #endif */
+</style>

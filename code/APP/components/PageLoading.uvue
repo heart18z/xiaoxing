@@ -1,0 +1,105 @@
+<template>
+  <view v-if="rendered" class="page-loading" :style="{ top: topStyle, opacity: visible ? 1 : 0 }">
+    <view
+      class="loading-track"
+      :style="{ transform: moving ? 'translateX(290%)' : 'translateX(-100%)' }"
+    />
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onUnmounted } from 'vue';
+const props = defineProps({ active: { type: Boolean, default: false } });
+const rendered = ref(false),
+  visible = ref(false),
+  moving = ref(false);
+let showTimer: number = 0,
+  hideTimer: number = 0,
+  motionTimer: number = 0;
+const info = uni.getWindowInfo();
+let topStyle = Math.max(info.safeAreaInsets.top, info.statusBarHeight) + 'px';
+// #ifdef WEB
+topStyle = 'max(' + topStyle + ', env(safe-area-inset-top, 0px))';
+// #endif
+watch(
+  (): boolean => props.active,
+  (active: boolean) => {
+    clearTimeout(showTimer);
+    clearTimeout(hideTimer);
+    if (active) {
+      if (rendered.value) {
+        visible.value = true;
+        return;
+      }
+      showTimer = setTimeout(() => {
+        rendered.value = true;
+        visible.value = true;
+        moving.value = true;
+        motionTimer = setInterval(() => {
+          moving.value = !moving.value;
+        }, 1200);
+      }, 350);
+    } else {
+      visible.value = false;
+      hideTimer = setTimeout(() => {
+        rendered.value = false;
+        clearInterval(motionTimer);
+        moving.value = false;
+      }, 150);
+    }
+  },
+  { immediate: true },
+);
+onUnmounted(() => {
+  clearTimeout(showTimer);
+  clearTimeout(hideTimer);
+  clearInterval(motionTimer);
+});
+</script>
+<style scoped>
+.page-loading {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9998;
+  background-color: #dce5ff60;
+  overflow: hidden;
+  transition-property: opacity;
+  transition-duration: 150ms;
+}
+.loading-track {
+  width: 35%;
+  height: 3px;
+  border-radius: 3px;
+  background-image: linear-gradient(90deg, #6375ff, #68d7f9);
+  transition-property: transform;
+  transition-duration: 1200ms;
+  transition-timing-function: ease-in-out;
+}
+/* #ifdef WEB */
+.page-loading {
+  pointer-events: none;
+}
+.loading-track {
+  animation: page-loading-track 1.2s ease-in-out infinite;
+}
+@keyframes page-loading-track {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-track {
+    animation: none;
+    transform: none !important;
+    width: 100%;
+  }
+  .page-loading {
+    transition: none;
+  }
+}
+/* #endif */
+</style>

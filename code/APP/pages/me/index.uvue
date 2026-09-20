@@ -1,0 +1,1368 @@
+<template>
+  <AppFrame :loading="loading" :title="t('我的')" tab="me" theme="profile">
+    <view class="me-page">
+      <view class="me-toolbar row">
+        <text class="me-heading grow">{{ t('我的') }}</text>
+        <view class="toolbar-button" @click="scanFriend()">
+          <UiIcon name="scan" tone="ink" :size="22" />
+        </view>
+        <view class="toolbar-button" @click="openSettings()">
+          <UiIcon name="settings" tone="ink" :size="22" />
+        </view>
+      </view>
+      <view class="card profile">
+        <view class="row">
+          <view class="profile-picture" @click="avatarKind = 'user'">
+            <image
+              v-if="s(session.profile, 'avatar').length > 0"
+              class="profile-avatar"
+              :src="asset(s(session.profile, 'avatar'))"
+            />
+            <view v-else class="profile-avatar initial">
+              <text class="initial-text">{{ displayName.slice(0, 1) }}</text>
+            </view>
+            <view class="camera"><UiIcon name="camera" tone="white" :size="13" /></view>
+          </view>
+          <view class="grow">
+            <text class="title">{{ displayName }}</text>
+            <text class="muted">@{{ s(session.profile, 'account') }}</text>
+            <text class="muted">{{ t('点击头像即可更换') }}</text>
+          </view>
+          <view>
+            <text class="edit-profile" @click="editProfile()">{{ t('编辑资料') }}</text>
+            <view class="profile-qr" @click="showQr()">
+              <UiIcon name="qr" tone="ink" :size="22" />
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="card assistant-card row" @click="avatarKind = 'ai'">
+        <image
+          class="avatar"
+          :src="asset(s(session.summary, 'aiAvatar', '/avatars/assistant/A3.png'))"
+        />
+        <view class="grow">
+          <text class="label">{{ t('我的 AI 助手') }}</text>
+          <text class="muted">{{ t('设置专属于你的 AI 头像') }}</text>
+        </view>
+        <text class="link">{{ t('更换 ›') }}</text>
+      </view>
+      <view class="segment">
+        <text :class="['segment-item', tab == 0 ? 'selected' : '']" @click="tab = 0">
+          {{ t('我的好友') }} {{ friends.length }}
+        </text>
+        <text :class="['segment-item', tab == 1 ? 'selected' : '']" @click="tab = 1">
+          {{ t('申请待通过') }}
+          {{
+            arr(requests, 'incoming').length + arr(requests, 'outgoing').length > 0
+              ? arr(requests, 'incoming').length + arr(requests, 'outgoing').length
+              : ''
+          }}
+        </text>
+      </view>
+      <view v-if="error.length > 0" class="card">
+        <text class="error">{{ error }}</text>
+        <button class="secondary" @click="load()">{{ t('重新加载') }}</button>
+      </view>
+      <view v-if="tab == 0" class="friends-area">
+        <view class="friend-search row">
+          <view class="search-field">
+            <UiIcon name="search" :size="20" />
+            <input class="friend-input" v-model="friendKeyword" :placeholder="t('查找现有好友')" />
+          </view>
+          <button class="primary add" @click="searchOpen = true">
+            {{ t('添加好友') }}
+          </button>
+        </view>
+        <scroll-view scroll-y class="friend-scroll">
+          <view class="friend-list">
+            <view v-if="filteredFriends.length == 0" class="card empty">
+              <text class="muted">
+                {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
+              </text>
+            </view>
+            <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
+              <image
+                v-if="s(friend, 'avatar').length > 0"
+                class="avatar"
+                :src="asset(s(friend, 'avatar'))"
+              />
+              <view v-else class="avatar">
+                <text class="friend-initial">{{ name(friend).slice(0, 1) }}</text>
+              </view>
+              <view class="grow">
+                <text class="label">{{ name(friend) }}</text>
+                <text class="muted">@{{ s(friend, 'account') }}</text>
+                <text class="permission-tag">{{ permission(s(friend, 'permissionMode')) }}</text>
+              </view>
+              <button class="secondary manage" @click="manage(friend)">{{ t('管理') }}</button>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+      <view v-else class="requests-area">
+        <view class="request-section">
+          <view class="request-section-head">
+            <view class="request-section-icon">
+              <UiIcon name="people" tone="blue" :size="18" />
+            </view>
+            <text class="request-section-title">{{ t('等待我处理') }}</text>
+            <text class="request-section-count">{{ arr(requests, 'incoming').length }}</text>
+          </view>
+          <scroll-view scroll-y class="request-section-scroll">
+            <view v-if="arr(requests, 'incoming').length == 0" class="request-empty">
+              <text class="request-empty-title">{{ t('暂时没有待处理申请') }}</text>
+              <text class="muted">{{ t('新的好友和权限申请会显示在这里') }}</text>
+            </view>
+            <view
+              v-for="item in arr(requests, 'incoming')"
+              :key="s(item, 'id')"
+              class="card request-card"
+            >
+              <view class="row">
+                <image
+                  v-if="s(item, 'avatar').length > 0"
+                  class="avatar"
+                  :src="asset(s(item, 'avatar'))"
+                />
+                <view v-else class="avatar">
+                  <text class="friend-initial">{{ name(item).slice(0, 1) }}</text>
+                </view>
+                <view class="grow">
+                  <text class="request-name">{{ name(item) }}</text>
+                  <text class="muted">@{{ s(item, 'account') }}</text>
+                </view>
+                <view class="request-actions">
+                  <button
+                    class="secondary request-action"
+                    :disabled="saving"
+                    @click="reply(s(item, 'id'), false)"
+                  >
+                    {{ t('拒绝') }}
+                  </button>
+                  <button
+                    class="primary request-action"
+                    :disabled="saving"
+                    @click="reply(s(item, 'id'), true)"
+                  >
+                    {{ t('同意') }}
+                  </button>
+                </view>
+              </view>
+              <view class="request-meta">
+                <text class="permission-tag">
+                  {{ permission(s(item, 'permissionMode'), true) }}
+                </text>
+                <text class="request-kind">
+                  {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
+                </text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+        <view class="request-section outgoing-section">
+          <view class="request-section-head">
+            <view class="request-section-icon outgoing-icon">
+              <UiIcon name="clock" tone="violet" :size="18" />
+            </view>
+            <text class="request-section-title">{{ t('我申请的') }}</text>
+            <text class="request-section-count outgoing-count">
+              {{ arr(requests, 'outgoing').length }}
+            </text>
+          </view>
+          <scroll-view scroll-y class="request-section-scroll">
+            <view v-if="arr(requests, 'outgoing').length == 0" class="request-empty">
+              <text class="request-empty-title">{{ t('暂无发出的申请') }}</text>
+              <text class="muted">{{ t('添加好友后，可在这里查看申请状态') }}</text>
+            </view>
+            <view
+              v-for="item in arr(requests, 'outgoing')"
+              :key="s(item, 'id')"
+              class="card request-card"
+            >
+              <view class="row">
+                <image
+                  v-if="s(item, 'avatar').length > 0"
+                  class="avatar"
+                  :src="asset(s(item, 'avatar'))"
+                />
+                <view v-else class="avatar">
+                  <text class="friend-initial">{{ name(item).slice(0, 1) }}</text>
+                </view>
+                <view class="grow">
+                  <text class="request-name">{{ name(item) }}</text>
+                  <text class="muted">@{{ s(item, 'account') }}</text>
+                </view>
+                <text class="request-status">{{ t('已发送') }}</text>
+              </view>
+              <view class="request-meta">
+                <text class="permission-tag">{{ permission(s(item, 'permissionMode')) }}</text>
+                <text class="request-kind">
+                  {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
+                </text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+      </view>
+      <view class="logout" @click="logoutOpen = true">
+        <UiIcon name="logout" tone="red" :size="23" />
+        <text class="logout-label">{{ t('退出登录') }}</text>
+      </view>
+    </view>
+  </AppFrame>
+  <Popup :open="editing" :title="t('编辑资料')" :busy="saving" @close="editing = false">
+    <text class="label">{{ t('姓名 *') }}</text>
+    <input class="input" v-model="profileName" maxlength="20" />
+    <text class="label">{{ t('手机号（选填）') }}</text>
+    <input class="input" v-model="profilePhone" type="number" maxlength="11" />
+    <text class="label">{{ t('邮箱（选填）') }}</text>
+    <input class="input" v-model="profileEmail" maxlength="45" />
+    <text class="muted">{{ t('登录账号不可修改。手机号和邮箱可留空。') }}</text>
+    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
+    <button class="primary" :loading="saving" :disabled="saving" @click="saveProfile()">
+      {{ t('保存资料') }}
+    </button>
+  </Popup>
+  <Popup :open="logoutOpen" :title="t('退出登录')" :busy="loggingOut" @close="logoutOpen = false">
+    <view class="logout-confirm">
+      <view class="logout-symbol"><UiIcon name="logout" tone="red" :size="25" /></view>
+      <text class="logout-question">{{ t('确定退出当前账号吗？') }}</text>
+      <view class="logout-actions">
+        <button class="secondary logout-cancel" :disabled="loggingOut" @click="logoutOpen = false">
+          {{ t('取消') }}
+        </button>
+        <button
+          class="logout-submit"
+          :disabled="loggingOut"
+          :loading="loggingOut"
+          @click="signOut()"
+        >
+          {{ t('退出登录') }}
+        </button>
+      </view>
+    </view>
+  </Popup>
+  <Popup
+    variant="friend-search"
+    :open="searchOpen"
+    :title="t('添加好友')"
+    :busy="saving"
+    @close="searchOpen = false"
+  >
+    <view class="row friend-query">
+      <input
+        class="input grow"
+        style="margin: 0"
+        v-model="keyword"
+        :placeholder="t('账号 / 手机号 / 邮箱')"
+      />
+      <button
+        class="primary add friend-query-button"
+        style="margin: 0 0 0 9px"
+        :disabled="searching"
+        @click="searchFriends()"
+      >
+        {{ t('查找') }}
+      </button>
+    </view>
+    <text class="muted search-help">{{ t('请输入完整账号、手机号或邮箱，不支持姓名搜索') }}</text>
+    <text v-if="searching" class="muted">{{ t('正在查找好友…') }}</text>
+    <text v-if="searched && results.length == 0 && !searching" class="muted">
+      {{ t('没有找到匹配的用户') }}
+    </text>
+    <text v-if="searchError.length > 0" class="error">{{ searchError }}</text>
+    <view v-for="person in results" :key="s(person, 'id')" class="search-person">
+      <image
+        v-if="s(person, 'avatar').length > 0"
+        class="avatar"
+        :src="asset(s(person, 'avatar'))"
+      />
+      <view v-else class="avatar">
+        <text class="friend-initial">{{ name(person).slice(0, 1) }}</text>
+      </view>
+      <view class="grow">
+        <text class="label">{{ name(person) }}</text>
+        <text class="muted">@{{ s(person, 'account') }}</text>
+      </view>
+      <button
+        v-if="s(person, 'relationStatus') == 'NONE'"
+        class="secondary"
+        @click="choosePermission(person)"
+      >
+        {{ t('添加') }}
+      </button>
+      <text v-else class="muted">
+        {{ s(person, 'relationStatus') == 'FRIEND' ? t('已是好友') : t('申请处理中') }}
+      </text>
+    </view>
+  </Popup>
+  <Popup :open="managing" :title="t('好友资料')" :busy="saving" @close="managing = false">
+    <view class="friend-info">
+      <view class="info-row">
+        <text class="info-key">{{ t('姓名') }}</text>
+        <text class="info-value">
+          {{ s(selected, 'name', s(selected, 'realName', t('未填写'))) }}
+        </text>
+      </view>
+      <view class="info-row">
+        <text class="info-key">{{ t('账号（人员号）') }}</text>
+        <text class="info-value">{{ s(selected, 'account') }}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-key">{{ t('手机号') }}</text>
+        <text class="info-value">
+          {{ s(selected, 'phone').length > 0 ? s(selected, 'phone') : t('未填写') }}
+        </text>
+      </view>
+      <view class="info-row">
+        <text class="info-key">{{ t('邮箱') }}</text>
+        <text class="info-value">
+          {{ s(selected, 'email').length > 0 ? s(selected, 'email') : t('未填写') }}
+        </text>
+      </view>
+    </view>
+    <view class="spacer" />
+    <text class="label">{{ t('备注（昵称）') }}</text>
+    <input class="input" v-model="remark" maxlength="30" :placeholder="t('仅自己可见，最多30字')" />
+    <text class="muted">{{ t('不修改好友本名。可在 AI 对话中使用此备注；留空可清除。') }}</text>
+    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
+    <button class="primary remark-save" :disabled="saving" :loading="saving" @click="saveRemark()">
+      {{ t('保存备注') }}
+    </button>
+    <button
+      class="secondary remark-permission"
+      :disabled="saving"
+      @click="
+        managing = false;
+        permissionOpen = true;
+      "
+    >
+      {{ t('权限设定') }}
+    </button>
+  </Popup>
+  <Popup
+    :open="permissionOpen"
+    :sheet="true"
+    :title="t('申请变更权限')"
+    :busy="saving"
+    @close="permissionOpen = false"
+  >
+    <text class="body-text">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
+    <view
+      v-for="mode in modes"
+      :key="mode"
+      :class="['permission-option', permissionMode == mode ? 'chosen' : '']"
+      @click="permissionMode = mode"
+    >
+      <view class="grow">
+        <text class="permission-title">{{ permission(mode) }}</text>
+        <text class="muted">
+          {{
+            mode == 'MUTUAL'
+              ? t('双方都可以向对方创建提醒')
+              : mode == 'I_CAN_REMIND'
+                ? t('你可以提醒对方，对方不能提醒你')
+                : t('对方可以提醒你，你不能提醒对方')
+          }}
+        </text>
+      </view>
+      <UiIcon v-if="permissionMode == mode" name="check" tone="blue" :size="20" />
+    </view>
+
+    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
+    <button class="primary" :disabled="saving" :loading="saving" @click="requestPermission()">
+      {{ t('发送变更申请') }}
+    </button>
+    <text class="permission-note">{{ t('对方同意后权限才会生效') }}</text>
+    <button
+      v-if="friends.some((person: UTSJSONObject): boolean => s(person, 'id') == s(selected, 'id'))"
+      class="danger remove-friend"
+      :disabled="saving"
+      @click="remove()"
+    >
+      {{ t('解除好友关系') }}
+    </button>
+  </Popup>
+  <Popup :open="qrOpen" title="我的二维码" variant="personal-qr" @close="qrOpen = false">
+    <view class="qr-content">
+      <view class="qr-profile">
+        <image
+          v-if="s(session.profile, 'avatar').length > 0"
+          class="qr-avatar"
+          :src="asset(s(session.profile, 'avatar'))"
+        />
+        <view v-else class="qr-avatar qr-initial">
+          <text class="qr-initial-text">{{ displayName.slice(0, 1) }}</text>
+        </view>
+        <view class="qr-identity">
+          <text class="qr-name">{{ displayName }}</text>
+          <text class="qr-account">@{{ s(session.profile, 'account') }}</text>
+        </view>
+      </view>
+      <view class="qr-paper">
+        <image v-if="qrImage.length > 0" class="personal-qr" :src="qrImage" mode="aspectFit" />
+        <text v-else class="qr-status">{{ qrBusy ? '正在生成二维码…' : qrError }}</text>
+      </view>
+      <button v-if="qrError.length > 0" class="secondary" @click="showQr()">重新加载</button>
+      <view class="qr-caption">
+        <UiIcon name="scan" tone="blue" :size="16" />
+        <text class="qr-caption-text">扫一扫，添加我为好友</text>
+      </view>
+      <text class="qr-hint">在 AI小醒中打开扫一扫，即可找到我</text>
+    </view>
+  </Popup>
+  <AvatarPicker
+    :kind="avatarKind"
+    :initial="displayName.slice(0, 1)"
+    :busy="saving"
+    @close="avatarKind = ''"
+    @choose="saveAvatar"
+    @upload="uploadAvatar"
+  />
+</template>
+<script setup lang="uts">
+// #ifdef WEB
+import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
+// #endif
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { ref, computed } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import Popup from '@/components/Popup.uvue';
+import AvatarPicker from '@/components/AvatarPicker.uvue';
+import { SessionState, session as _session, requireSession } from '@/store/session.uts';
+import { reminder, bootstrap, upload } from '@/api/request.uts';
+import { firstText, s as _s, arr as _arr, obj, message } from '@/core/json.uts';
+import { asset as _asset, toast, confirm } from '@/core/ui.uts';
+import { logout } from '@/services/native.uts';
+const session: SessionState = _session;
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function arr(row: UTSJSONObject, key: string): UTSJSONObject[] {
+  return _arr(row, key);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+const qrOpen = ref(false),
+  qrBusy = ref(false),
+  qrImage = ref(''),
+  qrError = ref('');
+const friends = ref<UTSJSONObject[]>([]),
+  requests = ref<UTSJSONObject>({}),
+  loading = ref(false),
+  error = ref(''),
+  tab = ref(0),
+  friendKeyword = ref(''),
+  saving = ref(false),
+  formError = ref('');
+const editing = ref(false),
+  profileName = ref(''),
+  profilePhone = ref(''),
+  profileEmail = ref(''),
+  avatarKind = ref('');
+const logoutOpen = ref(false),
+  loggingOut = ref(false);
+const searchOpen = ref(false),
+  keyword = ref(''),
+  results = ref<UTSJSONObject[]>([]),
+  searching = ref(false),
+  searched = ref(false),
+  searchError = ref('');
+const managing = ref(false),
+  selected = ref<UTSJSONObject>({}),
+  remark = ref(''),
+  permissionOpen = ref(false),
+  permissionMode = ref('MUTUAL'),
+  modes = ['I_CAN_REMIND', 'THEY_CAN_REMIND', 'MUTUAL'];
+let timer: number = 0,
+  ticket = 0;
+const displayName = computed(() => firstText(session.profile, ['name', 'realName', 'account']));
+const filteredFriends = computed(() =>
+  friends.value.filter((person: UTSJSONObject): boolean =>
+    [s(person, 'name'), s(person, 'realName'), s(person, 'friendRemark'), s(person, 'account')]
+      .join(' ')
+      .toLowerCase()
+      .includes(friendKeyword.value.trim().toLowerCase()),
+  ),
+);
+function name(person: UTSJSONObject): string {
+  return firstText(person, ['friendRemark', 'name', 'realName', 'account']);
+}
+function permission(mode: string, incoming: boolean = false): string {
+  if (mode == 'MUTUAL') return '互相提醒';
+  return (mode == 'I_CAN_REMIND') != incoming ? '我可提醒对方' : '对方可提醒我';
+}
+async function load(silent: boolean = false) {
+  const current = ++ticket;
+  if (!silent) loading.value = true;
+  try {
+    const list = await reminder('friends/list'),
+      pending = await reminder('friends/requests');
+    if (current != ticket) return;
+    friends.value = (list['value'] as UTSJSONObject[]) ?? [];
+    requests.value = obj(pending, 'value');
+    error.value = '';
+    await bootstrap();
+  } catch (e) {
+    if (current == ticket && !silent) error.value = message(e);
+  } finally {
+    if (current == ticket) loading.value = false;
+  }
+}
+function editProfile() {
+  profileName.value = s(session.profile, 'name');
+  profilePhone.value = s(session.profile, 'phone');
+  profileEmail.value = s(session.profile, 'email');
+  formError.value = '';
+  editing.value = true;
+}
+async function saveProfile() {
+  if (saving.value) return;
+  if (profileName.value.trim().length == 0) {
+    formError.value = '请输入姓名';
+    return;
+  }
+  if (profilePhone.value.length > 0 && !/^1[3-9]\d{9}$/.test(profilePhone.value)) {
+    formError.value = '请输入正确的手机号';
+    return;
+  }
+  if (profileEmail.value.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileEmail.value)) {
+    formError.value = '请输入正确的邮箱';
+    return;
+  }
+  saving.value = true;
+  try {
+    await reminder('profile/update', {
+      name: profileName.value.trim(),
+      phone: profilePhone.value,
+      email: profileEmail.value,
+    });
+    await bootstrap();
+    editing.value = false;
+    toast('资料已保存');
+  } catch (e) {
+    formError.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function saveAvatar(url: string) {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    const data: UTSJSONObject = { nickname: displayName.value };
+    data[avatarKind.value == 'ai' ? 'aiAvatar' : 'avatar'] = url;
+    await reminder('profile/update', data);
+    await bootstrap();
+    avatarKind.value = '';
+    toast('头像已更新');
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    saving.value = false;
+  }
+}
+async function uploadAvatar(path: string) {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    const result = await upload('/blade-resource/oss/endpoint/put-file', path, 120000);
+    const url = s(result, 'link', s(result, 'url'));
+    if (url.length == 0) throw new Error('上传未返回头像地址');
+    saving.value = false;
+    await saveAvatar(url);
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    saving.value = false;
+  }
+}
+async function searchFriends() {
+  if (searching.value || keyword.value.trim().length == 0) return;
+  searching.value = true;
+  searched.value = true;
+  searchError.value = '';
+  try {
+    const result = await reminder('friends/search', null, { keyword: keyword.value.trim() });
+    results.value = (result['value'] as UTSJSONObject[]) ?? [];
+  } catch (e) {
+    searchError.value = message(e);
+  } finally {
+    searching.value = false;
+  }
+}
+async function showQr() {
+  qrOpen.value = true;
+  if (qrBusy.value || qrImage.value.length > 0) return;
+  qrBusy.value = true;
+  qrError.value = '';
+  try {
+    const response = await reminder('friends/qr');
+    qrImage.value = s(obj(response, 'value'), 'image');
+    if (qrImage.value.length == 0) throw new Error('二维码生成失败，请重试');
+  } catch (e) {
+    qrError.value = message(e);
+  } finally {
+    qrBusy.value = false;
+  }
+}
+async function resolveFriendQr(value: string) {
+  const prefix = 'xiaoxing:friend:v1:';
+  if (!value.startsWith(prefix)) {
+    toast('请扫描 AI小醒的好友二维码');
+    return;
+  }
+  const account = value.slice(prefix.length);
+  if (account.length == 0 || account.length > 100 || /[\s\/?#]/.test(account)) {
+    toast('好友二维码无效');
+    return;
+  }
+  if (account == s(session.profile, 'account')) {
+    toast('这是你自己的二维码');
+    return;
+  }
+  keyword.value = account;
+  results.value = [];
+  searchOpen.value = true;
+  await searchFriends();
+}
+function scanFriend() {
+  // #ifdef WEB
+  scanBrowserQr(
+    (value: string) => {
+      void resolveFriendQr(value);
+    },
+    (error: string) => toast(error),
+  );
+  // #endif
+  // #ifndef WEB
+  uni.scanCode({
+    scanType: ['qrCode'],
+    onlyFromCamera: false,
+    success: (res: ScanCodeSuccess) => {
+      void resolveFriendQr(res.result);
+    },
+    fail: (_: ScanCodeFail) => {},
+  });
+  // #endif
+}
+function manage(person: UTSJSONObject) {
+  selected.value = person;
+  remark.value = s(person, 'friendRemark');
+  permissionMode.value = s(person, 'permissionMode', 'MUTUAL');
+  formError.value = '';
+  managing.value = true;
+}
+function choosePermission(person: UTSJSONObject) {
+  selected.value = person;
+  permissionMode.value = 'MUTUAL';
+  formError.value = '';
+  searchOpen.value = false;
+  permissionOpen.value = true;
+}
+async function saveRemark() {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    await reminder('friends/remark', {
+      targetUserId: s(selected.value, 'id'),
+      remark: remark.value.trim(),
+    });
+    await load();
+    managing.value = false;
+    toast('备注已保存');
+  } catch (e) {
+    formError.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function requestPermission() {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    await reminder('friends/request', {
+      targetUserId: s(selected.value, 'id'),
+      permissionMode: permissionMode.value,
+      message: '',
+    });
+    permissionOpen.value = false;
+    await load();
+    toast('申请已发送');
+  } catch (e) {
+    formError.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function reply(id: string, accept: boolean) {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    await reminder('friends/reply', { requestId: id, accept: accept });
+    await load();
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    saving.value = false;
+  }
+}
+async function remove() {
+  if (
+    saving.value ||
+    !(await confirm(
+      '解除好友关系',
+      '将双向解除好友关系并撤销未处理的权限申请。历史事件和消息保留，已有提醒不会自动停止。',
+    ))
+  )
+    return;
+  saving.value = true;
+  try {
+    await reminder('friends/remove', { targetUserId: s(selected.value, 'id') });
+    managing.value = false;
+    permissionOpen.value = false;
+    await load();
+  } catch (e) {
+    formError.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function signOut() {
+  if (loggingOut.value) return;
+  loggingOut.value = true;
+  try {
+    await logout();
+    logoutOpen.value = false;
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    loggingOut.value = false;
+  }
+}
+function stopTimer() {
+  // #ifdef WEB
+  stopBrowserQr();
+  // #endif
+  ticket++;
+  clearInterval(timer);
+}
+onShow(() => {
+  if (!requireSession()) return;
+  void load();
+  timer = setInterval(() => {
+    if (!saving.value) void load(true);
+  }, 15000);
+});
+onHide(stopTimer);
+onUnload(stopTimer);
+function openSettings() {
+  uni.navigateTo({ url: '/pages/settings/index' });
+}
+</script>
+<style scoped>
+.me-toolbar {
+  min-height: 36px;
+  margin-bottom: 8px;
+}
+.me-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #17264a;
+}
+.toolbar-button {
+  width: 38px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+}
+.profile-qr {
+  align-self: flex-end;
+  padding: 10px 10px 0;
+}
+.qr-content {
+  align-items: center;
+  padding: 8px 0 12px;
+}
+.qr-profile {
+  flex-direction: row;
+  align-items: center;
+  align-self: stretch;
+  margin-bottom: 20px;
+  padding-left: 8px;
+}
+.qr-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #fff;
+  border: 2px solid #fff;
+  margin-right: 12px;
+}
+.qr-initial {
+  align-items: center;
+  justify-content: center;
+  background-color: #e5e5ff;
+}
+.qr-initial-text {
+  font-size: 23px;
+  color: #7360d9;
+  font-weight: 600;
+}
+.qr-identity {
+  flex: 1;
+}
+.qr-name {
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 600;
+  color: #243252;
+}
+.qr-account {
+  font-size: 12px;
+  line-height: 20px;
+  color: #8995ad;
+  margin-top: 2px;
+}
+.qr-paper {
+  padding: 10px;
+  border-radius: 20px;
+  background-color: #ffffff;
+  border: 1px solid #ffffff;
+  box-shadow: 0 8px 24px #627cd414;
+}
+.personal-qr {
+  width: 220px;
+  height: 220px;
+  background-color: #ffffff;
+}
+.qr-status {
+  width: 220px;
+  height: 220px;
+  padding-top: 82px;
+  text-align: center;
+  color: #8993ab;
+  font-size: 14px;
+}
+.qr-caption {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 22px;
+}
+.qr-caption-text {
+  font-size: 14px;
+  line-height: 22px;
+  color: #5069bd;
+  margin-left: 7px;
+  font-weight: 500;
+}
+.qr-hint {
+  font-size: 11px;
+  line-height: 18px;
+  color: #919bb3;
+  margin-top: 5px;
+}
+
+.profile {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  padding: 18px 15px;
+  margin-bottom: 9px;
+  border: 1px solid #ffffffc0;
+  background-color: #ffffffcc;
+  box-shadow: none;
+}
+.profile-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 22px;
+  margin-right: 13px;
+  background-color: #e8efff;
+  border: 3px solid #efefff;
+}
+.initial {
+  align-items: center;
+  justify-content: center;
+}
+.initial-text {
+  font-size: 29px;
+  color: #5269ed;
+  font-weight: 600;
+}
+.add {
+  margin-left: 8px;
+  margin-bottom: 12px;
+  height: 45px;
+  font-size: 13px;
+  margin: 0 0 0 9px;
+  padding: 0 14px;
+}
+.search-person {
+  flex-direction: row;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #edf1f8;
+}
+.permission-option {
+  padding: 13px;
+  border: 1px solid #e0e7f3;
+  border-radius: 14px;
+  margin: 5px 0;
+  min-height: 70px;
+  flex-direction: row;
+  align-items: center;
+  background-color: #fafbff;
+}
+.chosen {
+  border-color: #8f99ed;
+  background-color: #f1f2ff;
+  box-shadow: 0 0 0 2px #e5e9f8;
+}
+.me-page {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 16px 12px;
+}
+.profile-picture {
+  position: relative;
+}
+.camera {
+  position: absolute;
+  bottom: 0;
+  right: 9px;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffffff;
+  border-radius: 12px;
+  background-color: #315bff;
+  align-items: center;
+  justify-content: center;
+}
+.profile .title {
+  font-size: 19px;
+}
+.edit-profile {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b67df;
+  padding: 8px 12px;
+  border: 1px solid #ffffff;
+  border-radius: 22px;
+  background-color: #f5f8ff;
+}
+.assistant-card {
+  padding: 13px 15px;
+  background-color: #ffffffcc;
+  margin-bottom: 12px;
+  box-shadow: none;
+}
+.assistant-card .label {
+  font-size: 16px;
+  margin-bottom: 6px;
+  color: #263451;
+  font-weight: 700;
+  line-height: 21px;
+}
+.segment {
+  margin-bottom: 13px;
+}
+.friends-area {
+  flex: 1;
+  min-height: 0;
+}
+.friend-search {
+  margin-bottom: 10px;
+}
+.search-field {
+  flex: 1;
+  min-width: 0;
+  height: 45px;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px solid #e1e4ed;
+  border-radius: 14px;
+  background-color: #ffffff;
+}
+.friend-input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
+  font-size: 13px;
+}
+.friend-scroll {
+  flex: 1;
+  min-height: 0;
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+}
+.friend-list {
+  background-color: #ffffffeb;
+  padding: 0 14px;
+  border-radius: 22px;
+}
+.friend-row {
+  flex-direction: row;
+  align-items: center;
+  min-height: 73px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e6ebf5;
+}
+.friend-row .label {
+  font-size: 15px;
+  margin-bottom: 0;
+  color: #263451;
+  font-weight: 650;
+}
+.friend-row .muted {
+  line-height: 19px;
+  font-size: 12px;
+}
+.permission-tag {
+  align-self: flex-start;
+  color: #4d6bdf;
+  background-color: #edf1ff;
+  border-radius: 8px;
+  font-size: 10px;
+  padding: 0 5px;
+  line-height: 14px;
+}
+.manage {
+  border-radius: 23px;
+  border: 1px solid #e0e5ff;
+  min-width: 52px;
+  font-size: 12px;
+  line-height: 35px;
+}
+.logout {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  background-color: #fff5f6;
+  border: 2px solid #ffffff;
+  border-radius: 22px;
+  margin-top: 10px;
+}
+.logout-label {
+  color: #f0525b;
+  font-size: 16px;
+  font-weight: 600;
+  margin-left: 10px;
+}
+.friend-info {
+  border-top: 1px solid #eff0f5;
+  padding-top: 10px;
+}
+.info-row {
+  flex-direction: row;
+  margin-bottom: 7px;
+}
+.info-key {
+  width: 110px;
+  font-size: 14px;
+  color: #969ca7;
+  line-height: 22px;
+}
+.info-value {
+  flex: 1;
+  font-size: 14px;
+  color: #3d485b;
+  line-height: 22px;
+}
+.permission-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: #182033;
+  margin-bottom: 6px;
+}
+.permission-note {
+  text-align: center;
+  font-size: 12px;
+  line-height: 22px;
+  color: #a2a5ae;
+  margin: 0 0 10px;
+}
+.remove-friend {
+  font-weight: 400;
+  margin-top: 8px;
+}
+.label {
+  font-size: 14px;
+  font-weight: 400;
+  color: #7d8693;
+}
+.input {
+  margin-bottom: 10px;
+}
+.primary {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.friend-initial {
+  font-size: 22px;
+  font-weight: 700;
+  color: #8c62d7;
+}
+.friend-search .add {
+  margin: 0 0 0 9px;
+}
+.assistant-card .muted {
+  line-height: 18px;
+}
+.permission-option .muted {
+  line-height: 18px;
+}
+.permission-option {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.profile .muted {
+  line-height: 22px;
+}
+.assistant-card .label {
+  font-weight: 700;
+}
+.friend-row .label {
+  font-weight: 650;
+}
+.permission-note {
+  margin-bottom: 6px;
+}
+.requests-area {
+  flex: 1;
+  min-height: 0;
+}
+.request-section {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 10px;
+  border-radius: 20px;
+  border: 1px solid #ffffff;
+  background-color: #ffffffcf;
+  overflow: hidden;
+}
+.request-section-head {
+  flex-direction: row;
+  align-items: center;
+  padding: 11px 13px;
+  border-bottom: 1px solid #edf1f8;
+}
+.request-section-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background-color: #edf3ff;
+  align-items: center;
+  justify-content: center;
+  margin-right: 9px;
+}
+.outgoing-icon {
+  background-color: #f0eaff;
+}
+.request-section-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 650;
+  color: #253652;
+}
+.request-section-count {
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #edf3ff;
+  color: #4262f2;
+  text-align: center;
+  line-height: 24px;
+  font-size: 12px;
+  padding: 0 6px;
+}
+.outgoing-count {
+  color: #8655e9;
+  background-color: #f0eaff;
+}
+.request-section-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.request-empty {
+  padding: 18px 14px;
+  align-items: center;
+}
+.request-empty-title {
+  font-size: 13px;
+  color: #687c9e;
+  margin-bottom: 5px;
+}
+.request-card {
+  margin: 8px;
+  padding: 12px;
+  border: 1px solid #edf1fa;
+}
+.request-name {
+  font-size: 16px;
+  color: #202e50;
+  font-weight: 600;
+}
+.request-status {
+  font-size: 11px;
+  color: #657bb3;
+  background-color: #eff3fc;
+  border-radius: 12px;
+  padding: 5px 9px;
+}
+.request-mode {
+  color: #60749b;
+  font-size: 12px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+}
+.request-actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.request-action {
+  margin: 0 0 0 5px;
+  padding: 0 9px;
+  height: 30px;
+  min-height: 30px;
+  line-height: 30px;
+  font-size: 12px;
+}
+.search-person {
+  background-color: #ffffff;
+  padding: 16px 0 4px;
+  margin-top: 6px;
+  border-bottom-width: 0;
+}
+.search-person .label {
+  margin-bottom: 2px;
+  color: #202e50;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.profile .muted {
+  font-size: 12px;
+}
+.assistant-card .muted {
+  font-size: 12px;
+}
+.friend-query .input {
+  font-size: 14px;
+  margin-bottom: 0;
+  height: 44px;
+}
+.friend-query-button {
+  background-color: #4962ff;
+  background-image: none;
+  color: #fff;
+  height: 44px;
+}
+.search-help {
+  font-size: 12px;
+  text-align: center;
+  margin-top: 10px;
+  line-height: 19px;
+}
+.logout-confirm {
+  align-items: center;
+  padding: 4px 2px 2px;
+}
+.logout-symbol {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #fff0f1;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.logout-question {
+  font-size: 15px;
+  color: #68758e;
+  line-height: 24px;
+}
+.logout-actions {
+  flex-direction: row;
+  width: 100%;
+  margin-top: 24px;
+}
+.logout-cancel {
+  color: #757b85;
+  background-color: #f0f1f3;
+  flex: 1;
+  margin: 0 10px 0 0;
+  height: 42px;
+  font-size: 14px;
+}
+.logout-submit {
+  flex: 1;
+  margin: 0;
+  height: 42px;
+  line-height: 42px;
+  border-radius: 13px;
+  background-color: #ee606b;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-link {
+  align-self: flex-end;
+  text-align: right;
+  color: #8994aa;
+}
+.request-meta {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+.permission-tag {
+  color: #5264d7;
+  background-color: #edf0ff;
+  border-radius: 7px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-right: 6px;
+}
+.request-kind {
+  color: #929bad;
+  font-size: 11px;
+}
+.request-card .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  margin-right: 8px;
+}
+.request-card .muted {
+  font-size: 11px;
+  line-height: 18px;
+}
+.request-name {
+  font-size: 14px;
+}
+.remark-save {
+  font-size: 16px;
+  margin-bottom: 0;
+}
+.remark-permission {
+  font-size: 16px;
+  margin-top: 14px;
+  min-height: 44px;
+  line-height: 44px;
+}
+</style>

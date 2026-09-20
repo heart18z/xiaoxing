@@ -1,0 +1,14 @@
+import { UTSAndroid } from 'io.dcloud.uts'
+import { XiaoxingAndroid } from 'uts.sdk.modules.xiaoxingNative'
+import { NativeResult } from '../interface.uts'
+export function secureRead(key:string):string{return XiaoxingAndroid.read(UTSAndroid.getAppContext()!,key)}
+export function secureWrite(key:string,value:string):boolean{return XiaoxingAndroid.write(UTSAndroid.getAppContext()!,key,value)}
+export function randomHex(length:number):string{return XiaoxingAndroid.random(length.toInt())}
+export function nativeCall(action:string,input:string,callback:NativeResult):void{
+  if(action=='files.pick'){
+    const activity=UTSAndroid.getUniActivity()
+    if(activity==null){callback('{"error":"无法打开文件选择器"}');return}
+    XiaoxingAndroid.pick(activity,(result:string)=>callback(result));return
+  }
+  callback('{"supported":false,"error":"当前 Android 版本使用站内提醒；APNs 和 AlarmKit 为 iOS 能力"}')
+}

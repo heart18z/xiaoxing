@@ -265,6 +265,11 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
+        </dependency>
         <!-- PDF文本提取（智能提醒文件输入） -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>

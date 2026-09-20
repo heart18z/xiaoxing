@@ -1,0 +1,33 @@
+async page => {
+ const errors=[],writes=[],passed=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ page.on('request',request=>{if(request.method()==='POST')writes.push({url:request.url(),body:request.postData()});});
+ const go=async name=>{await page.goto('http://localhost:5174/#/pages/'+name+'/index');await page.locator('.frame').waitFor();};
+ const get=path=>writes.filter(r=>r.url.endsWith(path));
+ await go('me');await page.getByText('编辑资料',{exact:true}).click();
+ const fields=page.locator('.mask input');
+ await fields.nth(0).fill('');await page.getByText('保存资料',{exact:true}).click();
+ if(get('/profile/update').length)throw Error('Empty profile name was submitted');passed.push('资料必填校验');
+ await fields.nth(0).fill('陈通');await fields.nth(1).fill('13800138000');await fields.nth(2).fill('preview@example.com');
+ const profileWait=page.waitForRequest(r=>r.url().endsWith('/profile/update'));
+ await page.getByText('保存资料',{exact:true}).click();await profileWait;await page.locator('.mask').waitFor({state:'hidden'});
+ const profile=JSON.parse(get('/profile/update')[0].body);if(profile.name!=='陈通'||profile.phone!=='13800138000'||profile.email!=='preview@example.com')throw Error('Invalid profile payload');passed.push('资料保存参数');
+ await page.getByText('管理',{exact:true}).first().click();await page.locator('.mask input').fill('标书同事');
+ const remarkWait=page.waitForRequest(r=>r.url().endsWith('/friends/remark'));
+ await page.getByText('保存备注',{exact:true}).click();await remarkWait;await page.locator('.mask').waitFor({state:'hidden'});
+ if(JSON.parse(get('/friends/remark')[0].body).remark!=='标书同事')throw Error('Remark not submitted');passed.push('好友备注保存');
+ await page.getByText('管理',{exact:true}).first().click();await page.getByText('权限设定',{exact:true}).click();await page.getByText('我可提醒对方',{exact:true}).click();
+ const permissionWait=page.waitForRequest(r=>r.url().endsWith('/friends/request'));
+ await page.getByText('发送变更申请',{exact:true}).click();await permissionWait;await page.locator('.mask').waitFor({state:'hidden'});
+ const permission=JSON.parse(get('/friends/request')[0].body);if(permission.permissionMode!=='I_CAN_REMIND'||permission.targetUserId!=='9100')throw Error('Permission mode reversed');passed.push('好友权限方向和接收人');
+ await go('settings');await page.locator('.model-card').first().waitFor();
+ await page.locator('.model-card .select-field').first().click();await page.getByText('qwen3.8-flash',{exact:true}).click();
+ const settingsWait=page.waitForRequest(r=>r.url().endsWith('/settings/models/save'));
+ await page.getByText('保存设置',{exact:true}).click();await settingsWait;
+ const settings=JSON.parse(get('/settings/models/save')[0].body);if(settings.llmConfigId!=='2'||settings.llmMode!=='SYSTEM'||settings.llm!==null)throw Error('Model selection payload incorrect');passed.push('模型ID与配置模式');
+ await go('chat');await page.locator('.toolbar').last().click();await page.getByText('取消',{exact:true}).click();
+ if(get('/chat/context/clear').length)throw Error('Cancel cleared context');
+ await page.locator('.toolbar').last().click();const clearWait=page.waitForRequest(r=>r.url().endsWith('/chat/context/clear'));await page.getByText('确认清除',{exact:true}).click();await clearWait;passed.push('清除上下文取消和确认');
+ if(errors.length)throw Error(errors.join(';'));
+ return {passed,errors,isolated:true};
+}

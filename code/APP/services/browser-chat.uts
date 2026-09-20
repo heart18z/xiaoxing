@@ -1,0 +1,153 @@
+// #ifdef WEB
+import { headers, refreshToken, ApiError } from '@/api/request.uts';
+import { BASE_URL } from '@/config/environment.uts';
+import { session } from '@/store/session.uts';
+import { s, n, obj } from '@/core/json.uts';
+export async function uploadBrowserFile(
+  file: File,
+  path: string,
+  timeout: number = 300000,
+): Promise<UTSJSONObject> {
+  const owner = session.userId,
+    revision = session.revision;
+  const once = async (): Promise<UTSJSONObject> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const response = await fetch(BASE_URL + path, {
+        method: 'POST',
+        headers: headers(false) as Record<string, string>,
+        body: form,
+        signal: controller.signal,
+      });
+      if (response == null) throw new Error('上传请求未完成');
+      const body = (await response.json()) as UTSJSONObject;
+      if (!response.ok || n(body, 'code') != 200)
+        throw new ApiError(
+          response.ok ? n(body, 'code') : response.status,
+          s(body, 'msg', '上传失败'),
+        );
+      return obj(body, 'data');
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let value: UTSJSONObject;
+  try {
+    value = await once();
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status != 401) throw e;
+    await refreshToken();
+    if (owner != session.userId || revision != session.revision) throw new Error('账号已变化');
+    value = await once();
+  }
+  if (owner != session.userId || revision != session.revision) throw new Error('账号已变化');
+  return value;
+}
+export function chooseBrowserFiles(
+  accept: string,
+  selected: (files: File[]) => void,
+  camera: boolean = false,
+): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = accept;
+  if (camera) {
+    input.multiple = false;
+    input.setAttribute('capture', 'environment');
+  }
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('cancel', () => input.remove(), { once: true });
+  input.onchange = () => {
+    selected(Array.from(input.files ?? []));
+    input.remove();
+  };
+  input.click();
+}
+let recorder: MediaRecorder | null = null,
+  stream: MediaStream | null = null,
+  timer = 0,
+  generation = 0;
+export function cancelBrowserRecording(): void {
+  generation++;
+  clearTimeout(timer);
+  if (recorder != null && recorder.state != 'inactive') recorder.stop();
+  recorder = null;
+  stream?.getTracks().forEach((track) => track.stop());
+  stream = null;
+}
+export function finishBrowserRecording(): void {
+  if (recorder != null && recorder.state != 'inactive') recorder.stop();
+  stream?.getTracks().forEach((track) => track.stop());
+  stream = null;
+  clearTimeout(timer);
+}
+export async function startBrowserRecording(
+  done: (file: File) => void,
+  failed: (message: string) => void,
+): Promise<void> {
+  cancelBrowserRecording();
+  const run = generation;
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
+    throw new Error('请使用 HTTPS 访问以使用麦克风');
+  const media = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true },
+  });
+  if (run != generation) {
+    media.getTracks().forEach((track) => track.stop());
+    return;
+  }
+  stream = media;
+  try {
+    const mime =
+      ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find((type) =>
+        MediaRecorder.isTypeSupported(type),
+      ) ?? '';
+    const rec =
+      mime.length > 0 ? new MediaRecorder(media, { mimeType: mime }) : new MediaRecorder(media);
+    recorder = rec;
+    const chunks: Blob[] = [],
+      started = Date.now();
+    rec.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    };
+    rec.onerror = () => {
+      if (run == generation) {
+        cancelBrowserRecording();
+        failed('录音失败，请检查麦克风权限');
+      }
+    };
+    rec.onstop = () => {
+      media.getTracks().forEach((track) => track.stop());
+      clearTimeout(timer);
+      if (run != generation) return;
+      recorder = null;
+      stream = null;
+      if (Date.now() - started < 500) {
+        failed('录音太短，请至少说半秒钟');
+        return;
+      }
+      const blob = new Blob(chunks, { type: rec.mimeType });
+      if (blob.size == 0 || blob.size > 20 * 1024 * 1024) {
+        failed('请选择20MB以内的有效音频');
+        return;
+      }
+      const ext = rec.mimeType.includes('mp4')
+        ? 'm4a'
+        : rec.mimeType.includes('ogg')
+          ? 'ogg'
+          : 'webm';
+      done(new File([blob], 'recording.' + ext, { type: rec.mimeType }));
+    };
+    rec.start();
+    timer = setTimeout(finishBrowserRecording, 90000);
+  } catch (e) {
+    cancelBrowserRecording();
+    throw e;
+  }
+}
+// #endif

@@ -1,0 +1,495 @@
+<template>
+  <AppFrame
+    :loading="loading"
+    :title="t('我的事件')"
+    :subtitle="t('帮你持续跟进每一件事')"
+    tab="events"
+  >
+    <template #right>
+      <view
+        class="filter"
+        @click="
+          all = !all;
+          load();
+        "
+      >
+        <UiIcon name="filter" tone="blue" :size="17" />
+        <text class="filter-label">{{ all ? t('只看进行中') : t('查看全部') }}</text>
+      </view>
+    </template>
+    <view class="filters">
+      <view class="event-tabs">
+        <view :class="['event-tab', type == 'sent' ? 'selected' : '']" @click="changeType('sent')">
+          <text :class="['tab-text', type == 'sent' ? 'tab-blue' : '']">{{ t('我发起的') }}</text>
+          <text :class="['count', type == 'sent' ? 'count-blue' : '']">
+            {{ n(session.summary, 'sentActiveEventCount') }}
+          </text>
+          <view v-if="type == 'sent'" class="underline" />
+        </view>
+        <view
+          :class="['event-tab', type == 'received' ? 'selected' : '']"
+          @click="changeType('received')"
+        >
+          <text :class="['tab-text', type == 'received' ? 'tab-blue' : '']">
+            {{ t('我收到的') }}
+          </text>
+          <text :class="['count', type == 'received' ? 'count-blue' : '']">
+            {{ n(session.summary, 'receivedActiveEventCount') }}
+          </text>
+          <view v-if="type == 'received'" class="underline" />
+        </view>
+      </view>
+      <view class="search-box">
+        <UiIcon name="search" :size="22" />
+        <input
+          class="search-input"
+          v-model="keyword"
+          :placeholder="t('搜索事件内容、编号或发起人')"
+        />
+      </view>
+    </view>
+    <scroll-view
+      scroll-y
+      class="scroll"
+      refresher-enabled
+      :refresher-triggered="refreshing"
+      refresher-default-style="none"
+      @refresherrefresh="refresh()"
+    >
+      <view slot="refresher" class="refresh-status">
+        <view
+          v-if="refreshing && !refreshComplete"
+          class="refresh-orbit"
+          :style="{ transform: 'rotate(' + refreshAngle + 'deg)' }"
+        />
+        <text class="refresh-label">
+          {{
+            refreshing
+              ? refreshComplete
+                ? error.length > 0
+                  ? t('更新失败，请重试')
+                  : t('事件已更新')
+                : t('正在更新事件…')
+              : t('下拉刷新，松开更新')
+          }}
+        </text>
+      </view>
+      <view class="padded">
+        <view v-if="error.length > 0" class="card">
+          <text class="error">{{ error }}</text>
+          <button class="secondary" @click="load()">{{ t('重新加载') }}</button>
+        </view>
+        <view v-if="!loading && filtered.length == 0" class="empty">
+          <text class="muted">{{ t('当前筛选下还没有事件') }}</text>
+        </view>
+        <view
+          v-for="item in filtered"
+          :key="s(item, 'id')"
+          class="card event-card"
+          @click="openEvent(s(item, 'id'))"
+        >
+          <view class="event-top">
+            <view
+              :class="[
+                'status',
+                s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE'
+                  ? ''
+                  : 'status-inactive',
+              ]"
+            >
+              <view
+                :class="[
+                  'status-dot',
+                  s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE' ? '' : 'dot-inactive',
+                ]"
+              />
+              <text
+                :class="[
+                  'status-text',
+                  s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE'
+                    ? ''
+                    : 'text-inactive',
+                ]"
+              >
+                {{ statusText(s(item, 'branchStatus', s(item, 'eventStatus'))) }}
+              </text>
+            </view>
+            <text class="event-number">{{ s(item, 'eventNo') }}</text>
+            <UiIcon name="chevron" :size="16" />
+          </view>
+          <text class="event-title">{{ s(item, 'eventSummary') }}</text>
+          <view class="people">
+            <UiIcon name="people" :size="17" />
+            <text class="muted">
+              {{
+                type == 'received'
+                  ? t('发起人：') + s(item, 'creatorName', s(item, 'creatorRealName'))
+                  : t('接收人 ') +
+                    n(item, 'recipientCount') +
+                    t(' 人 · 进行中 ') +
+                    n(item, 'activeBranchCount') +
+                    t(' 人')
+              }}
+            </text>
+          </view>
+          <view class="progress">
+            <UiIcon name="note" tone="blue" :size="19" />
+            <text class="progress-label">{{ t('最新进展') }}</text>
+            <text class="progress-text">
+              {{ s(item, 'latestFact', t('暂无反馈，等待下一次评估')) }}
+            </text>
+          </view>
+          <view class="event-dates">
+            <view class="date-row">
+              <UiIcon name="clock" :size="17" />
+              <text class="muted">
+                {{ t('创建时间') }}　{{ displayTime(s(item, 'createTime')) }}
+              </text>
+            </view>
+            <view class="date-row">
+              <UiIcon name="calendar" :size="17" />
+              <text class="muted">
+                {{ t('下次评估') }}　{{ s(item, 'nextEvaluateTime', t('无')) }}
+              </text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </AppFrame>
+</template>
+<script setup lang="uts">
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { ref, computed } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import { reminder, bootstrap } from '@/api/request.uts';
+import { SessionState, session as _session, requireSession } from '@/store/session.uts';
+import { s as _s, n as _n, message } from '@/core/json.uts';
+import { openEvent as _openEvent } from '@/core/ui.uts';
+import { statusText as _statusText, displayTime as _displayTime } from '@/core/time.uts';
+const session: SessionState = _session;
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function n(row: UTSJSONObject, key: string): number {
+  return _n(row, key);
+}
+function displayTime(value: string): string {
+  return _displayTime(value);
+}
+function statusText(value: string): string {
+  return _statusText(value);
+}
+function openEvent(id: string): void {
+  return _openEvent(id);
+}
+const type = ref('sent'),
+  all = ref(false),
+  keyword = ref(''),
+  rows = ref<UTSJSONObject[]>([]),
+  loading = ref(false),
+  refreshing = ref(false),
+  refreshComplete = ref(false),
+  refreshAngle = ref(0),
+  error = ref('');
+let ticket = 0,
+  timer: number = 0,
+  refreshAnimation: number = 0,
+  refreshRun = 0,
+  loadingRequest = false;
+const filtered = computed(() =>
+  rows.value.filter((row: UTSJSONObject): boolean =>
+    [
+      s(row, 'eventSummary'),
+      s(row, 'eventNo'),
+      s(row, 'creatorName'),
+      s(row, 'creatorRealName'),
+      s(row, 'latestFact'),
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(keyword.value.toLowerCase()),
+  ),
+);
+async function load(silent: boolean = false) {
+  if (silent && (loadingRequest || refreshing.value)) return;
+  const current = ++ticket;
+  loadingRequest = true;
+  if (!silent) loading.value = true;
+  try {
+    const response = await reminder('events', null, {
+      type: type.value,
+      status: all.value ? '' : 'ACTIVE',
+    });
+    if (current != ticket) return;
+    rows.value = (response['value'] as UTSJSONObject[]) ?? [];
+    error.value = '';
+    void bootstrap().catch(() => {});
+  } catch (e) {
+    if (current == ticket && !silent) error.value = message(e);
+  } finally {
+    if (current == ticket) {
+      loading.value = false;
+      loadingRequest = false;
+    }
+  }
+}
+async function refresh() {
+  if (refreshing.value) return;
+  const run = ++refreshRun,
+    start = Date.now();
+  refreshing.value = true;
+  refreshComplete.value = false;
+  refreshAnimation = setInterval(() => {
+    refreshAngle.value = (Date.now() - start) * 0.36;
+  }, 50);
+  try {
+    await load();
+  } finally {
+    const remaining = Math.max(0, 850 - (Date.now() - start));
+    await new Promise<void>((resolve) => {
+      setTimeout(() => resolve(), remaining);
+    });
+    if (run == refreshRun) {
+      clearInterval(refreshAnimation);
+      refreshComplete.value = true;
+      await new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), 400);
+      });
+      if (run == refreshRun) refreshing.value = false;
+    }
+  }
+}
+function changeType(value: string) {
+  type.value = value;
+  void load();
+}
+function stop() {
+  ticket++;
+  refreshRun++;
+  refreshing.value = false;
+  loadingRequest = false;
+  clearInterval(refreshAnimation);
+  clearInterval(timer);
+}
+onShow(() => {
+  if (!requireSession()) return;
+  void load();
+  timer = setInterval(() => {
+    void load(true);
+  }, 10000);
+});
+onHide(stop);
+onUnload(stop);
+</script>
+<style scoped>
+.filters {
+  padding: 0 16px;
+}
+.filter {
+  flex-direction: row;
+  align-items: center;
+  padding: 9px 13px;
+  border-radius: 24px;
+  background-color: #ffffffd9;
+}
+.filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a286b;
+  margin-left: 5px;
+}
+.event-tabs {
+  flex-direction: row;
+  background-color: #e8edf6b3;
+  border: 10px solid #ffffff9c;
+  border-radius: 20px;
+  margin: 0 -5px 14px;
+}
+.event-tab {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: 13px;
+}
+.tab-text {
+  font-size: 15px;
+  font-weight: 650;
+  color: #7a8396;
+}
+.tab-blue {
+  color: #315bff;
+}
+.count {
+  font-size: 12px;
+  line-height: 21px;
+  min-width: 21px;
+  height: 21px;
+  text-align: center;
+  margin-left: 5px;
+  border-radius: 11px;
+  background-color: #e1e7f2;
+  color: #818b9e;
+}
+.count-blue {
+  background-color: #315bff;
+  color: #ffffff;
+}
+.underline {
+  position: absolute;
+  bottom: -1px;
+  width: 38px;
+  height: 3px;
+  border-radius: 3px;
+  background-image: linear-gradient(90deg, #79a0ff, #3548ee);
+}
+.search-box {
+  height: 44px;
+  flex-direction: row;
+  align-items: center;
+  background-color: #ffffffec;
+  border-radius: 20px;
+  padding: 0 15px;
+  margin-bottom: 12px;
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  margin-left: 16px;
+  color: #35415c;
+}
+.padded {
+  padding: 0 17px 4px;
+}
+.event-card {
+  padding: 16px 17px 18px;
+  border-radius: 22px;
+  margin-bottom: 13px;
+}
+.event-top {
+  flex-direction: row;
+  align-items: center;
+}
+.status {
+  flex-direction: row;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 11px;
+  background-color: #eeefff;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #315bff;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+.status-text {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 650;
+  color: #315bff;
+}
+.status-inactive {
+  background-color: #f0f2f7;
+}
+.dot-inactive {
+  background-color: #9ba5b7;
+}
+.text-inactive {
+  color: #8f96a5;
+}
+.event-number {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: #9295a1;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #e1e6f0;
+}
+.event-title {
+  font-size: 16px;
+  line-height: 25px;
+  font-weight: 750;
+  color: #182138;
+  margin: 12px 0 9px;
+}
+.people {
+  flex-direction: row;
+  align-items: center;
+}
+.progress {
+  flex-direction: row;
+  align-items: center;
+  padding: 11px 10px;
+  margin: 13px 0 11px;
+  background-image: linear-gradient(100deg, #f1f3ff, #f7f7fc);
+  border-radius: 12px;
+}
+.progress-label {
+  font-size: 12px;
+  font-weight: 650;
+  color: #2856e4;
+  margin-left: 8px;
+  margin-right: 8px;
+}
+.progress-text {
+  flex: 1;
+  border-left: 1px solid #ccd5e7;
+  padding-left: 9px;
+  font-size: 12px;
+  line-height: 19px;
+  color: #35415c;
+}
+.event-dates {
+  border-top: 1px solid #edf0f6;
+  padding-top: 7px;
+}
+.date-row {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 4px;
+}
+.muted {
+  color: #9699a5;
+}
+.people .muted {
+  margin-left: 9px;
+}
+.date-row .muted {
+  font-size: 12px;
+  margin-left: 9px;
+}
+.refresh-status {
+  height: 58px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.refresh-orbit {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #dce6ff;
+  border-top-color: #537cff;
+  border-radius: 9px;
+  margin-right: 8px;
+  transition-property: transform;
+  transition-duration: 50ms;
+  transition-timing-function: linear;
+}
+.refresh-label {
+  color: #7189bc;
+  font-size: 12px;
+  background-color: #edf3ff;
+  border-radius: 15px;
+  padding: 7px 18px;
+}
+</style>

@@ -1,0 +1,708 @@
+<template>
+  <view :class="['message', user ? 'user' : 'assistant']">
+    <view v-if="avatarUrl.length == 0" class="initial">
+      <text>{{ s(session.profile, 'name', t('我')).slice(0, 1) }}</text>
+    </view>
+    <image v-else class="message-avatar" :src="avatarUrl" />
+    <view
+      :class="[
+        'message-main',
+        !user && (reason.length > 0 || candidate || notification) ? 'wide-message' : '',
+      ]"
+      :style="{ maxWidth: messageWidth + 'px' }"
+    >
+      <view
+        v-if="!notification && (!candidate || s(item, 'content').length > 0 || reason.length > 0)"
+        :class="['bubble', user ? 'user-bubble' : '', reason.length > 0 ? 'thought-bubble' : '']"
+      >
+        <ThinkingPanel
+          v-if="reason.length > 0 && !user"
+          :content="reason"
+          :open="expanded"
+          :streaming="isStreaming"
+          @toggle="expanded = !expanded"
+        />
+        <view
+          v-if="s(item, 'content').length > 0"
+          :class="[reason.length > 0 ? 'reply-after-thinking' : '']"
+        >
+          <text v-if="user" class="user-text" selectable>{{ s(item, 'content') }}</text>
+          <rich-text v-else :nodes="markdown(replyText(item))" />
+        </view>
+        <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
+        <text
+          v-if="strings(payload(item), 'fileNames').length > 0"
+          :class="['sent-files', user ? 'user-files' : '']"
+        >
+          {{ t('附件：') }}{{ strings(payload(item), 'fileNames').join('、') }}
+        </text>
+        <view v-if="s(item, 'messageType') == 'EVENT_ASSIGNED'" class="card-footer">
+          <text class="event-link" @click="openEvent(s(item, 'eventId'))">
+            {{ t('查看事件详情 ›') }}
+          </text>
+          <text class="message-time">{{ messageTime }}</text>
+        </view>
+        <text
+          v-for="id in strings(payload(item), 'eventIds')"
+          :key="id"
+          class="event-link"
+          @click="openEvent(id)"
+        >
+          {{ t('查看事件 / 设置本机闹铃 ›') }}
+        </text>
+      </view>
+      <view
+        v-if="notification"
+        :class="['notice', noticeClass]"
+        @click="openEvent(s(item, 'eventId'))"
+      >
+        <view v-if="reason.length > 0" class="notice-thinking" @click.stop>
+          <ThinkingPanel
+            :content="reason"
+            :open="expanded"
+            :streaming="isStreaming"
+            @toggle="expanded = !expanded"
+          />
+        </view>
+        <text :class="['notice-label', noticeClass]">{{ t(label) }}</text>
+        <view
+          :class="[
+            'notification-focus',
+            s(item, 'messageType') == 'REMINDER' ? 'reminder-focus' : '',
+          ]"
+        >
+          <text class="notification-content" selectable>
+            {{
+              s(item, 'messageType') == 'FEEDBACK'
+                ? s(payload(item), 'fact', s(item, 'content'))
+                : s(item, 'content')
+            }}
+          </text>
+          <text
+            v-if="s(item, 'messageType') == 'FEEDBACK' && s(payload(item), 'actor').length > 0"
+            class="notification-actor"
+          >
+            {{ t('反馈人：') }}{{ s(payload(item), 'actor') }}
+          </text>
+          <text v-if="s(payload(item), 'eventSummary').length > 0" class="related">
+            <text :class="['related-label', 'related-' + noticeClass]">{{ t('关联事件') }}</text>
+            　{{ s(payload(item), 'eventSummary') }}
+          </text>
+        </view>
+        <view class="card-footer">
+          <text v-if="s(item, 'eventId').length > 0" class="event-link">
+            {{ t('查看事件详情 ›') }}
+          </text>
+          <text class="message-time">{{ messageTime }}</text>
+        </view>
+      </view>
+      <view v-if="candidate" :class="['candidate', macro ? 'macro-card' : '']">
+        <text :class="['notice-label', macro ? 'macro-label' : '']">
+          {{ macro ? '◎' : '◷' }} {{ t(candidateHeading) }}
+        </text>
+        <text v-if="conflict && s(item, 'messageType') == 'CANDIDATE'" class="schedule-warning">
+          {{ t('发现不同事项的时间冲突，只有选择“仍要安排”后才会创建并通知接收人。') }}
+        </text>
+        <view
+          v-for="(event, index) in arr(payload(item), 'events')"
+          :key="index"
+          :class="['candidate-event', eventMacro(event) ? 'macro-event' : '']"
+        >
+          <text class="candidate-title">{{ s(event, 'summary') }}</text>
+          <text class="muted">{{ t('接收人：') }}{{ recipients(event) }}</text>
+          <text class="muted">
+            {{ eventMacro(event) ? t('目标周期') : t('事件时间') }}：{{
+              s(event, 'timeDescription', s(event, 'eventTime', t('持续跟进')))
+            }}
+          </text>
+          <text class="muted">
+            {{ eventMacro(event) ? t('首次跟进') : t('首次评估') }}：{{
+              s(event, 'firstEvaluateTime')
+            }}
+          </text>
+          <view v-if="s(item, 'messageType') == 'CANDIDATE'" class="alarm-choice">
+            <view
+              :class="['alarm-checkbox', alarms.includes(index) ? 'alarm-checked' : '']"
+              @click="toggleAlarm(index)"
+            >
+              <text v-if="alarms.includes(index)" class="alarm-tick">✓</text>
+            </view>
+            <text class="alarm-copy">{{ t('同时设置本机系统闹铃（iOS 26+）') }}</text>
+          </view>
+          <text
+            v-if="s(item, 'messageType') == 'CANDIDATE' && alarms.includes(index)"
+            class="alarm-hint"
+          >
+            {{ t('仅为自己接收的任务设置，需系统授权；其他手机不会自动设置。') }}
+          </text>
+        </view>
+        <view v-if="s(item, 'messageType') != 'CANDIDATE'" class="confirmed">
+          <text class="confirmed-text">{{ t(candidateLabel) }}</text>
+        </view>
+        <button
+          v-else
+          :class="['primary', macro ? 'macro-button' : '']"
+          :disabled="busy"
+          :loading="busy"
+          @click="emit('confirm', item, alarms)"
+        >
+          {{ t(candidateLabel) }}
+        </button>
+      </view>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import ThinkingPanel from './ThinkingPanel.uvue';
+import ReplyProgress from './ReplyProgress.uvue';
+import { timeOf, dayOf } from '@/core/time.uts';
+import { ref, computed, watch } from 'vue';
+import { SessionState, session as _session } from '@/store/session.uts';
+import {
+  firstText,
+  s as _s,
+  b,
+  payload as _payload,
+  arr as _arr,
+  strings as _strings,
+} from '@/core/json.uts';
+import { asset, openEvent as _openEvent } from '@/core/ui.uts';
+import { markdown as _markdown } from '@/core/markdown.uts';
+const session: SessionState = _session;
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function arr(row: UTSJSONObject, key: string): UTSJSONObject[] {
+  return _arr(row, key);
+}
+function strings(row: UTSJSONObject, key: string): string[] {
+  return _strings(row, key);
+}
+function payload(row: UTSJSONObject): UTSJSONObject {
+  return _payload(row);
+}
+function markdown(value: string): string {
+  return _markdown(value);
+}
+function openEvent(id: string): void {
+  return _openEvent(id);
+}
+const messageWidth = Math.max(180, (uni.getWindowInfo().windowWidth - 70) * 0.94);
+const props = defineProps<{ item: UTSJSONObject; busy: boolean }>();
+const emit = defineEmits(['confirm']);
+const expanded = ref(false),
+  alarms = ref<number[]>([]);
+const user = computed(() => s(props.item, 'messageRole') == 'user'),
+  avatarUrl = computed(() =>
+    asset(
+      user.value
+        ? s(session.profile, 'avatar')
+        : s(session.summary, 'aiAvatar', '/avatars/assistant/A3.png'),
+    ),
+  );
+const reason = computed(() =>
+    s(props.item, 'reasoningContent').length > 0
+      ? s(props.item, 'reasoningContent')
+      : s(payload(props.item), 'reasoningContent'),
+  ),
+  candidate = computed(() => s(props.item, 'messageType').startsWith('CANDIDATE'));
+const notification = computed(
+  () =>
+    ['REMINDER', 'QUESTION', 'FEEDBACK', 'CONFLICT'].includes(s(props.item, 'messageType')) &&
+    !(s(props.item, 'messageType') == 'CONFLICT' && s(payload(props.item), 'detail').length > 0),
+);
+const label = computed(() => {
+  const type = s(props.item, 'messageType');
+  return type == 'FEEDBACK'
+    ? '✓ 进展反馈'
+    : type == 'REMINDER'
+      ? '◷ 提醒消息'
+      : type == 'QUESTION'
+        ? '! 异常提醒'
+        : '! 冲突处理';
+});
+function replyText(item: UTSJSONObject): string {
+  const text = s(item, 'content');
+  return text == '该事件已结束，不能再提交反馈。'
+    ? '这条提醒已经结束了，本次没有追加进展。如果还需要提醒，告诉我新的时间就好。'
+    : text;
+}
+function eventMacro(event: UTSJSONObject): boolean {
+  const description = s(event, 'timeDescription');
+  if (
+    s(event, 'eventTime').length == 0 &&
+    (description.includes('年') ||
+      description.includes('长期') ||
+      description.includes('目标') ||
+      s(event, 'deadlineTime').length == 0)
+  )
+    return true;
+  const deadline = timeOf(s(event, 'deadlineTime'));
+  return deadline - Date.now() > 30 * 86400000;
+}
+const macro = computed(() =>
+  arr(payload(props.item), 'events').some((event: UTSJSONObject): boolean => eventMacro(event)),
+);
+const conflict = computed(() =>
+  arr(payload(props.item), 'events').some(
+    (event: UTSJSONObject): boolean => arr(event, 'scheduleConflicts').length > 0,
+  ),
+);
+const candidateHeading = computed(() => {
+  const type = s(props.item, 'messageType');
+  return type == 'CANDIDATE_CONFIRMED'
+    ? '事件已创建'
+    : type == 'CANDIDATE_CANCELLED'
+      ? '事件已取消'
+      : type == 'CANDIDATE_EXPIRED'
+        ? '操作已失效'
+        : macro.value
+          ? '长期目标确认'
+          : '近期事件确认';
+});
+const messageTime = computed(() => {
+  const value = s(props.item, 'createTime').replace('T', ' ');
+  return value.length > 0
+    ? value.slice(0, 10) == dayOf()
+      ? t('今天') + ' ' + value.slice(11, 16)
+      : value.slice(5, 16)
+    : '';
+});
+const noticeClass = computed(() => {
+  const type = s(props.item, 'messageType');
+  return type == 'FEEDBACK'
+    ? 'feedback-card'
+    : type == 'REMINDER'
+      ? 'reminder-card'
+      : type == 'QUESTION'
+        ? 'exception-card'
+        : 'conflict-card';
+});
+const candidateLabel = computed(() => {
+  const type = s(props.item, 'messageType');
+  return type == 'CANDIDATE'
+    ? props.busy
+      ? '正在创建…'
+      : conflict.value
+        ? '仍要安排'
+        : macro.value
+          ? '确认开始跟进'
+          : '确认创建'
+    : type == 'CANDIDATE_CONFIRMED'
+      ? '已创建'
+      : type == 'CANDIDATE_CANCELLED'
+        ? '已取消'
+        : '已失效';
+});
+function recipients(event: UTSJSONObject): string {
+  return arr(event, 'recipients')
+    .map((person: UTSJSONObject): string =>
+      firstText(person, ['friendRemark', 'name', 'realName', 'displayName', 'account']),
+    )
+    .join('、');
+}
+function toggleAlarm(index: number) {
+  alarms.value = alarms.value.includes(index)
+    ? alarms.value.filter((i: number): boolean => i != index)
+    : alarms.value.concat([index]);
+}
+
+watch(
+  (): string => s(props.item, 'id'),
+  () => {
+    expanded.value = b(props.item, 'streaming');
+    alarms.value = arr(payload(props.item), 'events')
+      .map((event: UTSJSONObject, index: number): number =>
+        b(event, 'alarmRequested') ? index : -1,
+      )
+      .filter((index: number): boolean => index >= 0);
+  },
+  { immediate: true },
+);
+
+const isStreaming = computed(() => b(props.item, 'streaming'));
+</script>
+<style scoped>
+.message {
+  flex-direction: row;
+  align-items: flex-start;
+  margin: 10px 0;
+}
+.user {
+  flex-direction: row-reverse;
+}
+.message-avatar,
+.initial {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background-color: #e7edff;
+  align-items: center;
+  justify-content: center;
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+.message-main {
+  max-width: 620rpx;
+  flex-shrink: 1;
+  margin-left: 8px;
+}
+.bubble {
+  padding: 13px 15px;
+  background-color: #ffffff;
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+}
+.user-bubble {
+  background-color: #5274ff;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 5px;
+  background-image: linear-gradient(120deg, #315bff, #6578ff);
+}
+.user-text {
+  font-size: 16px;
+  line-height: 25px;
+  color: #ffffff;
+}
+.thinking {
+  padding-bottom: 10px;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f0f0f4;
+}
+.thinking-title {
+  font-size: 14px;
+  color: #687181;
+  flex: 1;
+  font-weight: 600;
+}
+.thinking-text {
+  font-size: 14px;
+  line-height: 23px;
+  color: #8c97ac;
+  padding-top: 9px;
+}
+.notice {
+  background-color: #fffbf2;
+  border: 1px solid #f7e7ca;
+}
+.notice-label {
+  color: #5269ed;
+  font-size: 11px;
+  font-weight: 400;
+  margin-bottom: 6px;
+  align-self: flex-start;
+  background-color: #f0f3ff;
+  border-radius: 14px;
+  padding: 5px 10px;
+}
+.feedback {
+  color: #29856d;
+}
+.related {
+  font-size: 12px;
+  color: #8692a8;
+  border-top: 1px dashed #dfe6ef;
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.related-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4968d5;
+}
+.related-feedback-card {
+  color: #23977e;
+}
+.related-reminder-card {
+  color: #cf8100;
+}
+.related-conflict-card,
+.related-exception-card {
+  color: #d6534c;
+}
+.reminder-card .related {
+  border-color: #f3dfb8;
+}
+.candidate {
+  background-color: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 20px;
+  margin-top: 9px;
+  padding: 14px;
+}
+.candidate-event {
+  background-color: #f9f9ff;
+  border: 1px solid #eeedf5;
+  border-radius: 15px;
+  margin-bottom: 12px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.user .message-main {
+  margin-left: 0;
+  margin-right: 8px;
+}
+.thinking-icon {
+  width: 23px;
+  height: 23px;
+  border-radius: 7px;
+  background-color: #f0edff;
+  align-items: center;
+  justify-content: center;
+  margin-right: 7px;
+}
+.thinking-more {
+  font-size: 11px;
+  color: #9b9fa5;
+  margin-right: 9px;
+}
+.candidate-title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  color: #182033;
+  margin-bottom: 6px;
+}
+.candidate-event .muted {
+  font-size: 13px;
+  line-height: 24px;
+}
+.candidate-disabled {
+  background-color: #e8ecf7;
+  background-image: none;
+  color: #9095a5;
+  font-size: 16px;
+}
+.candidate .primary {
+  margin: 0;
+  min-height: 38px;
+  line-height: 38px;
+}
+.confirmed {
+  height: 38px;
+  background-color: #e8ecf7;
+  border-radius: 13px;
+  align-items: center;
+  justify-content: center;
+}
+.confirmed-text {
+  font-size: 16px;
+  font-weight: 650;
+  color: #9095a5;
+}
+
+.message-main {
+  align-items: flex-start;
+}
+.wide-message {
+  width: 620rpx;
+}
+.thought-bubble {
+  width: 100%;
+}
+.bubble {
+  box-shadow: 0 3px 14px #1c2b5210;
+}
+.reply-after-thinking {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #edf0f5;
+}
+.related-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4968d5;
+}
+.related-feedback-card {
+  color: #23977e;
+}
+.related-reminder-card {
+  color: #cf8100;
+}
+.related-conflict-card,
+.related-exception-card {
+  color: #d6534c;
+}
+.reminder-card .related {
+  border-color: #f3dfb8;
+}
+.candidate {
+  width: 100%;
+}
+.notice {
+  width: 100%;
+  border-radius: 17px;
+  padding: 13px 14px;
+}
+.feedback-card {
+  background-color: #f5fcfa;
+  border-color: #dcefe9;
+}
+.reminder-card {
+  background-color: #fffaf2;
+  border-color: #f7e7ca;
+}
+.conflict-card {
+  background-color: #fff7f6;
+  border-color: #f4dfdd;
+}
+.exception-card {
+  background-color: #fff8f7;
+  border-color: #f4dfdd;
+}
+.notice-label.feedback-card {
+  color: #15966c;
+  background-color: #e7f8f2;
+}
+.notice-label.reminder-card {
+  color: #d98300;
+  background-color: #fff3dc;
+}
+.notice-label.conflict-card,
+.notice-label.exception-card {
+  color: #dc4f49;
+  background-color: #fff0ef;
+}
+.notice-thinking {
+  margin-bottom: 11px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #edf0f5;
+}
+.notification-focus {
+  padding: 12px 13px;
+  border: 1px solid #f3d9d6;
+  border-radius: 14px;
+  background-color: #fff8f6;
+}
+.feedback-card .notification-focus {
+  border-color: #c9e9e0;
+  background-color: #f3fbf8;
+}
+.feedback-card .related {
+  border-color: #c9e9e0;
+}
+.exception-card .related {
+  border-color: #f3d9d6;
+}
+.notification-content {
+  color: #243149;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 25px;
+}
+.notification-actor {
+  color: #698477;
+  font-size: 12px;
+  line-height: 20px;
+  margin-top: 9px;
+}
+.reminder-focus {
+  padding: 12px 13px;
+  border: 1px solid #f3dfb8;
+  border-radius: 14px;
+  background-color: #fff8ea;
+}
+.reminder-focus .notification-content {
+  font-size: 14px;
+  line-height: 25px;
+}
+.card-footer {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 9px;
+}
+.event-link {
+  color: #7d8699;
+  font-size: 12px;
+  line-height: 20px;
+}
+.message-time {
+  margin-left: auto;
+  color: #a1a9b8;
+  font-size: 11px;
+}
+.macro-card {
+  background-color: #faf8ff;
+  border-color: #ebe4fb;
+}
+.macro-label {
+  color: #7953d6;
+  background-color: #f0e9ff;
+}
+.macro-event {
+  background-color: #faf7ff;
+  border-color: #eee7fb;
+}
+.macro-button {
+  background-image: linear-gradient(135deg, #7658d5, #9b7cec);
+}
+.schedule-warning {
+  padding: 10px;
+  border-radius: 10px;
+  background-color: #fff2dd;
+  color: #a36a16;
+  font-size: 12px;
+  line-height: 20px;
+  margin-top: 8px;
+}
+.alarm-choice {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 7px;
+}
+.alarm-copy {
+  flex: 1;
+  font-size: 11px;
+  color: #718096;
+  line-height: 18px;
+}
+.alarm-hint {
+  font-size: 11px;
+  line-height: 18px;
+  color: #8993a3;
+  margin-top: 5px;
+}
+.sent-files {
+  font-size: 12px;
+  line-height: 20px;
+  margin-top: 6px;
+  color: #7e8799;
+}
+.user-files {
+  color: #dce7ff;
+}
+.reply-progress {
+  flex-direction: row;
+  align-items: center;
+}
+.progress-dot {
+  color: #7191f5;
+  font-size: 10px;
+  margin-right: 4px;
+}
+.alarm-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #9ca4b3;
+  border-radius: 4px;
+  margin-right: 7px;
+  align-items: center;
+  justify-content: center;
+}
+.alarm-checked {
+  border-color: #7760d9;
+  background-color: #7760d9;
+}
+.alarm-tick {
+  color: #ffffff;
+  font-size: 12px;
+}
+</style>

@@ -1,0 +1,58 @@
+// Preserve the outgoing Web frame until the next page is mounted.
+// #ifdef WEB
+let cover: HTMLElement | null = null;
+let cleanupTimer: number = 0;
+// #endif
+export function beginTabTransition(): void {
+  // #ifdef WEB
+  clearTimeout(cleanupTimer);
+  if (cover != null) cover!.remove();
+  const frame = document.querySelector('.frame') as HTMLElement | null;
+  if (frame == null) return;
+  const rect = frame.getBoundingClientRect();
+  const clone = frame.cloneNode(true) as HTMLElement;
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+  clone.setAttribute('aria-hidden', 'true');
+  clone.setAttribute('inert', '');
+  clone.classList.add('tab-transition-cover');
+  clone.style.cssText =
+    'position:fixed;left:' +
+    rect.left +
+    'px;top:' +
+    rect.top +
+    'px;width:' +
+    rect.width +
+    'px;height:' +
+    rect.height +
+    'px;z-index:90;pointer-events:none;opacity:1;transition:opacity 160ms ease-out;';
+  document.body.appendChild(clone);
+  const original = frame.querySelectorAll('.uni-scroll-view');
+  const copied = clone.querySelectorAll('.uni-scroll-view');
+  original.forEach((node, index) => {
+    if (copied[index] != null) copied[index].scrollTop = node.scrollTop;
+  });
+  cover = clone;
+  cleanupTimer = setTimeout(() => {
+    if (cover != null) cover!.remove();
+    cover = null;
+  }, 1500);
+  // #endif
+}
+export function finishTabTransition(): void {
+  // #ifdef WEB
+  const previous = cover;
+  if (previous == null) return;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (previous != cover) return;
+      previous.style.opacity = '0';
+      clearTimeout(cleanupTimer);
+      cleanupTimer = setTimeout(() => {
+        previous.remove();
+        if (cover == previous) cover = null;
+      }, 180);
+    }),
+  );
+  // #endif
+}

@@ -1,0 +1,52 @@
+// #ifdef WEB
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+// #endif
+
+// Escape first; only locally produced formatting tags reach native rich-text.
+export function nativeMarkdown(value: string): string {
+  let safe = value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+  const lines = safe.split('\n');
+  let output = '',
+    code = false;
+  for (const line of lines) {
+    if (line.startsWith('```')) {
+      output += code
+        ? '</pre>'
+        : '<pre style="padding:10px;background:#eef1f6;white-space:pre-wrap;">';
+      code = !code;
+      continue;
+    }
+    if (code) {
+      output += line + '\n';
+      continue;
+    }
+    let formatted = line
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    if (/^#{1,6} /.test(line))
+      formatted = '<strong>' + formatted.replace(/^#{1,6} /, '') + '</strong>';
+    formatted = formatted.replace(/^[-*+] /, '• ').replace(/^&gt; /, '│ ');
+    output += formatted + '<br/>';
+  }
+  if (code) output += '</pre>';
+  return '<div style="font-size:16px;line-height:1.65;word-break:break-word;">' + output + '</div>';
+}
+
+export function markdown(value: string): string {
+  // Same parser/options and sanitizer as front/src/page/smart-reminder/markdown.js.
+  // #ifdef WEB
+  return DOMPurify.sanitize(
+    marked.parse(value, { gfm: true, breaks: true, headerIds: false, mangle: false }),
+    { USE_PROFILES: { html: true } },
+  );
+  // #endif
+  // #ifndef WEB
+  return nativeMarkdown(value);
+  // #endif
+}

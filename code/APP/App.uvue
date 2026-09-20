@@ -1,0 +1,36 @@
+<script setup lang="uts">
+import { watch } from 'vue';
+import { restoreSession, session } from '@/store/session.uts';
+import { pauseChat, resume, resetChat } from '@/services/chat.uts';
+import {
+  startNative,
+  syncPush,
+  reconcileAlarms,
+  checkNotificationTap,
+} from '@/services/native.uts';
+watch(
+  (): string => session.userId,
+  () => resetChat(),
+  { flush: 'sync' },
+);
+onLaunch(() => {
+  restoreSession();
+  void startNative().catch(() => {});
+});
+onShow(() => {
+  session.visible = true;
+  if (session.userId.length > 0) {
+    void resume().catch(() => {});
+    void syncPush();
+    void reconcileAlarms().catch(() => {});
+    void checkNotificationTap().catch(() => {});
+  }
+});
+onHide(() => {
+  session.visible = false;
+  pauseChat();
+});
+</script>
+<style>
+@import './styles/theme.css';
+</style>

@@ -1,0 +1,20 @@
+export type ModelForm = {
+  mode: string;
+  configId: string;
+  baseUrl: string;
+  modelName: string;
+  apiKey: string;
+  extraBody: string;
+  showThinking: boolean;
+};
+export function blankModel(): ModelForm {
+  return {
+    mode: 'SYSTEM',
+    configId: '',
+    baseUrl: '',
+    modelName: '',
+    apiKey: '',
+    extraBody: '{}',
+    showThinking: true,
+  };
+}

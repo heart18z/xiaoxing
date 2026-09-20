@@ -1,0 +1,23 @@
+{
+  "name": "xiaoxing-uniapp-x",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node tests/check-project.mjs",
+    "format": "node tests/format-project.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@vue/compiler-sfc": "^3.5.13",
+    "esbuild": "^0.21.5",
+    "lucide-static": "1.47.0",
+    "prettier": "^3.9.7",
+    "sm-crypto": "^0.3.13"
+  },
+  "dependencies": {
+    "dompurify": "3.4.11",
+    "jsqr": "1.4.0",
+    "marked": "4.3.0"
+  }
+}

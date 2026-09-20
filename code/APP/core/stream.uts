@@ -1,0 +1,44 @@
+// Incremental UTF-8 decoder; a network chunk may end inside a Chinese character.
+export class Utf8Stream {
+  pending: number[] = [];
+  decode(chunk: ArrayBuffer): string {
+    const input = new Uint8Array(chunk);
+    for (let i = 0; i < input.length; i++) this.pending.push(input[i]);
+    let out = '',
+      i = 0;
+    while (i < this.pending.length) {
+      const first = this.pending[i];
+      const count = first < 128 ? 1 : first < 224 ? 2 : first < 240 ? 3 : 4;
+      if (i + count > this.pending.length) break;
+      let point = first & (count == 1 ? 127 : count == 2 ? 31 : count == 3 ? 15 : 7);
+      for (let j = 1; j < count; j++) point = (point << 6) | (this.pending[i + j] & 63);
+      if (point <= 0xffff) out += String.fromCharCode(point);
+      else {
+        const offset = point - 0x10000;
+        out += String.fromCharCode(0xd800 + (offset >> 10), 0xdc00 + (offset & 1023));
+      }
+      i += count;
+    }
+    this.pending = this.pending.slice(i);
+    return out;
+  }
+}
+export class SseFrames {
+  buffer: string = '';
+  push(text: string): string[] {
+    this.buffer += text;
+    const frames: string[] = [];
+    let match = /\r?\n\r?\n/.exec(this.buffer);
+    while (match != null) {
+      const frame = this.buffer.slice(0, match.index);
+      this.buffer = this.buffer.slice(match.index + match[0]!.length);
+      const data: string[] = [];
+      frame.split('\n').forEach((line: string) => {
+        if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, '').replace(/\r$/, ''));
+      });
+      if (data.length > 0) frames.push(data.join('\n'));
+      match = /\r?\n\r?\n/.exec(this.buffer);
+    }
+    return frames;
+  }
+}

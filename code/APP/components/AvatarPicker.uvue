@@ -1,0 +1,90 @@
+<template>
+  <Popup
+    :open="kind.length > 0"
+    :title="displayKind == 'ai' ? '设置 AI 头像' : '设置我的头像'"
+    :busy="busy"
+    @close="emit('close')"
+  >
+    <text class="muted">{{ t('选择默认头像，或上传自己的图片') }}</text>
+    <view class="avatar-grid">
+      <view v-if="displayKind != 'ai'" class="avatar-choice" @click="emit('choose', '')">
+        <text class="title">{{ initial }}</text>
+        <text class="muted">{{ t('名字首字') }}</text>
+      </view>
+      <view v-for="url in presets" :key="url" class="avatar-choice" @click="emit('choose', url)">
+        <image class="preset" :src="asset(url)" />
+      </view>
+    </view>
+    <button class="secondary" :disabled="busy" @click="pick()">{{ t('上传图片') }}</button>
+    <text class="muted" style="text-align: center; margin-top: 12px">
+      {{ t('JPG / PNG / WEBP / GIF，最大 2MB') }}
+    </text>
+  </Popup>
+</template>
+<script setup lang="uts">
+import { t as _t } from '@/core/locale.uts';
+import { computed, ref, watch } from 'vue';
+import Popup from './Popup.uvue';
+import { asset as _asset, toast } from '@/core/ui.uts';
+function t(value: string): string {
+  return _t(value);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+const props = defineProps({
+  kind: { type: String, default: '' },
+  initial: { type: String, default: '我' },
+  busy: { type: Boolean, default: false },
+});
+const displayKind = ref('user');
+watch(
+  (): string => props.kind,
+  (value: string) => {
+    if (value.length > 0) displayKind.value = value;
+  },
+  { immediate: true },
+);
+const emit = defineEmits(['close', 'choose', 'upload']);
+const presets = computed(() =>
+  displayKind.value == 'ai'
+    ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13].map(
+        (i: number): string => '/avatars/assistant/A' + i + '.png',
+      )
+    : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(
+        (i: number): string => '/avatars/user/B' + i + '.png',
+      ),
+);
+function pick() {
+  if (props.busy) return;
+  uni.chooseImage({
+    count: 1,
+    success: (result) => {
+      if (result.tempFiles[0].size > 2 * 1024 * 1024) {
+        toast('头像不能超过2MB');
+        return;
+      }
+      emit('upload', result.tempFilePaths[0]);
+    },
+  });
+}
+</script>
+<style scoped>
+.avatar-grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.avatar-choice {
+  width: 25%;
+  height: 76px;
+  padding: 5px;
+  align-items: center;
+  justify-content: center;
+}
+.preset {
+  width: 64px;
+  height: 64px;
+  border-radius: 15px;
+}
+</style>

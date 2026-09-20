@@ -1,35 +1,33 @@
 # xiaoxing · AI小醒
 
-智能消息提醒系统。包含当前网页前后端和第一版 iOS Capacitor 工程，可在 Mac / Xcode 继续开发。
+智能消息提醒系统，包含 uni-app x 手机 APP、网页管理端及 Java 后端。当前手机端开发入口为 `code/APP`。
 
 ## 目录
 
-- `code/front`：Vue 3 网页，移动页面为 `/app`；Capacitor 8.5.1。
-- `code/front/ios/App/App.xcodeproj`：iOS 工程，Swift Package Manager。
-- `code/back`：Java 17 / Spring Boot 后台，包括直接 APNs 推送与设备绑定。
-- `scripts`：离线回归测试；不包含生产探测或写库脚本。
-- `sql`：提醒模块结构迁移；不含业务数据和完整数据库备份。
-- [iOS / TestFlight 操作说明](docs/ios-testflight.md)。
+- `code/APP`：当前 uni-app x / UTS 工程，包含 iOS / Android 原生插件。
+- `code/back`：Java 17 / Spring Boot 后端，包括提醒、好友二维码、图片解析、聊天任务及 APNs。
+- `code/front`：Vue 3 网页与旧版 `/app` 页面，保留作为现有网页和迁移参考。
+- `code/front/ios`：旧 Capacitor Xcode 工程；新版 APP 需使用 uni-app x 原生宿主。
+- `scripts`：离线回归测试。
+- `sql`：结构迁移，不包含业务数据与数据库备份。
 
-## Mac 开始开发
-
-安装 Node.js 22+ 和兼容 Mac 系统的 Xcode 26+，首次打开 Xcode 完成 iOS 组件安装，并登录组织 Apple 开发者账号。
+## Mac 开发与 iOS 测试
 
 ```bash
 git clone https://github.com/heart18z/xiaoxing.git
-cd xiaoxing/code/front
-cp .npmrc.example .npmrc
-# 在本机安全配置 NPM_BLADE_TOKEN；它是 BladeX 私有包授权，不是 GitHub 密码。
-npx --yes pnpm@9.3.0 install --frozen-lockfile
-npm run ios:sync
-npm run ios:open
+cd xiaoxing/code/APP
+npm ci
+npm run check
+npm test
 ```
 
-不要从 Windows 拷贝 `node_modules`，也不要跳过 `ios:sync`；同步会按 Mac 环境重新生成 Swift Package 路径。
+在 HBuilderX 导入 `code/APP`，保持当前 VDOM 模式。按照 [新版 APP 的 Xcode / TestFlight 操作说明](code/APP/IOS-TESTFLIGHT.md) 导出 iOS 资源、集成对应版本原生 SDK 与 UTS 插件，再使用原 Apple Team 自动签名、真机 Run、Archive 并上传 TestFlight。
 
-Bundle ID `com.dfyj.xiaoxing`，Team ID `7U8S8PWU2W`。原生资源打包到 App，API 入口在 `.env.native` 中配置为 `https://47.100.172.149`。IP HTTPS 证书与续期说明见 [部署记录](docs/ip-https-release-20260915.md)。
+Bundle ID 保持 `com.dfyj.xiaoxing`。当前准备版本为 `1.0.1 (100)`，上传前核对 App Store Connect 构建号未被占用。原生 API 为 `https://47.100.172.149/api`。
 
-首轮代码已通过 Windows 前后端构建、离线回归与模拟浏览器检查；**尚未通过 Xcode 编译、苹果签名或真实手机 APNs 验证**。当前使用默认工程图标；测试上架前再替换正式图标。Production 推送通过 TestFlight 验证；常规 Debug 真机推送需要另配 Sandbox key。
+APP 语法检查和 39 项测试通过，Web / Android 编译已验证；**新 Xcode 宿主尚需集成，iOS 编译、签名及真机验收尚未完成，也未上传新版 TestFlight**。生产后端已更新至 `ios-readiness-20260920`。
+
+更多内容见 [APP 开发说明](code/APP/DEVELOPMENT.md)、[接口约定](code/APP/README.md)。旧版 Capacitor 流程仅见 [历史 iOS 文档](docs/ios-testflight.md)，不要将旧流程当成新版 APP 打包入口。
 
 ## 配置与安全
 
@@ -41,7 +39,7 @@ Bundle ID `com.dfyj.xiaoxing`，Team ID `7U8S8PWU2W`。原生资源打包到 App
 - 既有生产数据加密依赖原来的 token sign key，迁移时必须安全保留原值，不能随意生成新值覆盖。
 - APNs `.p8` 只部署在服务器安全目录，不能放入 Git、前端资源或 App。
 - 真实数据由已有服务器持有；在 Mac 编译 iOS 并使用公网 API，不需要复制整库到 Mac。
-- 本次提交不等同于部署新版后台。通知设备接口和 APNs 服务还需按交接文档上线配置。
+- 源码提交与服务部署分别管理；本轮生产后端发布状态见新版 APP 的 iOS 操作说明。
 
 ## 授权
 

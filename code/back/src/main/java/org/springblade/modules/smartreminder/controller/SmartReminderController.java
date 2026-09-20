@@ -212,6 +212,15 @@ public class SmartReminderController {
 		return R.data(fileService.upload(file));
 	}
 
+    /** QR codes contain only a public account identifier, never a login credential. */
+    @PostMapping("/friends/qr")
+    public R<Object> friendQr() {
+        AppRoleGuard.requireAppUser();
+        String payload = "xiaoxing:friend:v1:" + AuthUtil.getUserAccount();
+        byte[] png = cn.hutool.extra.qrcode.QrCodeUtil.generatePng(payload, 600, 600);
+        return R.data(Map.of("image", "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(png)));
+    }
+
 	@PostMapping("/friends/search")
 	public R<Object> searchUsers(@RequestParam String keyword) {
 		AppRoleGuard.requireAppUser();

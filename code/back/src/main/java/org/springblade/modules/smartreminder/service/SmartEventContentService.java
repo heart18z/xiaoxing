@@ -19,6 +19,8 @@ public class SmartEventContentService {
 	private final JdbcTemplate jdbc;
 	private final ObjectMapper mapper;
 	private final NewApiClient ai;
+	@org.springframework.beans.factory.annotation.Value("${smart-reminder.scheduler-enabled:true}")
+	private boolean schedulerEnabled = true;
 	private final java.util.concurrent.ExecutorService summaryWorker=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"event-summary");t.setDaemon(true);return t;});
 	private final java.util.concurrent.atomic.AtomicBoolean summarizing=new java.util.concurrent.atomic.AtomicBoolean();
 	@jakarta.annotation.PreDestroy
@@ -119,6 +121,7 @@ public class SmartEventContentService {
 	/** Only the organizer overview needs synthesis; progress is read directly from branch facts. */
 	@org.springframework.scheduling.annotation.Scheduled(fixedDelay=5000, initialDelay=15000)
 	public void refreshLatestSummaries() {
+		if(!schedulerEnabled)return;
 		if(!summarizing.compareAndSet(false,true))return;
 		summaryWorker.submit(()->{try{refreshSummaryBatch();}finally{summarizing.set(false);}});
 	}
@@ -222,7 +225,8 @@ public class SmartEventContentService {
 
 	public String task(JsonNode event,Map<String,Object> recipient) {
 		Set<String> names=new HashSet<>();
-		for(String key:List.of("name","realName","account","friendRemark"))if(recipient.get(key)!=null)names.add(recipient.get(key).toString());
+		for(String key:List.of("name","realName","account","friendRemark","requestedName"))if(recipient.get(key)!=null)names.add(recipient.get(key).toString());
+		if(Boolean.TRUE.equals(recipient.get("self")))names.addAll(List.of("我","自己","本人","我自己"));
 		for(JsonNode item:event.path("recipientTasks")) {
 			if(names.contains(item.path("recipientName").asText())&&!item.path("content").asText("").isBlank())return item.path("content").asText();
 		}
@@ -240,7 +244,8 @@ public class SmartEventContentService {
 
 	public String explicitTask(JsonNode tasks,Map<String,Object> recipient) {
 		Set<String> names=new HashSet<>();
-		for(String key:List.of("name","realName","account","friendRemark"))if(recipient.get(key)!=null)names.add(recipient.get(key).toString());
+		for(String key:List.of("name","realName","account","friendRemark","requestedName"))if(recipient.get(key)!=null)names.add(recipient.get(key).toString());
+		if(Boolean.TRUE.equals(recipient.get("self")))names.addAll(List.of("我","自己","本人","我自己"));
 		for(JsonNode item:tasks)if(names.contains(item.path("recipientName").asText())&&!item.path("content").asText("").isBlank())return item.path("content").asText().trim();
 		return null;
 	}

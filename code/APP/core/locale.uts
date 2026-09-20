@@ -1,0 +1,5 @@
+import { session } from '@/store/session.uts';
+import { english } from './english.uts';
+export function t(value: string): string {
+  return session.language == 'en-us' ? ((english[value] as string | null) ?? value) : value;
+}

@@ -1,0 +1,708 @@
+<template>
+  <AppFrame
+    :loading="loading"
+    :title="t('事件详情')"
+    :subtitle="t('决策过程全程留痕')"
+    :back-button="true"
+  >
+    <template #right>
+      <text
+        v-if="b(detail, 'creator') && s(event, 'event_status') == 'ACTIVE'"
+        class="stop-button"
+        @click="stop()"
+      >
+        {{ t('停止') }}
+      </text>
+    </template>
+    <scroll-view scroll-y class="scroll">
+      <view class="padded">
+        <text class="muted" v-if="loading">{{ t('正在读取…') }}</text>
+        <view v-if="error.length > 0" class="card">
+          <text class="error">{{ error }}</text>
+          <button class="secondary" @click="load()">{{ t('重新加载') }}</button>
+        </view>
+        <view v-if="s(event, 'id').length > 0">
+          <view class="card hero">
+            <text class="chip">{{ s(event, 'event_no') }}</text>
+            <text class="summary-label">
+              {{ b(detail, 'creator') ? t('事件概述') : t('我的任务') }}
+            </text>
+            <text
+              :class="[
+                'heading',
+                overview.length > 85 && !overviewExpanded ? 'overview-collapsed' : '',
+              ]"
+            >
+              {{ overview }}
+            </text>
+            <text
+              v-if="overview.length > 85"
+              class="overview-toggle"
+              @click="overviewExpanded = !overviewExpanded"
+            >
+              {{ overviewExpanded ? t('收起') : t('展开完整概述') }}
+            </text>
+            <view v-if="progressItems.length > 0" class="progress">
+              <text class="progress-label">{{ t('最新进展') }}</text>
+              <text v-for="branch in visibleProgress" :key="s(branch, 'id')" class="progress-copy">
+                {{ b(detail, 'creator') ? name(branch) + '： ' : '' }}{{ s(branch, 'currentFact') }}
+              </text>
+              <text
+                v-if="progressItems.length > 2"
+                class="overview-toggle"
+                @click="progressExpanded = !progressExpanded"
+              >
+                {{ progressExpanded ? t('收起') : t('查看全部进展') }}
+              </text>
+            </view>
+            <text class="body-text">
+              {{ t('事件时间：')
+              }}{{
+                b(event, 'event_timeVaries')
+                  ? t('按接收人分别设置')
+                  : displayTime(s(event, 'event_time'))
+              }}
+            </text>
+            <text class="body-text">
+              {{ t('截止时间：')
+              }}{{
+                b(event, 'deadline_timeVaries')
+                  ? t('按接收人分别设置')
+                  : displayTime(s(event, 'deadline_time'))
+              }}
+            </text>
+            <AlarmControl :detail="detail" />
+            <view v-if="b(detail, 'creator')" class="creator-entry">
+              <view class="grow">
+                <text class="creator-title">{{ t('发起人对话') }}</text>
+                <text class="muted creator-subtitle">{{ t('查看事件创建、调整及反馈记录') }}</text>
+              </view>
+              <button
+                class="primary conversation-button"
+                @click="
+                  conversation(
+                    s(event, 'creator_user_id'),
+                    s(event, 'creatorName', s(event, 'creatorRealName', '发起人')),
+                  )
+                "
+              >
+                {{ t('查看对话') }}
+              </button>
+            </view>
+          </view>
+          <view v-if="arr(detail, 'relatedEvents').length > 0" class="card">
+            <text class="heading">{{ t('合并关联') }}</text>
+            <text
+              v-for="related in arr(detail, 'relatedEvents')"
+              :key="s(related, 'id')"
+              class="link"
+              @click="openEvent(s(related, 'id'))"
+            >
+              {{ s(related, 'summary') }} ›
+            </text>
+          </view>
+          <text class="section">{{ t('接收人分支') }}</text>
+          <view v-for="branch in branches" :key="s(branch, 'id')" class="card branch">
+            <view class="between">
+              <image
+                v-if="s(branch, 'avatar').length > 0"
+                class="avatar"
+                :src="asset(s(branch, 'avatar'))"
+              />
+              <view v-else class="avatar">
+                <text>{{ name(branch).slice(0, 1) }}</text>
+              </view>
+              <view class="grow">
+                <text class="heading">{{ name(branch) }}</text>
+                <text class="muted">
+                  {{ statusText(s(branch, 'branchStatus')) }} {{ t('· 下次评估') }}
+                  {{ s(branch, 'nextEvaluateTime', t('无')) }}
+                </text>
+              </view>
+              <text
+                class="branch-conversation"
+                @click="conversation(s(branch, 'recipientUserId'), name(branch))"
+              >
+                {{ t('查看对话') }}
+              </text>
+            </view>
+            <text class="body-text">{{ t('当前任务：') }}{{ s(branch, 'latestSummary') }}</text>
+            <text class="muted">
+              {{ t('事件时间：') }}{{ displayTime(s(branch, 'taskEventTime')) }}
+            </text>
+            <text class="muted">
+              {{ t('截止时间：') }}{{ displayTime(s(branch, 'taskDeadlineTime')) }}
+            </text>
+            <text v-if="s(branch, 'currentFact').length > 0" class="body-text">
+              {{ t('最新事实：') }}{{ s(branch, 'currentFact') }}
+            </text>
+          </view>
+          <view class="between">
+            <text class="section">{{ t('时间轴') }}</text>
+            <view class="row">
+              <text class="muted">{{ t('AI节点') }}</text>
+              <switch
+                color="#7959d9"
+                :checked="showAI"
+                style="transform: scale(0.75)"
+                @change="showAI = !showAI"
+              />
+            </view>
+          </view>
+          <scroll-view scroll-x style="height: 48px">
+            <view class="row">
+              <text
+                :class="['timeline-tab', branchFilter.length == 0 ? 'timeline-selected' : '']"
+                @click="branchFilter = ''"
+              >
+                {{ t('全部') }}
+              </text>
+              <text
+                v-for="branch in branches"
+                :key="s(branch, 'id')"
+                :class="[
+                  'timeline-tab',
+                  branchFilter == s(branch, 'id') ? 'timeline-selected' : '',
+                ]"
+                style="margin-left: 8px"
+                @click="branchFilter = s(branch, 'id')"
+              >
+                {{ name(branch) }}
+              </text>
+            </view>
+          </scroll-view>
+          <view v-for="(node, index) in timeline" :key="s(node, 'id')" class="timeline">
+            <view class="node-track">
+              <view
+                v-if="index < timeline.length - 1"
+                :class="['node-line', isAi(node) ? 'line-ai' : '']"
+              />
+              <view :class="['node-dot', isAi(node) ? 'dot-ai' : '']" />
+            </view>
+            <view class="node-content">
+              <view class="row">
+                <text v-if="isAi(node)" class="ai-mark">AI</text>
+                <text class="node-title">
+                  {{
+                    !isAi(node) && s(node, 'actorName').length > 0
+                      ? s(node, 'actorName') + ' · '
+                      : ''
+                  }}{{ nodeLabel(s(node, 'nodeType')) }}
+                </text>
+              </view>
+              <text class="node-copy">{{ s(node, 'content') }}</text>
+              <text class="node-time">
+                {{ t('操作人：') }}{{ isAi(node) ? 'AI' : s(node, 'actorName', t('系统')) }} ·
+                {{ displayTime(s(node, 'createTime')) }}
+              </text>
+            </view>
+          </view>
+          <text v-if="timeline.length == 0" class="muted">{{ t('当前分支暂无时间轴记录') }}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </AppFrame>
+  <Popup
+    variant="conversation"
+    :open="conversationOpen"
+    :title="conversationName + ' · ' + t('事件对话')"
+    @close="closeConversation"
+  >
+    <scroll-view scroll-y class="conversation" :style="{ height: conversationHeight + 'px' }">
+      <text class="muted" v-if="conversationLoading">{{ t('正在读取对话…') }}</text>
+      <text class="muted" v-else-if="conversationRows.length == 0">
+        {{ t('该事件暂时没有对话记录') }}
+      </text>
+      <view
+        v-for="row in conversationRows"
+        :key="s(row, 'id')"
+        :class="[
+          'conversation-message',
+          s(row, 'messageRole') == 'user' ? 'conversation-user' : '',
+        ]"
+      >
+        <image
+          v-if="conversationAvatar(row).length > 0"
+          class="dialog-avatar"
+          :src="conversationAvatar(row)"
+        />
+        <view v-else class="dialog-avatar dialog-initial">
+          <text>{{ conversationName.slice(0, 1) }}</text>
+        </view>
+        <view
+          :class="['dialog-bubble', s(row, 'messageRole') == 'user' ? 'dialog-user-bubble' : '']"
+        >
+          <text v-if="s(row, 'messageRole') == 'user'" class="dialog-user-text">
+            {{ s(row, 'content') }}
+          </text>
+          <rich-text v-else :nodes="markdown(s(row, 'content'))" />
+          <text :class="['dialog-time', s(row, 'messageRole') == 'user' ? 'dialog-user-time' : '']">
+            {{ displayTime(s(row, 'createTime')) }}
+          </text>
+        </view>
+      </view>
+    </scroll-view>
+  </Popup>
+</template>
+<script setup lang="uts">
+// #ifdef WEB
+defineOptions({ inheritAttrs: false });
+// #endif
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { eventOverview, eventTimeline, eventIsAi } from '@/core/event-view.uts';
+import AppFrame from '@/components/AppFrame.uvue';
+import Popup from '@/components/Popup.uvue';
+import AlarmControl from '@/components/AlarmControl.uvue';
+import { reminder, bootstrap } from '@/api/request.uts';
+import { SessionState, session as _session, requireSession } from '@/store/session.uts';
+import { s as _s, b as _b, obj, arr as _arr, message } from '@/core/json.uts';
+import { displayTime as _displayTime, statusText as _statusText } from '@/core/time.uts';
+import { asset as _asset, confirm, toast, openEvent as _openEvent } from '@/core/ui.uts';
+import { markdown as _markdown } from '@/core/markdown.uts';
+import { reconcileAlarms } from '@/services/native.uts';
+const session: SessionState = _session;
+function asset(value: string): string {
+  return _asset(value);
+}
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function b(row: UTSJSONObject, key: string): boolean {
+  return _b(row, key);
+}
+function arr(row: UTSJSONObject, key: string): UTSJSONObject[] {
+  return _arr(row, key);
+}
+function displayTime(value: string): string {
+  return value.length > 0 ? value.replace('T', ' ').slice(0, 19) : t('未设定');
+}
+function statusText(value: string): string {
+  return _statusText(value);
+}
+function markdown(value: string): string {
+  return _markdown(value).replace('font-size:16px', 'font-size:14px');
+}
+function openEvent(id: string): void {
+  return _openEvent(id);
+}
+const id = ref(''),
+  detail = ref<UTSJSONObject>({}),
+  loading = ref(false),
+  error = ref(''),
+  showAI = ref(true),
+  overviewExpanded = ref(false),
+  progressExpanded = ref(false),
+  branchFilter = ref(''),
+  conversationOpen = ref(false),
+  conversationName = ref(''),
+  conversationLoading = ref(false),
+  conversationRows = ref<UTSJSONObject[]>([]);
+const conversationData = ref<UTSJSONObject>({});
+const conversationHeight = Math.min(620, uni.getWindowInfo().windowHeight * 0.68);
+function conversationAvatar(row: UTSJSONObject): string {
+  return asset(
+    s(row, 'messageRole') == 'user'
+      ? s(obj(conversationData.value, 'participant'), 'avatar')
+      : s(
+          conversationData.value,
+          'aiAvatar',
+          s(session.summary, 'aiAvatar', '/avatars/assistant/A3.png'),
+        ),
+  );
+}
+let timer: number = 0,
+  ticket = 0,
+  conversationTicket = 0,
+  detailBusy = false,
+  active = false;
+const event = computed(() => obj(detail.value, 'event')),
+  branches = computed(() => arr(detail.value, 'branches'));
+const overview = computed((): string => eventOverview(event.value));
+const progressItems = computed(() =>
+  branches.value.filter((row: UTSJSONObject): boolean => s(row, 'currentFact').trim().length > 0),
+);
+const visibleProgress = computed(() =>
+  progressExpanded.value ? progressItems.value : progressItems.value.slice(0, 2),
+);
+function isAi(node: UTSJSONObject): boolean {
+  return eventIsAi(node);
+}
+const timeline = computed(() => eventTimeline(detail.value, showAI.value, branchFilter.value));
+function name(row: UTSJSONObject): string {
+  return s(row, 'name', s(row, 'realName', s(row, 'account')));
+}
+function nodeLabel(type: string): string {
+  const labels: UTSJSONObject = {
+    EVENT_CREATED: '事件创建',
+    EVENT_UPDATED: '事件更新',
+    BRANCH_TASK_UPDATED: '任务已更新',
+    RECIPIENT_FEEDBACK: '接收人反馈',
+    NOTIFICATION_READ: '已读',
+    EVENT_STOPPED: '事件停止',
+    BRANCH_STOPPED: '分支停止',
+    EVENT_MERGED: '事件合并',
+    FIRST_EVALUATION_PLANNED: '首次评估',
+    EVALUATION_TIME_ADJUSTED: '评估时间优化',
+    NEXT_EVALUATION_PLANNED: '规划下次评估',
+    RECIPIENT_NOTIFIED: '通知接收人',
+    REMINDER_SENT: '发出提醒',
+    AI_RECIPIENT_ADDED: '新增接收人',
+    TIME_CONFLICT_DETECTED: '发现时间冲突',
+    ASK_CREATOR: '询问发起人',
+    ASK_RECIPIENT: '询问接收人',
+    AI_STOPPED: 'AI停止分支',
+    AI_BRANCH_RESUMED: '恢复提醒分支',
+    CREATOR_EVALUATION_REQUESTED: '发起人反馈触发评估',
+  };
+  return s(labels, type, type);
+}
+async function load(silent: boolean = false) {
+  if (id.value.length == 0 || (silent && detailBusy)) return;
+  const current = ++ticket;
+  detailBusy = true;
+  if (!silent) loading.value = true;
+  try {
+    const data = await reminder('event/detail', null, { eventId: id.value });
+    if (current == ticket) {
+      detail.value = obj(data, 'value');
+      error.value = '';
+    }
+  } catch (e) {
+    if (current == ticket && !silent) error.value = message(e);
+  } finally {
+    if (current == ticket) {
+      loading.value = false;
+      detailBusy = false;
+    }
+  }
+}
+async function stop() {
+  if (!(await confirm('停止提醒', '确定停止这个智能提醒吗？'))) return;
+  try {
+    await reminder('event/stop', { eventId: id.value, reason: '用户在事件详情手动停止' });
+    await load();
+    await bootstrap();
+    await reconcileAlarms();
+    toast('已停止');
+  } catch (e) {
+    toast(message(e));
+  }
+}
+async function conversation(userId: string, name: string) {
+  const current = ++conversationTicket;
+  conversationName.value = name;
+  conversationOpen.value = true;
+  conversationLoading.value = true;
+  conversationRows.value = [];
+  try {
+    const data = await reminder(
+      'event/conversation',
+      null,
+      { eventId: id.value, participantUserId: userId },
+      30000,
+    );
+    if (current == conversationTicket) {
+      conversationData.value = obj(data, 'value');
+      conversationRows.value = arr(conversationData.value, 'messages');
+      const participantName = s(obj(conversationData.value, 'participant'), 'displayName');
+      if (participantName.length > 0) conversationName.value = participantName;
+    }
+  } catch (e) {
+    if (current == conversationTicket) {
+      conversationOpen.value = false;
+      toast(message(e));
+    }
+  } finally {
+    if (current == conversationTicket) conversationLoading.value = false;
+  }
+}
+onLoad((options) => {
+  id.value = options?.['id'] ?? '';
+});
+onShow(() => {
+  if (!requireSession()) return;
+  active = true;
+  clearInterval(timer);
+  void load();
+  timer = setInterval(() => {
+    if (session.visible) void load(true);
+  }, 5000);
+});
+function stopTimer() {
+  active = false;
+  detailBusy = false;
+  ticket++;
+  conversationTicket++;
+  clearInterval(timer);
+}
+// #ifdef WEB
+function visibleAgain() {
+  if (active && !document.hidden) void load(true);
+}
+onMounted(() => document.addEventListener('visibilitychange', visibleAgain));
+onUnmounted(() => document.removeEventListener('visibilitychange', visibleAgain));
+// #endif
+onHide(stopTimer);
+onUnload(stopTimer);
+function closeConversation() {
+  conversationOpen.value = false;
+  conversationTicket++;
+}
+</script>
+<style scoped>
+.overview-collapsed {
+  lines: 4;
+  overflow: hidden;
+}
+.overview-toggle {
+  color: #526fcb;
+  font-size: 12px;
+  padding: 5px 0;
+  margin-bottom: 8px;
+}
+.stop-button {
+  font-size: 16px;
+  color: #d94343;
+  background-color: #ffffffed;
+  padding: 11px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px #205a9614;
+}
+.padded {
+  padding-top: 16px;
+}
+.hero {
+  padding: 22px 17px 17px;
+}
+.summary-label {
+  font-size: 12px;
+  color: #9097a6;
+  margin-top: 15px;
+  margin-bottom: 8px;
+}
+.heading {
+  font-size: 17px;
+  line-height: 26px;
+  margin-bottom: 15px;
+}
+.hero .body-text {
+  font-size: 13px;
+  line-height: 28px;
+  color: #8d929e;
+}
+.progress {
+  background-color: #eff8f7;
+  border: 1px solid #dceae9;
+  border-radius: 15px;
+  padding: 14px;
+  margin: 2px 0 12px;
+}
+.progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #398b7d;
+  margin: 2px 0 10px;
+}
+.progress-copy {
+  font-size: 13px;
+  line-height: 22px;
+  color: #59706d;
+}
+.creator-entry {
+  flex-direction: row;
+  align-items: center;
+  border-top: 1px solid #edf0f6;
+  margin-top: 15px;
+  padding-top: 13px;
+}
+.creator-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #222b3b;
+}
+.creator-subtitle {
+  font-size: 11px;
+  margin-top: 5px;
+}
+.conversation-button {
+  font-size: 16px;
+  line-height: 39px;
+  min-height: 39px;
+  margin: 0;
+  padding: 0 12px;
+}
+.branch .heading {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.branch .between {
+  margin-bottom: 11px;
+}
+.branch-conversation {
+  padding: 7px 10px;
+  background-color: #eff2ff;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4264e9;
+  margin-left: 6px;
+}
+.branch .body-text {
+  font-size: 14px;
+  line-height: 24px;
+  margin-top: 4px;
+}
+.branch .muted {
+  line-height: 23px;
+}
+.timeline-tab {
+  padding: 9px 14px;
+  border: 1px solid #dfe5f0;
+  border-radius: 16px;
+  font-size: 16px;
+  color: #838b9a;
+  background-color: #ffffff;
+}
+.timeline-selected {
+  color: #ffffff;
+  background-color: #315bff;
+  border-color: #315bff;
+}
+.timeline {
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0 0 0 7px;
+}
+.node-track {
+  width: 26px;
+  align-items: flex-start;
+}
+.node-line {
+  position: absolute;
+  width: 2px;
+  top: 11px;
+  bottom: -4px;
+  left: 5px;
+  background-color: #c4dbf5;
+}
+.line-ai {
+  background-color: #d4c9ed;
+}
+.node-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  border: 3px solid #4262f2;
+  background-color: #ffffff;
+  margin-top: 3px;
+}
+.dot-ai {
+  border-color: #8c63db;
+}
+.node-content {
+  flex: 1;
+  padding-bottom: 6px;
+}
+.node-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: #1e293e;
+  line-height: 24px;
+  flex-shrink: 1;
+}
+.node-copy {
+  font-size: 16px;
+  line-height: 25px;
+  color: #66717f;
+  margin-top: 6px;
+}
+.node-time {
+  font-size: 12px;
+  line-height: 20px;
+  color: #a0a6b2;
+  margin-top: 12px;
+}
+.ai-mark {
+  font-size: 10px;
+  line-height: 19px;
+  padding: 0 6px;
+  background-color: #8860d5;
+  color: #ffffff;
+  border-radius: 7px;
+  margin-right: 6px;
+}
+.conversation {
+  border-top: 1px solid #efeff5;
+  padding-top: 14px;
+}
+.conversation-message {
+  flex-direction: row;
+  align-items: flex-start;
+  margin-bottom: 11px;
+}
+.conversation-user {
+  flex-direction: row-reverse;
+}
+.dialog-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.dialog-initial {
+  background-color: #efedff;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-bubble {
+  flex-shrink: 1;
+  margin: 0 0 0 8px;
+  max-width: 510rpx;
+  padding: 11px 13px;
+  background-color: #f5f5fb;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+}
+.dialog-user-bubble {
+  margin: 0 8px 0 0;
+  background-image: linear-gradient(120deg, #315bff, #6578ff);
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 4px;
+}
+.dialog-user-text {
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 22px;
+}
+.dialog-time {
+  color: #a6a9b3;
+  font-size: 10px;
+  line-height: 17px;
+  margin-top: 9px;
+}
+.dialog-user-time {
+  color: #cad2ff;
+  text-align: right;
+}
+.hero .body-text {
+  line-height: 28px;
+}
+.hero .heading {
+  margin-bottom: 15px;
+}
+.creator-subtitle {
+  line-height: 18px;
+}
+.node-content {
+  padding-bottom: 8px;
+}
+.dialog-bubble {
+  max-width: 510rpx;
+}
+</style>

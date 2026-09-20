@@ -1,0 +1,71 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/chat/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/events/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/me/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/event-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    }
+  ],
+  "globalStyle": {
+    "backgroundColor": "#f4f7ff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "AI小醒",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#959aaf",
+    "selectedColor": "#4963ff",
+    "backgroundColor": "#edf4ff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/events/index",
+        "text": "事件"
+      },
+      {
+        "pagePath": "pages/chat/index",
+        "text": "AI助手"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的"
+      }
+    ]
+  }
+}

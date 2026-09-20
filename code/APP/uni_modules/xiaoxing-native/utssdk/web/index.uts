@@ -1,0 +1,11 @@
+import { NativeResult } from '../interface.uts'
+// Web preview uses session-only storage. Production native builds use Keychain/Keystore.
+export function secureRead(key: string): string { return sessionStorage.getItem('xiaoxing:'+key) ?? '' }
+export function secureWrite(key: string,value: string): boolean { sessionStorage.setItem('xiaoxing:'+key,value);return true }
+export function randomHex(length: number): string {
+  const data=new Uint8Array(length);crypto.getRandomValues(data)
+  let out='';data.forEach((v:number)=>{out+=v.toString(16).padStart(2,'0')});return out
+}
+export function nativeCall(action: string,input: string,callback: NativeResult): void {
+  callback(JSON.stringify({supported:false,error:'此功能需要在手机 App 中使用'}))
+}

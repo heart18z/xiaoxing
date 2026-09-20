@@ -1,0 +1,82 @@
+<template>
+  <view v-if="state.visible" class="startup-mask" :style="{ opacity: state.leaving ? 0 : 1 }">
+    <image class="startup-logo" src="/static/images/ai-assistant-tab.png" />
+    <text class="startup-title">AI小醒</text>
+    <text class="startup-subtitle">让提醒更贴心</text>
+    <view class="startup-track">
+      <view
+        class="startup-progress"
+        :style="{ transform: moving ? 'translateX(65px)' : 'translateX(0px)' }"
+      />
+    </view>
+    <text class="startup-subtitle">正在准备你的智能助手…</text>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { startup, StartupState } from '@/store/startup.uts';
+const state: StartupState = startup;
+const moving = ref(false);
+let timer: number = 0;
+onMounted(() => {
+  timer = setInterval(() => {
+    moving.value = !moving.value;
+  }, 700);
+});
+onUnmounted(() => clearInterval(timer));
+watch(
+  (): boolean => state.visible,
+  (value: boolean) => {
+    if (!value) clearInterval(timer);
+  },
+);
+</script>
+<style scoped>
+.startup-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  background-color: #f3f8ff;
+  background-image: linear-gradient(135deg, #e4f5ff, #f8fbff, #eaeaff);
+  transition-property: opacity;
+  transition-duration: 240ms;
+}
+.startup-logo {
+  width: 76px;
+  height: 76px;
+  margin-bottom: 22px;
+}
+.startup-title {
+  font-size: 25px;
+  font-weight: 650;
+  color: #273755;
+  margin-bottom: 12px;
+}
+.startup-subtitle {
+  font-size: 14px;
+  color: #7d8ba5;
+  line-height: 25px;
+}
+.startup-track {
+  width: 112px;
+  height: 4px;
+  overflow: hidden;
+  background-color: #dfe8f6;
+  border-radius: 4px;
+  margin: 30px 0 20px;
+}
+.startup-progress {
+  width: 45px;
+  height: 4px;
+  border-radius: 4px;
+  background-color: #6784ff;
+  transition-property: transform;
+  transition-duration: 700ms;
+  transition-timing-function: ease-in-out;
+}
+</style>

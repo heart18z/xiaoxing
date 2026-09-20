@@ -1,0 +1,232 @@
+// SM2 C1C2C3 (mode 0), compatible with front's sm-crypto. No BigInt/JS dependency.
+// Field elements use 16 little-endian base-65536 limbs (exact Number arithmetic).
+type Point = { x: number[]; y: number[]; z: number[] };
+const P = fromHex('fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff');
+const N = fromHex('fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123');
+const GX = fromHex('32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7');
+const GY = fromHex('bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0');
+function zero(): number[] {
+  return new Array<number>(16).fill(0);
+}
+function one(): number[] {
+  const a = zero();
+  a[0] = 1;
+  return a;
+}
+function fromHex(hex: string): number[] {
+  const a = zero();
+  for (let i = 0; i < 16; i++) a[i] = parseInt(hex.slice(60 - i * 4, 64 - i * 4), 16);
+  return a;
+}
+function hexOf(a: number[]): string {
+  let out = '';
+  for (let i = 15; i >= 0; i--) out += a[i].toString(16).padStart(4, '0');
+  return out;
+}
+function compare(a: number[], b: number[]): number {
+  for (let i = 15; i >= 0; i--) if (a[i] != b[i]) return a[i] > b[i] ? 1 : -1;
+  return 0;
+}
+function rawSubtract(a: number[], b: number[]): number[] {
+  const r = zero();
+  let borrow = 0;
+  for (let i = 0; i < 16; i++) {
+    const v = a[i] - b[i] - borrow;
+    r[i] = (v + 65536) % 65536;
+    borrow = v < 0 ? 1 : 0;
+  }
+  return r;
+}
+function add(a: number[], b: number[]): number[] {
+  let r = zero(),
+    carry = 0;
+  for (let i = 0; i < 16; i++) {
+    const v = a[i] + b[i] + carry;
+    r[i] = v % 65536;
+    carry = Math.floor(v / 65536);
+  }
+  if (carry > 0 || compare(r, P) >= 0) r = rawSubtract(r, P);
+  return r;
+}
+function sub(a: number[], b: number[]): number[] {
+  return compare(a, b) >= 0 ? rawSubtract(a, b) : rawSubtract(P, rawSubtract(b, a));
+}
+function mul(a: number[], b: number[]): number[] {
+  let result = zero(),
+    current = a;
+  for (let i = 0; i < 256; i++) {
+    if ((b[Math.floor(i / 16)] & (1 << (i % 16))) != 0) result = add(result, current);
+    current = add(current, current);
+  }
+  return result;
+}
+function sq(a: number[]): number[] {
+  return mul(a, a);
+}
+function scale(a: number[], count: number): number[] {
+  let r = zero();
+  for (let i = 0; i < count; i++) r = add(r, a);
+  return r;
+}
+function inverse(a: number[]): number[] {
+  const exponent = rawSubtract(P, scale(one(), 2));
+  let r = one();
+  for (let i = 255; i >= 0; i--) {
+    r = sq(r);
+    if ((exponent[Math.floor(i / 16)] & (1 << (i % 16))) != 0) r = mul(r, a);
+  }
+  return r;
+}
+function infinity(): Point {
+  return { x: zero(), y: one(), z: zero() };
+}
+function doublePoint(p: Point): Point {
+  if (compare(p.z, zero()) == 0 || compare(p.y, zero()) == 0) return infinity();
+  const delta = sq(p.z),
+    gamma = sq(p.y),
+    beta = mul(p.x, gamma);
+  const alpha = scale(mul(sub(p.x, delta), add(p.x, delta)), 3);
+  const x = sub(sq(alpha), scale(beta, 8));
+  const z = sub(sub(sq(add(p.y, p.z)), gamma), delta);
+  const y = sub(mul(alpha, sub(scale(beta, 4), x)), scale(sq(gamma), 8));
+  return { x: x, y: y, z: z };
+}
+function addAffine(p: Point, q: Point): Point {
+  if (compare(p.z, zero()) == 0) return q;
+  const z2 = sq(p.z),
+    u = mul(q.x, z2),
+    v = mul(q.y, mul(p.z, z2));
+  const h = sub(u, p.x),
+    r = sub(v, p.y);
+  if (compare(h, zero()) == 0) return compare(r, zero()) == 0 ? doublePoint(p) : infinity();
+  const hh = sq(h),
+    hhh = mul(h, hh),
+    a = mul(p.x, hh);
+  const x = sub(sub(sq(r), hhh), scale(a, 2));
+  return { x: x, y: sub(mul(r, sub(a, x)), mul(p.y, hhh)), z: mul(p.z, h) };
+}
+function multiply(k: number[], p: Point): Point {
+  let r = infinity();
+  for (let i = 255; i >= 0; i--) {
+    r = doublePoint(r);
+    if ((k[Math.floor(i / 16)] & (1 << (i % 16))) != 0) r = addAffine(r, p);
+  }
+  const inv = inverse(r.z),
+    inv2 = sq(inv);
+  return { x: mul(r.x, inv2), y: mul(r.y, mul(inv2, inv)), z: one() };
+}
+function rot(x: number, n: number): number {
+  return ((x << n) | (x >>> (32 - n))) >>> 0;
+}
+function p0(x: number): number {
+  return (x ^ rot(x, 9) ^ rot(x, 17)) >>> 0;
+}
+function p1(x: number): number {
+  return (x ^ rot(x, 15) ^ rot(x, 23)) >>> 0;
+}
+export function sm3(bytes: number[]): number[] {
+  const data = bytes.slice(),
+    length = data.length * 8;
+  data.push(128);
+  while (data.length % 64 != 56) data.push(0);
+  for (let i = 7; i >= 0; i--) data.push(i >= 4 ? 0 : (length >>> (i * 8)) & 255);
+  const state = [
+    0x7380166f, 0x4914b2b9, 0x172442d7, 0xda8a0600, 0xa96f30bc, 0x163138aa, 0xe38dee4d, 0xb0fb0e4e,
+  ];
+  for (let off = 0; off < data.length; off += 64) {
+    const w = new Array<number>(68).fill(0);
+    for (let j = 0; j < 16; j++)
+      w[j] =
+        ((data[off + j * 4] << 24) |
+          (data[off + j * 4 + 1] << 16) |
+          (data[off + j * 4 + 2] << 8) |
+          data[off + j * 4 + 3]) >>>
+        0;
+    for (let j = 16; j < 68; j++)
+      w[j] = (p1(w[j - 16] ^ w[j - 9] ^ rot(w[j - 3], 15)) ^ rot(w[j - 13], 7) ^ w[j - 6]) >>> 0;
+    let a = state[0],
+      b = state[1],
+      c = state[2],
+      d = state[3],
+      e = state[4],
+      f = state[5],
+      g = state[6],
+      h = state[7];
+    for (let j = 0; j < 64; j++) {
+      const ss1 = rot((rot(a, 12) + e + rot(j < 16 ? 0x79cc4519 : 0x7a879d8a, j % 32)) >>> 0, 7),
+        ss2 = (ss1 ^ rot(a, 12)) >>> 0;
+      const ff = j < 16 ? a ^ b ^ c : (a & b) | (a & c) | (b & c),
+        gg = j < 16 ? e ^ f ^ g : (e & f) | (~e & g);
+      const t1 = (ff + d + ss2 + (w[j] ^ (w[j + 4] >>> 0))) >>> 0,
+        t2 = (gg + h + ss1 + w[j]) >>> 0;
+      d = c;
+      c = rot(b, 9);
+      b = a;
+      a = t1;
+      h = g;
+      g = rot(f, 19);
+      f = e;
+      e = p0(t2);
+    }
+    const next = [a, b, c, d, e, f, g, h];
+    for (let j = 0; j < 8; j++) state[j] = (state[j] ^ next[j]) >>> 0;
+  }
+  const out: number[] = [];
+  state.forEach((word: number) => {
+    for (let i = 3; i >= 0; i--) out.push((word >>> (i * 8)) & 255);
+  });
+  return out;
+}
+export function bytesHex(bytes: number[]): string {
+  return bytes.map((v: number): string => v.toString(16).padStart(2, '0')).join('');
+}
+export function hexBytes(hex: string): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < hex.length; i += 2) out.push(parseInt(hex.slice(i, i + 2), 16));
+  return out;
+}
+function utf8(text: string): number[] {
+  const encoded = encodeURIComponent(text)!,
+    out: number[] = [];
+  for (let i = 0; i < encoded.length; i++) {
+    if (encoded.charAt(i) == '%') {
+      out.push(parseInt(encoded.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else out.push(encoded.charCodeAt(i)!);
+  }
+  return out;
+}
+export function sm2Encrypt(text: string, publicKey: string, randomHex: string): string {
+  if (!/^[a-fA-F0-9]{64}$/.test(randomHex) || !/^04[a-fA-F0-9]{128}$/.test(publicKey))
+    throw new Error('登录加密参数无效');
+  const k = fromHex(randomHex);
+  if (compare(k, zero()) == 0 || compare(k, N) >= 0) throw new Error('请重新尝试登录');
+  const q: Point = {
+    x: fromHex(publicKey.slice(2, 66)),
+    y: fromHex(publicKey.slice(66)),
+    z: one(),
+  };
+  const c1 = multiply(k, { x: GX, y: GY, z: one() }),
+    shared = multiply(k, q);
+  const x = hexBytes(hexOf(shared.x)),
+    y = hexBytes(hexOf(shared.y)),
+    input = utf8(text),
+    mask: number[] = [];
+  for (let counter = 1; mask.length < input.length; counter++) {
+    const block = sm3(
+      x
+        .concat(y)
+        .concat([
+          (counter >>> 24) & 255,
+          (counter >>> 16) & 255,
+          (counter >>> 8) & 255,
+          counter & 255,
+        ]),
+    );
+    mask.push(...block);
+  }
+  if (input.length > 0 && mask.slice(0, input.length).every((v: number): boolean => v == 0))
+    throw new Error('请重新尝试登录');
+  const encrypted = input.map((v: number, i: number): number => v ^ mask[i]);
+  return hexOf(c1.x) + hexOf(c1.y) + bytesHex(encrypted) + bytesHex(sm3(x.concat(input).concat(y)));
+}

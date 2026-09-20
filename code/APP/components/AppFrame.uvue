@@ -1,0 +1,350 @@
+<template>
+  <view class="frame">
+    <image class="background" :src="background" mode="scaleToFill" />
+    <view :style="{ height: top + 'px' }" />
+    <view
+      v-if="theme != 'profile'"
+      :class="[
+        'header',
+        tab == 'events' ? 'events-header' : '',
+        theme == 'chat' ? 'chat-header' : '',
+      ]"
+    >
+      <view v-if="backButton" class="back-button" @click="back()">
+        <text class="back-glyph">‹</text>
+      </view>
+      <view v-if="theme == 'chat'" class="chat-side"><slot name="left" /></view>
+      <view :class="['header-title', theme == 'chat' ? 'center-title' : '']">
+        <text
+          :class="[
+            'title',
+            tab == 'events' ? 'events-title' : '',
+            theme == 'chat' ? 'chat-title' : '',
+          ]"
+        >
+          {{ title }}
+        </text>
+        <text v-if="subtitle.length > 0" class="subtitle">{{ subtitle }}</text>
+      </view>
+      <view :class="['right', theme == 'chat' ? 'chat-side' : '']"><slot name="right" /></view>
+    </view>
+    <view class="content">
+      <slot />
+    </view>
+    <view
+      v-if="tab.length > 0"
+      class="dock"
+      :style="{ paddingBottom: bottom + 'px', height: 68 + bottom + 'px' }"
+    >
+      <view class="tab" @click="go('events')">
+        <view :class="['tab-inner', tab == 'events' ? 'tab-selected' : '']">
+          <view v-if="tab == 'events'" class="tab-marker" />
+          <view :class="['calendar', tab == 'events' ? 'calendar-active' : '']">
+            <view :class="['binder binder-left', tab == 'events' ? 'binder-active' : '']" />
+            <view :class="['binder binder-right', tab == 'events' ? 'binder-active' : '']" />
+            <text :class="['counter', tab == 'events' ? 'active' : '']">
+              {{ n(session.summary, 'activeEventCount') }}
+            </text>
+          </view>
+          <text :class="['tab-label', tab == 'events' ? 'active' : '']">{{ t('事件') }}</text>
+        </view>
+      </view>
+      <view class="tab" @click="go('chat')">
+        <view :class="['tab-inner', tab == 'chat' ? 'tab-selected' : '']">
+          <view v-if="tab == 'chat'" class="tab-marker" />
+          <image class="ai-icon" src="/static/images/ai-assistant-tab.png" mode="aspectFit" />
+          <text :class="['tab-label', tab == 'chat' ? 'active' : '']">{{ t('AI助手') }}</text>
+        </view>
+      </view>
+      <view class="tab" @click="go('me')">
+        <view :class="['tab-inner', tab == 'me' ? 'tab-selected' : '']">
+          <view v-if="tab == 'me'" class="tab-marker" />
+          <!-- #ifdef WEB -->
+          <image
+            class="people-icon"
+            :src="'/static/icons/tab-people-' + (tab == 'me' ? 'active' : 'muted') + '.svg'"
+          />
+          <!-- #endif -->
+          <!-- #ifndef WEB -->
+          <image
+            class="people-icon"
+            :src="'/static/icons/tab-people-' + (tab == 'me' ? 'active' : 'muted') + '.png'"
+          />
+          <!-- #endif -->
+          <view v-if="n(session.summary, 'pendingFriendRequests') > 0" class="nav-badge">
+            <text class="nav-badge-text">
+              {{
+                n(session.summary, 'pendingFriendRequests') > 99
+                  ? '99+'
+                  : n(session.summary, 'pendingFriendRequests').toString()
+              }}
+            </text>
+          </view>
+          <text :class="['tab-label', tab == 'me' ? 'active' : '']">{{ t('我的') }}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  <PageLoading :active="loading" />
+  <TopTip />
+</template>
+<script setup lang="uts">
+import { startupReady } from '@/store/startup.uts';
+import PageLoading from './PageLoading.uvue';
+import TopTip from '@/components/TopTip.uvue';
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { computed, onMounted } from 'vue';
+import { SessionState, session as _session } from '@/store/session.uts';
+import { n as _n } from '@/core/json.uts';
+import { back as _back } from '@/core/ui.uts';
+const session: SessionState = _session;
+function t(value: string): string {
+  return _t(value);
+}
+function n(row: UTSJSONObject, key: string): number {
+  return _n(row, key);
+}
+function back(): void {
+  _back();
+}
+const props = defineProps({
+  loading: { type: Boolean, default: false },
+  title: { type: String, default: '' },
+  subtitle: { type: String, default: '' },
+  tab: { type: String, default: '' },
+  theme: { type: String, default: 'events' },
+  backButton: { type: Boolean, default: false },
+});
+const info = uni.getWindowInfo(),
+  top = info.statusBarHeight,
+  bottom = info.safeAreaInsets.bottom;
+const background = computed(
+  () =>
+    '/static/images/' +
+    (props.theme == 'chat'
+      ? 'chat-background-v2.jpg'
+      : props.theme == 'profile'
+        ? 'profile-background.jpg'
+        : 'events-background-v2.jpg'),
+);
+onMounted(() => {
+  if (props.tab.length > 0) uni.hideTabBar({ animation: false, fail: () => {} });
+  startupReady();
+});
+function go(tab: string) {
+  if (props.tab == tab) return;
+  uni.switchTab({ url: '/pages/' + tab + '/index' });
+}
+</script>
+<style scoped>
+.frame {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  background-color: #edf4ff;
+}
+.background {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+.header {
+  height: 82px;
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  padding: 14px 18px;
+}
+.events-header {
+  height: 94px;
+  padding: 18px 22px;
+}
+.chat-header {
+  height: 68px;
+  padding: 8px 16px;
+}
+.header-title {
+  flex: 1;
+  min-width: 0;
+}
+.center-title {
+  align-items: center;
+}
+.events-title {
+  font-size: 27px;
+  line-height: 35px;
+}
+.chat-title {
+  font-size: 19px;
+  line-height: 26px;
+}
+.subtitle {
+  font-size: 13px;
+  color: #9299ac;
+  margin-top: 4px;
+  line-height: 20px;
+}
+.chat-side {
+  width: 38px;
+}
+.right {
+  align-items: flex-end;
+  justify-content: center;
+}
+.back-button {
+  width: 38px;
+  height: 38px;
+  margin-right: 12px;
+  border-radius: 12px;
+  background-color: #ffffffbb;
+  align-items: center;
+  justify-content: center;
+}
+.back-glyph {
+  font-size: 28px;
+  font-weight: 700;
+  color: #607a9e;
+  line-height: 32px;
+}
+.page-enter {
+  transition-property: opacity, transform;
+  transition-duration: 220ms;
+  transition-timing-function: ease-out;
+}
+.events-header .subtitle {
+  font-size: 14px;
+}
+.content {
+  flex: 1;
+  min-height: 0;
+}
+.dock {
+  flex-shrink: 0;
+  flex-direction: row;
+  background-color: #ffffffee;
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+}
+.tab {
+  flex: 1;
+  align-items: center;
+  padding-top: 8px;
+}
+.tab-inner {
+  overflow: visible;
+  width: 76px;
+  height: 51px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+}
+.tab-selected {
+  background-image: linear-gradient(145deg, #eaf7ff, #f6f2ff);
+}
+.tab-marker {
+  position: absolute;
+  top: -3px;
+  width: 18px;
+  height: 3px;
+  border-radius: 3px;
+  background-image: linear-gradient(90deg, #71c5f7, #8882f5);
+}
+.tab-label {
+  font-size: 12px;
+  margin-top: 3px;
+  color: #999eb0;
+}
+.active {
+  color: #4d50ef;
+  font-weight: 600;
+}
+.ai-icon {
+  width: 34px;
+  height: 34px;
+}
+.calendar {
+  width: 28px;
+  height: 27px;
+  border: 2px solid #9ba3b4;
+  border-radius: 4px;
+  margin-top: 3px;
+  align-items: center;
+  justify-content: center;
+}
+.calendar-active {
+  border-color: #4d50ef;
+}
+.counter {
+  font-size: 17px;
+  font-weight: 650;
+  color: #9ba3b4;
+  line-height: 22px;
+}
+.counter.active {
+  color: #4d50ef;
+}
+.binder {
+  position: absolute;
+  top: -5px;
+  width: 3px;
+  height: 7px;
+  border-radius: 2px;
+  background-color: #9ba3b4;
+}
+.binder-left {
+  left: 5px;
+}
+.binder-right {
+  right: 5px;
+}
+.binder-active {
+  background-color: #4d50ef;
+}
+.dot {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #f0525b;
+}
+/* #ifdef WEB */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    transition-duration: 0ms;
+  }
+}
+/* #endif */
+.chat-header .subtitle {
+  font-size: 11px;
+}
+.people-icon {
+  width: 27px;
+  height: 27px;
+}
+.nav-badge {
+  overflow: visible;
+  position: absolute;
+  right: 9px;
+  top: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 2px solid #fff;
+  border-radius: 12px;
+  background-color: #f24c58;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px #dd465e30;
+}
+.nav-badge-text {
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+</style>

@@ -1,0 +1,151 @@
+<template>
+  <Popup :open="open" :title="t('提醒日期')" @close="emit('close')">
+    <view class="row shortcuts">
+      <text class="chip" @click="quick(0)">{{ t('今天') }}</text>
+      <text class="chip" @click="quick(1)">{{ t('明天') }}</text>
+      <text class="chip" @click="quick(7)">{{ t('未来7天') }}</text>
+      <text class="chip" @click="quick(-1)">{{ t('不限') }}</text>
+    </view>
+    <view class="between">
+      <text class="link" @click="move(-1)">{{ t('‹ 上月') }}</text>
+      <text class="label">{{ year }} {{ t('年') }} {{ month }} {{ t('月') }}</text>
+      <text class="link" @click="move(1)">{{ t('下月 ›') }}</text>
+    </view>
+    <view class="calendar">
+      <text v-for="label in weekdays" :key="label" class="day weekday">{{ t(label) }}</text>
+      <view
+        v-for="(cell, index) in cells"
+        :key="index"
+        :class="[
+          'day',
+          cell.length > 0 && cell >= from && cell <= to ? 'range' : '',
+          cell.length > 0 && (cell == from || cell == to) ? 'chosen' : '',
+        ]"
+        @click="choose(cell)"
+      >
+        <text>{{ cell.length > 0 ? parseInt(cell.slice(8)) : '' }}</text>
+      </view>
+    </view>
+    <text class="muted">
+      {{
+        from.length > 0
+          ? from + t(' 至 ') + (to.length > 0 ? to : t('请选择结束日期'))
+          : t('不限日期')
+      }}
+    </text>
+    <view class="between">
+      <button class="secondary" @click="emit('close')">{{ t('取消') }}</button>
+      <button class="primary" @click="apply()">{{ t('确认') }}</button>
+    </view>
+  </Popup>
+</template>
+<script setup lang="uts">
+import { t as _t } from '@/core/locale.uts';
+import { ref, computed, watch } from 'vue';
+import Popup from './Popup.uvue';
+import { dayOf, dayOffset } from '@/core/time.uts';
+function t(value: string): string {
+  return _t(value);
+}
+const props = defineProps({
+  open: { type: Boolean, default: false },
+  start: { type: String, default: '' },
+  end: { type: String, default: '' },
+});
+const emit = defineEmits(['close', 'apply']);
+const from = ref(''),
+  to = ref(''),
+  year = ref(2026),
+  month = ref(1),
+  weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+const cells = computed(() => {
+  const result: string[] = [],
+    first = new Date(Date.UTC(year.value, month.value - 1, 1));
+  const offset = (first.getUTCDay() + 6) % 7;
+  for (let i = 0; i < offset; i++) result.push('');
+  const days = new Date(Date.UTC(year.value, month.value, 0)).getUTCDate();
+  for (let i = 1; i <= days; i++)
+    result.push(
+      year.value.toString() +
+        '-' +
+        month.value.toString().padStart(2, '0') +
+        '-' +
+        i.toString().padStart(2, '0'),
+    );
+  return result;
+});
+function move(delta: number) {
+  month.value += delta;
+  if (month.value < 1) {
+    month.value = 12;
+    year.value--;
+  }
+  if (month.value > 12) {
+    month.value = 1;
+    year.value++;
+  }
+}
+function choose(day: string) {
+  if (day.length == 0) return;
+  if (from.value.length == 0 || to.value.length > 0) {
+    from.value = day;
+    to.value = '';
+  } else if (day < from.value) {
+    to.value = from.value;
+    from.value = day;
+  } else to.value = day;
+}
+function quick(days: number) {
+  const today = dayOf();
+  from.value = days < 0 ? '' : days == 1 ? dayOffset(today, 1) : today;
+  to.value = days < 0 ? '' : days == 7 ? dayOffset(today, 6) : from.value;
+}
+function apply() {
+  emit('apply', from.value, to.value.length > 0 ? to.value : from.value);
+  emit('close');
+}
+
+watch(
+  (): boolean => props.open,
+  (value: boolean) => {
+    if (value) {
+      from.value = props.start;
+      to.value = props.end;
+      const date = props.start.length > 0 ? props.start : dayOf();
+      year.value = parseInt(date.slice(0, 4));
+      month.value = parseInt(date.slice(5, 7));
+    }
+  },
+);
+</script>
+<style scoped>
+.shortcuts {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.calendar {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.day {
+  width: 14.285%;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+}
+.weekday {
+  line-height: 40px;
+  color: #8291ab;
+}
+.range {
+  background-color: #edf2ff;
+}
+.chosen {
+  background-color: #5269ed;
+  border-radius: 20px;
+  color: #ffffff;
+}
+</style>

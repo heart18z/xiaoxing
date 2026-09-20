@@ -1,0 +1,389 @@
+import { reactive } from 'vue';
+import { session, persist, requestId } from '@/store/session.uts';
+import { secureRead } from '@/uni_modules/xiaoxing-native';
+import { reminder, headers, ApiError } from '@/api/request.uts';
+import { BASE_URL } from '@/config/environment.uts';
+import { Utf8Stream, SseFrames } from '@/core/stream.uts';
+import { s, n, b, obj, parseObject, message } from '@/core/json.uts';
+export type ChatState = {
+  messages: UTSJSONObject[];
+  busy: boolean;
+  loading: boolean;
+  error: string;
+  notice: string;
+  reasoning: string;
+  reply: string;
+  pending: UTSJSONObject;
+};
+export const chat = reactive<ChatState>({
+  messages: [] as UTSJSONObject[],
+  busy: false,
+  loading: false,
+  error: '',
+  notice: '',
+  reasoning: '',
+  reply: '',
+  pending: {} as UTSJSONObject,
+});
+let pageVisible = false;
+let syncRevision = '',
+  syncing = false;
+const notifications = ['REMINDER', 'QUESTION', 'FEEDBACK', 'CONFLICT', 'EVENT_ASSIGNED'];
+export function setChatVisible(value: boolean): void {
+  pageVisible = value;
+}
+let observeTask: RequestTask | null = null,
+  version = 0,
+  running = false,
+  historyTicket = 0;
+const wait = (ms: number): Promise<void> =>
+  new Promise<void>((resolve) => {
+    setTimeout(() => resolve(), ms);
+  });
+const key = (): string => 'pending:' + session.userId;
+export function savedPending(): UTSJSONObject {
+  try {
+    return parseObject(secureRead(key()));
+  } catch (_) {
+    return {};
+  }
+}
+export function pauseChat(): void {
+  version++;
+  observeTask?.abort();
+  observeTask = null;
+  chat.busy = false;
+}
+export function resetChat(): void {
+  pauseChat();
+  historyTicket++;
+  syncRevision = '';
+  chat.messages = [];
+  chat.pending = {};
+  chat.reasoning = '';
+  chat.reply = '';
+  chat.error = '';
+  chat.notice = '';
+}
+async function markRead(rows: UTSJSONObject[]): Promise<void> {
+  if (!session.visible || !pageVisible) return;
+  const ids = rows
+    .filter(
+      (row: UTSJSONObject): boolean =>
+        !b(row, 'read') &&
+        !b(row, 'isRead') &&
+        (!chat.busy || notifications.includes(s(row, 'messageType'))),
+    )
+    .map((row: UTSJSONObject): string => s(row, 'id'));
+  if (ids.length > 0) {
+    try {
+      await reminder('chat/read', { messageIds: ids });
+    } catch (_) {}
+  }
+}
+function applyHistory(rows: UTSJSONObject[]): void {
+  if (chat.busy && s(chat.pending, 'requestId').length > 0) {
+    for (const row of rows) {
+      if (
+        notifications.includes(s(row, 'messageType')) &&
+        !chat.messages.some((old: UTSJSONObject): boolean => s(old, 'id') == s(row, 'id'))
+      )
+        chat.messages.push(row);
+    }
+  } else chat.messages = rows;
+}
+export function invalidateHistory(): void {
+  historyTicket++;
+  syncRevision = '';
+  chat.loading = false;
+}
+export async function syncHistory(): Promise<void> {
+  if (syncing || !pageVisible || !session.visible || chat.loading) return;
+  syncing = true;
+  const ticket = historyTicket,
+    owner = session.userId,
+    revision = session.revision;
+  try {
+    const data = obj(
+      await reminder('chat/sync', null, { limit: 150, revision: syncRevision }, 15000),
+      'value',
+    );
+    if (
+      ticket != historyTicket ||
+      owner != session.userId ||
+      revision != session.revision ||
+      !pageVisible ||
+      !session.visible
+    )
+      return;
+    if (data['messages'] != null) {
+      const rows = data['messages'] as UTSJSONObject[];
+      applyHistory(rows);
+      chat.error = '';
+      void markRead(rows);
+    }
+    syncRevision = s(data, 'revision');
+  } finally {
+    syncing = false;
+  }
+}
+export async function loadHistory(): Promise<void> {
+  const ticket = ++historyTicket,
+    owner = session.userId,
+    revision = session.revision;
+  chat.loading = chat.messages.length == 0;
+  chat.error = '';
+  try {
+    const result = await reminder('chat/messages', null, { limit: 150 }, 15000);
+    if (ticket != historyTicket || owner != session.userId || revision != session.revision) return;
+    const list = (result['value'] as UTSJSONObject[]) ?? [],
+      seen = new Set<string>();
+    const rows = list.filter((row: UTSJSONObject): boolean => {
+      const id = s(row, 'id');
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    applyHistory(rows);
+    syncRevision = '';
+    void markRead(rows);
+  } catch (e) {
+    if (ticket == historyTicket) chat.error = message(e);
+  } finally {
+    if (ticket == historyTicket) chat.loading = false;
+  }
+}
+function observe(id: string, current: number): Promise<UTSJSONObject> {
+  return new Promise<UTSJSONObject>((resolve, reject) => {
+    const decoder = new Utf8Stream(),
+      frames = new SseFrames();
+    let settled = false;
+    const finish = (value: UTSJSONObject) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+      const task = observeTask;
+      observeTask = null;
+      task?.abort();
+    };
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const consume = (text: string) => {
+      try {
+        frames.push(text).forEach((frame: string) => {
+          if (settled || current != version) return;
+          const event = parseObject(frame),
+            type = s(event, 'type');
+          if (type == 'snapshot') chat.reasoning = s(event, 'reasoning');
+          if (type == 'result') finish(obj(event, 'data'));
+          if (type == 'error') fail(new Error(s(event, 'message', '观察连接已结束')));
+        });
+      } catch (_) {
+        fail(new Error('观察响应格式有误'));
+      }
+    };
+    const h = headers();
+    h['Accept'] = 'text/event-stream';
+    let task: RequestTask | null = null;
+    task = uni.request({
+      url: BASE_URL + '/app/reminder/chat/jobs/watch',
+      method: 'POST',
+      header: h,
+      data: JSON.stringify({ requestId: id }),
+      timeout: 35000,
+      responseType: 'arraybuffer',
+      dataType: 'text',
+      enableChunked: true,
+      success: (res) => {
+        if (res.statusCode >= 400) {
+          fail(new ApiError(res.statusCode, '观察暂不可用'));
+          return;
+        }
+        if (!settled) fail(new Error('观察连接已结束，请查询状态'));
+      },
+      fail: () => fail(new Error('观察连接已中断')),
+      complete: () => {
+        if (observeTask === task) observeTask = null;
+      },
+    });
+    observeTask = task;
+    task!.onChunkReceived((chunk) => consume(decoder.decode(chunk.data)));
+  });
+}
+export async function submit(
+  content: string,
+  fileIds: string[],
+  fileNames: string[] = [],
+): Promise<void> {
+  if (chat.busy || running) return;
+  if (s(savedPending(), 'requestId').length > 0) {
+    await resume();
+    return;
+  }
+  const pending: UTSJSONObject = {
+    requestId: requestId(),
+    content: content.trim(),
+    fileIds: fileIds,
+    fileNames: fileNames,
+    createdAt: Date.now(),
+    userId: session.userId,
+  };
+  invalidateHistory();
+  persist(key(), JSON.stringify(pending));
+  chat.pending = pending;
+  chat.reply = '';
+  chat.reasoning = '';
+  await resume();
+}
+export async function resume(): Promise<void> {
+  if (running || !session.visible || session.userId.length == 0) return;
+  const pending = savedPending(),
+    id = s(pending, 'requestId');
+  if (id.length == 0) return;
+  chat.pending = pending;
+  chat.busy = true;
+  chat.notice = '';
+  running = true;
+  const current = ++version,
+    owner = session.userId,
+    revision = session.revision;
+  let known = false,
+    stream = false,
+    streamDisabled = false,
+    failures = 0;
+  const active = (): boolean =>
+    current == version &&
+    session.visible &&
+    owner == session.userId &&
+    revision == session.revision;
+  try {
+    while (active()) {
+      let state: UTSJSONObject;
+      try {
+        if (known && stream && !streamDisabled) {
+          try {
+            state = await observe(id, current);
+          } catch (_) {
+            if (!active()) return;
+            streamDisabled = true;
+            state = obj(await reminder('chat/jobs/status', { requestId: id }), 'value');
+          }
+        } else state = obj(await reminder('chat/jobs/status', { requestId: id }), 'value');
+        if (!active()) return;
+        if (s(state, 'status') == 'NOT_FOUND' && !known)
+          state = obj(
+            await reminder('chat/jobs/submit', {
+              requestId: id,
+              content: s(pending, 'content'),
+              fileIds: pending['fileIds'],
+            }),
+            'value',
+          );
+      } catch (e) {
+        if (!active()) return;
+        if (
+          e instanceof ApiError &&
+          e.status >= 400 &&
+          e.status < 500 &&
+          e.status != 408 &&
+          e.status != 429
+        ) {
+          chat.notice = message(e) + '；请核对结果后再操作';
+          return;
+        }
+        failures++;
+        if (failures >= 3) chat.notice = '结果查询暂时异常，正在重试，请勿重复发送';
+        if (Date.now() - n(pending, 'createdAt') > 900000) {
+          chat.notice = '处理结果待确认，请先核对事件';
+          return;
+        }
+        await wait(2000);
+        continue;
+      }
+      if (!active()) return;
+      failures = 0;
+      chat.notice = '';
+      const status = s(state, 'status');
+      stream = b(state, 'streamSupported');
+      if (status == 'NOT_FOUND' && known) {
+        chat.notice = '处理记录暂不可用，请核对事件';
+        return;
+      }
+      known = status != 'NOT_FOUND';
+      if (s(state, 'reasoning').length > 0) chat.reasoning = s(state, 'reasoning');
+      if (status == 'SUCCEEDED') {
+        // Show the committed candidate immediately; history refresh is only reconciliation.
+        const result = obj(state, 'result'),
+          text = s(result, 'reply');
+        chat.reply = text;
+        chat.messages.push({
+          id: 'completed-user-' + id,
+          messageRole: 'user',
+          messageType: 'TEXT',
+          content: s(pending, 'content'),
+          payload: { fileNames: pending['fileNames'] ?? ([] as string[]) },
+        });
+        const hasCandidate =
+          s(result, 'candidateId').length > 0 &&
+          ['create_event', 'revise_candidate'].includes(s(result, 'intent'));
+        if (hasCandidate)
+          chat.messages = chat.messages.filter(
+            (row: UTSJSONObject): boolean =>
+              s(obj(row, 'payload'), 'candidateId') != s(result, 'candidateId'),
+          );
+        chat.messages.push({
+          id: 'completed-ai-' + id,
+          messageRole: 'assistant',
+          messageType: hasCandidate ? 'CANDIDATE' : 'TEXT',
+          content: text,
+          reasoningContent: s(result, 'reasoningContent', chat.reasoning),
+          payload: result,
+        });
+        persist(key(), '');
+        chat.pending = {};
+        chat.busy = false;
+        void loadHistory();
+        return;
+      }
+      if (status == 'FAILED' || status == 'CANCELLED') {
+        persist(key(), '');
+        chat.pending = {};
+        chat.notice = '';
+        await loadHistory();
+        if (status == 'FAILED') throw new Error(s(state, 'message', '消息未处理成功，请稍后重试'));
+        return;
+      }
+      if (status == 'UNKNOWN' || !['QUEUED', 'RUNNING'].includes(status)) {
+        chat.notice = '处理结果待确认，请核对事件后再操作';
+        return;
+      }
+      if (!stream || streamDisabled) await wait(1200);
+    }
+  } finally {
+    running = false;
+    if (current == version) chat.busy = false;
+    if (!active() && session.visible && session.userId.length > 0)
+      setTimeout(() => {
+        void resume();
+      }, 0);
+  }
+}
+export async function stopGeneration(): Promise<boolean> {
+  const id = s(chat.pending, 'requestId');
+  if (id.length == 0) return false;
+  const result = obj(await reminder('chat/stop', { requestId: id }), 'value');
+  if (b(result, 'stopped')) chat.notice = '正在停止，请等待服务器确认…';
+  return b(result, 'stopped');
+}
+export async function dismissPending(): Promise<void> {
+  pauseChat();
+  persist(key(), '');
+  chat.pending = {};
+  chat.reasoning = '';
+  chat.reply = '';
+  chat.notice = '';
+  await loadHistory();
+}

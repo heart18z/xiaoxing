@@ -1,0 +1,28 @@
+import { s, obj, arr } from './json.uts';
+import { timeOf } from './time.uts';
+export function alarmPlan(
+  detail: UTSJSONObject,
+  owner: string,
+  now: number = Date.now(),
+): UTSJSONObject {
+  const event = obj(detail, 'event'),
+    branch = arr(detail, 'branches').find(
+      (row: UTSJSONObject): boolean => s(row, 'recipientUserId') == owner,
+    );
+  if (branch == null) throw new Error('只能为自己接收的任务设置本机闹铃，好友需在自己的手机上设置');
+  if (s(event, 'event_status') != 'ACTIVE' || s(branch, 'branchStatus') != 'ACTIVE')
+    throw new Error('事件或自己的任务已停止');
+  const timestamp = timeOf(
+    !UTSJSONObject.keys(branch).includes('taskEventTime')
+      ? s(event, 'event_time')
+      : s(branch, 'taskEventTime'),
+  );
+  if (!Number.isFinite(timestamp) || timestamp <= now + 2000)
+    throw new Error('请先为自己的任务设置明确的未来时间');
+  return {
+    owner: owner,
+    eventId: s(event, 'id'),
+    timestamp: timestamp / 1000,
+    title: s(branch, 'latestSummary', s(event, 'event_summary', '小醒提醒')).slice(0, 100),
+  };
+}

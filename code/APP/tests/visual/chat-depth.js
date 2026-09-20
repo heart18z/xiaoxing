@@ -1,0 +1,17 @@
+async page=>{
+ const origin='http://localhost:5174',checks=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let rows=Array.from({length:45},(_,i)=>({id:String(i+1),messageRole:i%2?'assistant':'user',messageType:'TEXT',content:'对话记录 '+i+'：这是用于验证切换页面后定位最新消息的内容。'}));
+ await page.route('**/api/app/reminder/chat/messages**',r=>r.fulfill({json:{code:200,data:rows}}));
+ await page.goto(origin+'/#/pages/chat/index');await page.reload();await page.locator('.message').last().waitFor();await page.waitForTimeout(650);
+ const atBottom=async()=>page.locator('#chat-scroll').evaluate(el=>{const viewport=el.getBoundingClientRect(),last=document.querySelector('#latest').getBoundingClientRect();return last.top>=viewport.top&&last.bottom<=viewport.bottom+15});
+ if(!await atBottom())throw Error('Initial history is not at latest');
+ await page.locator('.dock .tab').nth(0).click();await page.locator('.dock .tab').nth(1).click();await page.waitForTimeout(650);if(!await atBottom())throw Error('Returning chat is not at latest');checks.push('Initial and returning chat scroll to latest');
+ await page.locator('#chat-scroll').evaluate(el=>{const scroller=Array.from(el.querySelectorAll('.uni-scroll-view')).find(x=>x.scrollHeight>x.clientHeight);scroller.scrollTop=0;scroller.dispatchEvent(new Event('scroll'));});await page.locator('.latest-link').waitFor();await page.locator('.latest-link').click();await page.waitForTimeout(500);if(!await atBottom())throw Error('Latest button failed');checks.push('Latest button follows actual scroll position');
+ let status='NOT_FOUND';
+ await page.route('**/api/app/reminder/chat/jobs/**',r=>{const path=r.request().url();if(path.includes('/submit'))status='RUNNING';return r.fulfill({json:{code:200,data:{status,streamSupported:false,message:status==='FAILED'?'模型服务暂不可用，请稍后重试':''}}})});
+ await page.locator('.compose-input textarea').fill('明天提醒我检查测试报告');await page.locator('.send').click();await page.getByText('分析中',{exact:true}).waitFor();await page.screenshot({path:'output/playwright/depth-progress.png'});await page.getByText('思考中',{exact:true}).waitFor();await page.getByText('规划中',{exact:true}).waitFor();await page.getByText('整理回复中',{exact:true}).waitFor();checks.push('Four progress stages');
+ status='FAILED';await page.locator('.top-tip').filter({hasText:'模型服务暂不可用'}).waitFor();if(await page.locator('.recovery').count())throw Error('Terminal failure retained recovery banner');if(await page.locator('.compose-input textarea').inputValue()!=='明天提醒我检查测试报告')throw Error('Failed draft not restored');checks.push('Failure restores draft and top tip without waiting banner');
+ const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
+ await page.route('**/api/app/reminder/events/drawer**',r=>r.fulfill({json:{code:200,data:[{eventId:'201',branchId:'b1',summary:'9月17日18:00前完成工商旅游项目投标报名；9月21日15:00提交材料',eventStatus:'ACTIVE',branchStatus:'ACTIVE',recipientName:'洪建滨、陈颖',nextEvaluateTime:today+' 17:00:00'},{eventId:'202',branchId:'b2',summary:'9月17日早上10点审核第一版标书',eventStatus:'ACTIVE',branchStatus:'ACTIVE',recipientName:'陈通',nextEvaluateTime:today+' 18:00:00',lastRemindedAt:today+' 10:01:00'}]}}));
+ await page.locator('.toolbar').first().click();await page.locator('.drawer-card').first().waitFor();await page.addStyleTag({content:'.drawer>uni-view:first-child{height:34px!important;flex-shrink:0}'});await page.screenshot({path:'output/playwright/depth-drawer.png'});checks.push('Drawer grouped cards');if(errors.length)throw Error(errors.join(';'));return{checks,errors};
+}

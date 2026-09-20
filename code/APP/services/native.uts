@@ -1,0 +1,230 @@
+import { reactive } from 'vue';
+import { nativeCall, secureRead, randomHex } from '@/uni_modules/xiaoxing-native';
+import { session, persist, clearSession } from '@/store/session.uts';
+import { post, reminder } from '@/api/request.uts';
+import { s, b, obj, arr, parseObject, message } from '@/core/json.uts';
+import { openEvent } from '@/core/ui.uts';
+import { alarmPlan } from '@/core/alarms.uts';
+import { BUNDLE_ID, PUSH_ENVIRONMENT } from '@/config/environment.uts';
+import { resetChat } from './chat.uts';
+export type PushState = {
+  supported: boolean;
+  permission: string;
+  registered: boolean;
+  error: string;
+  busy: boolean;
+};
+export const pushState = reactive<PushState>({
+  supported: false,
+  permission: 'unknown',
+  registered: false,
+  error: '',
+  busy: false,
+});
+export function callNative(action: string, input: UTSJSONObject = {}): Promise<UTSJSONObject> {
+  return new Promise<UTSJSONObject>((resolve, reject) =>
+    nativeCall(action, JSON.stringify(input), (json: string) => {
+      try {
+        const result = parseObject(json);
+        if (s(result, 'error').length > 0 && result['supported'] != false) {
+          reject(new Error(s(result, 'error')));
+          return;
+        }
+        resolve(result);
+      } catch (_) {
+        reject(new Error('原生功能返回异常'));
+      }
+    }),
+  );
+}
+function read(key: string): UTSJSONObject {
+  try {
+    return parseObject(secureRead(key));
+  } catch (_) {
+    return {};
+  }
+}
+let serial: Promise<void> = Promise.resolve(),
+  pushTimer: number = 0;
+function enqueue(task: () => Promise<void>): Promise<void> {
+  const result = serial.catch(() => {}).then(task);
+  serial = result;
+  return result;
+}
+function installation(): UTSJSONObject {
+  let data = read('installation');
+  if (s(data, 'installationId').length == 0) {
+    const raw = randomHex(16);
+    const uuid =
+      raw.slice(0, 8) +
+      '-' +
+      raw.slice(8, 12) +
+      '-4' +
+      raw.slice(13, 16) +
+      '-a' +
+      raw.slice(17, 20) +
+      '-' +
+      raw.slice(20);
+    data = { installationId: uuid, installationSecret: randomHex(32) };
+    persist('installation', JSON.stringify(data));
+  }
+  return data;
+}
+function queueRevoke(binding: UTSJSONObject): void {
+  const id = s(binding, 'bindingId');
+  if (id.length == 0) return;
+  const queued = arr(read('revocations'), 'items');
+  if (!queued.some((row: UTSJSONObject): boolean => s(row, 'bindingId') == id)) {
+    const item = installation();
+    item['bindingId'] = id;
+    queued.push(item);
+    persist('revocations', JSON.stringify({ items: queued }));
+  }
+}
+async function revokePending(): Promise<void> {
+  const items = arr(read('revocations'), 'items');
+  for (const item of items) {
+    await post('/app/push/revoke', item, {}, 15000, false);
+    const remaining = arr(read('revocations'), 'items').filter(
+      (row: UTSJSONObject): boolean => s(row, 'bindingId') != s(item, 'bindingId'),
+    );
+    persist('revocations', JSON.stringify({ items: remaining }));
+  }
+}
+export async function syncPush(requestPermission: boolean = false): Promise<void> {
+  if (pushState.busy) return;
+  pushState.busy = true;
+  try {
+    await enqueue(async () => {
+      const owner = session.userId,
+        revision = session.revision,
+        old = read('pushBinding');
+      if (s(old, 'userId').length > 0 && s(old, 'userId') != owner) {
+        queueRevoke(old);
+        persist('pushBinding', '');
+      }
+      await revokePending();
+      if (owner.length == 0) return;
+      const state = await callNative(requestPermission ? 'push.request' : 'push.status');
+      if (owner != session.userId || revision != session.revision) return;
+      pushState.supported = b(state, 'supported');
+      pushState.permission = s(state, 'permission', 'unsupported');
+      pushState.error = '';
+      if (!pushState.supported) return;
+      if (pushState.permission == 'denied') {
+        queueRevoke(read('pushBinding'));
+        persist('pushBinding', '');
+        pushState.registered = false;
+        await revokePending();
+        return;
+      }
+      const token = s(state, 'token');
+      if (token.length == 0) {
+        pushState.error = pushState.permission == 'authorized' ? '正在获取设备推送标识' : '';
+        return;
+      }
+      const bundle = s(state, 'bundleId'),
+        environment = s(state, 'environment');
+      if (bundle != BUNDLE_ID || environment != PUSH_ENVIRONMENT)
+        throw new Error('安装包推送环境与配置不一致');
+      const input = installation();
+      input['token'] = token;
+      input['bundleId'] = bundle;
+      input['environment'] = environment;
+      input['language'] = session.language;
+      input['appVersion'] = s(state, 'appVersion');
+      const response = await post('/app/push/register', input, {}, 15000, true, true),
+        binding = obj(response, 'data');
+      binding['userId'] = owner;
+      if (owner != session.userId || revision != session.revision) {
+        queueRevoke(binding);
+        await revokePending();
+        return;
+      }
+      persist('pushBinding', JSON.stringify(binding));
+      pushState.registered = b(binding, 'backendReady');
+      if (!pushState.registered) pushState.error = '设备已绑定，服务器推送通道尚未配置';
+    });
+  } catch (e) {
+    pushState.error = message(e);
+  } finally {
+    pushState.busy = false;
+  }
+}
+export async function checkNotificationTap(): Promise<void> {
+  const tap = await callNative('push.tap');
+  if (s(tap, 'recipientUserId') == session.userId && session.userId.length > 0)
+    openEvent(s(tap, 'eventId'));
+}
+export async function startNative(): Promise<void> {
+  await callNative('initialize');
+  if (pushTimer > 0) clearInterval(pushTimer);
+  pushTimer = setInterval(() => {
+    if (session.visible) {
+      void syncPush();
+      void checkNotificationTap();
+    }
+  }, 15000);
+  await syncPush();
+}
+export async function alarmList(): Promise<UTSJSONObject> {
+  const state = await callNative('alarm.activate', { owner: session.userId });
+  if (!b(state, 'supported')) return state;
+  return await callNative('alarm.list', { owner: session.userId });
+}
+export async function setAlarm(detail: UTSJSONObject): Promise<void> {
+  const owner = session.userId,
+    version = session.revision;
+  const state = await alarmList();
+  if (!b(state, 'supported')) throw new Error('系统闹铃需要 iOS 26 及以上，当前设备仅支持普通提醒');
+  const plan = alarmPlan(detail, owner);
+  const result = await callNative('alarm.schedule', plan);
+  if (version != session.revision || owner != session.userId)
+    throw new Error('账号已变化，请检查闹铃状态');
+  if (s(result, 'id').length == 0) throw new Error('系统未确认设置成功');
+}
+export async function cancelAlarm(eventId: string): Promise<void> {
+  await callNative('alarm.cancel', { owner: session.userId, eventId: eventId });
+}
+export async function reconcileAlarms(): Promise<void> {
+  if (session.userId.length == 0) return;
+  const owner = session.userId,
+    version = session.revision,
+    state = await alarmList();
+  if (!b(state, 'supported')) return;
+  for (const item of arr(state, 'alarms')) {
+    if (owner != session.userId || version != session.revision) return;
+    let detail: UTSJSONObject;
+    try {
+      detail = obj(await reminder('event/detail', null, { eventId: s(item, 'eventId') }), 'value');
+    } catch (_) {
+      continue;
+    }
+    let plan: UTSJSONObject;
+    try {
+      plan = alarmPlan(detail, owner);
+    } catch (_) {
+      await cancelAlarm(s(item, 'eventId'));
+      continue;
+    }
+    if (plan['timestamp'] != item['timestamp'] || plan['title'] != item['title'])
+      await setAlarm(detail);
+  }
+}
+export async function logout(): Promise<void> {
+  queueRevoke(read('pushBinding'));
+  persist('pushBinding', '');
+  clearSession();
+  resetChat();
+  pushState.registered = false;
+  try {
+    await callNative('push.clear');
+    await callNative('alarm.activate', { owner: '' });
+  } catch (e) {
+    pushState.error = message(e);
+  }
+  void enqueue(() => revokePending()).catch((e) => {
+    pushState.error = message(e);
+  });
+  uni.reLaunch({ url: '/pages/login/index' });
+}

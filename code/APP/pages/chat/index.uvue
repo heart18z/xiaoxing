@@ -1,0 +1,1106 @@
+<template>
+  <AppFrame :title="t('AI小醒')" :subtitle="t('智能提醒助手')" tab="chat" theme="chat">
+    <template #left>
+      <view class="toolbar" @click="drawer = true">
+        <UiIcon name="menu" tone="ink" :size="20" />
+      </view>
+    </template>
+    <template #right>
+      <view class="toolbar" @click="requestClear()">
+        <UiIcon name="eraser" tone="ink" :size="20" />
+      </view>
+    </template>
+    <view v-if="chat.notice.length > 0 && s(chat.pending, 'requestId').length > 0" class="recovery">
+      <text class="error">{{ chat.notice }}</text>
+      <view v-if="!chat.busy" class="row">
+        <text class="link" @click="resume()">{{ t('重新查询') }}</text>
+        <text class="link" @click="drawer = true">{{ t('核对事件') }}</text>
+        <text v-if="!chat.busy" class="link" @click="dismiss()">{{ t('结束等待') }}</text>
+      </view>
+    </view>
+    <scroll-view
+      scroll-y
+      id="chat-scroll"
+      class="scroll"
+      :scroll-top="scrollTop"
+      :scroll-into-view="anchor"
+      :scroll-with-animation="false"
+      @scroll="scrolling"
+      @touchstart="stopScrollLock()"
+    >
+      <view class="messages">
+        <view v-if="chat.loading" class="card">
+          <text class="muted">{{ t('正在加载对话记录…') }}</text>
+        </view>
+        <view v-if="chat.error.length > 0" class="card">
+          <text class="error">{{ chat.error }}</text>
+          <button class="secondary" @click="loadHistory()">{{ t('重新加载') }}</button>
+        </view>
+        <view
+          v-if="
+            !chat.loading &&
+            chat.error.length == 0 &&
+            chat.messages.length == 0 &&
+            s(chat.pending, 'requestId').length == 0
+          "
+          class="card"
+        >
+          <text class="heading">{{ t('今天想提醒什么？') }}</text>
+          <text class="body-text">
+            {{ t('例如：“明天上午10点前提醒我确认合同，如果已完成就不要提醒。”') }}
+          </text>
+        </view>
+        <ChatMessage
+          v-for="item in chat.messages"
+          :key="s(item, 'id')"
+          :item="item"
+          :busy="confirming == s(payload(item), 'candidateId')"
+          @confirm="confirmCandidate"
+        />
+        <view v-if="s(chat.pending, 'requestId').length > 0">
+          <ChatMessage :item="pendingUser" :busy="false" />
+          <ChatMessage :item="pendingAssistant" :busy="false" />
+        </view>
+        <view id="latest" style="height: 12px" />
+      </view>
+    </scroll-view>
+    <view v-if="!follow" class="latest-link" @click="jumpLatest()">
+      <view style="transform: rotate(180deg)">
+        <UiIcon name="arrowUp" tone="purple" :size="18" />
+      </view>
+      <text class="latest-text">{{ t('回到最新') }}</text>
+    </view>
+    <view class="composer">
+      <scroll-view v-if="files.length > 0" scroll-x class="file-strip">
+        <view class="row">
+          <view v-for="file in files" :key="file.key" class="file">
+            <image v-if="file.image" :src="file.path" class="file-image" />
+            <text class="muted">
+              {{ file.name }} ·
+              {{
+                file.state == 'loading'
+                  ? t('解析中')
+                  : file.state == 'ready'
+                    ? t('已就绪')
+                    : t('失败')
+              }}
+            </text>
+            <text class="link" v-if="file.state == 'error'" @click="uploadOne(file)">
+              {{ t('重试') }}
+            </text>
+            <text class="link" @click="removeFile(file.key)">×</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="composer-box">
+        <view class="input-row">
+          <image class="orb" src="/static/icons/input-orb.png" mode="aspectFit" />
+          <textarea
+            id="chat-compose-input"
+            class="compose-input"
+            :confirm-type="inputConfirmType"
+            @confirm="confirmSend()"
+            v-model="draft"
+            auto-height
+            :maxlength="20000"
+            :disabled="recording || transcribing"
+            :placeholder="t('说说你想提醒的事…')"
+            :adjust-position="false"
+            @focus="
+              follow = true;
+              scrollLatest();
+            "
+          />
+        </view>
+        <view class="between">
+          <view class="row">
+            <view class="compose-action" @click="chooseAttachment()">
+              <UiIcon name="plus" tone="purple" :size="24" />
+            </view>
+            <view class="compose-action" @click="startRecording()">
+              <UiIcon name="microphone" tone="purple" :size="24" />
+            </view>
+          </view>
+          <button
+            v-if="chat.busy"
+            class="send send-busy"
+            :disabled="stopping"
+            @click="stopGeneration()"
+          >
+            <view class="stop-symbol" />
+          </button>
+          <button
+            v-else
+            class="send"
+            :disabled="
+              transcribing ||
+              recording ||
+              files.some((file: Attachment): boolean => file.state != 'ready')
+            "
+            @click="send()"
+          >
+            <UiIcon name="arrowUp" tone="purple" :size="24" />
+          </button>
+        </view>
+      </view>
+    </view>
+    <view :style="{ height: keyboard + 'px' }" />
+  </AppFrame>
+  <ReminderDrawer :open="drawer" @close="drawer = false" />
+  <Popup
+    :open="recording || transcribing"
+    :title="t('语音输入')"
+    :busy="false"
+    @close="cancelRecording"
+  >
+    <text class="body-text">
+      {{ transcribing ? t('正在转写，请稍候…') : t('正在录音，说完后点击“完成”') }}
+    </text>
+    <text class="muted">{{ t('取消会丢弃此次录音，原有草稿保留。') }}</text>
+    <view class="between">
+      <button class="secondary" @click="cancelRecording()">{{ t('取消') }}</button>
+      <button v-if="recording" class="primary" @click="finishRecording()">{{ t('完成') }}</button>
+    </view>
+  </Popup>
+  <Popup :open="clearOpen" :title="t('清除当前上下文')" :busy="clearing" @close="clearOpen = false">
+    <text class="clear-copy">
+      {{ t('清除后，对话页将不再显示之前的消息，AI 也不再沿用此前的聊天上下文和未确认操作。') }}
+    </text>
+    <view class="clear-note">
+      <text class="muted">
+        {{ t('后台聊天记录仍保留，好友、人员别称和已创建事件不受影响，提醒继续执行。') }}
+      </text>
+    </view>
+    <view class="clear-actions">
+      <button class="secondary clear-cancel" :disabled="clearing" @click="clearOpen = false">
+        {{ t('取消') }}
+      </button>
+      <button class="primary" :loading="clearing" :disabled="clearing" @click="clearContext()">
+        {{ t('确认清除') }}
+      </button>
+    </view>
+  </Popup>
+</template>
+<script setup lang="uts">
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { onMounted, onUnmounted, ref, reactive, watch, nextTick, computed } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import ChatMessage from '@/components/ChatMessage.uvue';
+import ReminderDrawer from '@/components/ReminderDrawer.uvue';
+import Popup from '@/components/Popup.uvue';
+import {
+  setChatVisible,
+  syncHistory,
+  invalidateHistory,
+  savedPending,
+  ChatState,
+  chat as _chat,
+  loadHistory as _loadHistory,
+  resume as _resume,
+  submit,
+  pauseChat,
+  stopGeneration as _stopGeneration,
+  dismissPending,
+} from '@/services/chat.uts';
+import { session, requireSession, requestId } from '@/store/session.uts';
+import { reminder, upload, bootstrap } from '@/api/request.uts';
+import { callNative, setAlarm } from '@/services/native.uts';
+import { s as _s, b, obj, arr, payload as _payload, strings, message } from '@/core/json.uts';
+import { confirm, toast } from '@/core/ui.uts';
+import { markdown as _markdown } from '@/core/markdown.uts';
+// #ifdef WEB
+import {
+  uploadBrowserFile,
+  chooseBrowserFiles,
+  startBrowserRecording,
+  finishBrowserRecording,
+  cancelBrowserRecording,
+} from '@/services/browser-chat.uts';
+const browserFiles = new Map<string, File>();
+// #endif
+function loadHistory(): Promise<void> {
+  return _loadHistory();
+}
+
+const chat: ChatState = _chat;
+const clearOpen = ref(false),
+  clearing = ref(false);
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function payload(row: UTSJSONObject): UTSJSONObject {
+  return _payload(row);
+}
+function markdown(value: string): string {
+  return _markdown(value);
+}
+const pendingUser = computed((): UTSJSONObject => ({
+  id: 'pending-user-' + s(chat.pending, 'requestId'),
+  messageRole: 'user',
+  messageType: 'TEXT',
+  content: s(chat.pending, 'content'),
+  payload: { fileNames: chat.pending['fileNames'] ?? ([] as string[]) },
+}));
+const pendingAssistant = computed((): UTSJSONObject => ({
+  id: 'pending-ai-' + s(chat.pending, 'requestId'),
+  messageRole: 'assistant',
+  messageType: 'TEXT',
+  content: chat.reply,
+  reasoningContent: chat.reasoning,
+  streaming: chat.busy,
+}));
+type Attachment = {
+  key: string;
+  path: string;
+  name: string;
+  image: boolean;
+  state: string;
+  id: string;
+};
+const drawer = ref(false),
+  draft = ref(''),
+  files = ref<Attachment[]>([]),
+  anchor = ref(''),
+  scrollTop = ref(0),
+  follow = ref(true),
+  showThinking = ref(false),
+  confirming = ref(''),
+  stopping = ref(false),
+  keyboard = ref(0),
+  recording = ref(false),
+  transcribing = ref(false);
+function releaseAttachment(file: Attachment) {
+  // #ifdef WEB
+  browserFiles.delete(file.key);
+  if (file.path.startsWith('blob:')) URL.revokeObjectURL(file.path);
+  // #endif
+}
+async function resume(): Promise<void> {
+  const content = s(savedPending(), 'content');
+  try {
+    await _resume();
+  } catch (e) {
+    if (draft.value.length == 0) draft.value = content;
+    toast(message(e));
+  }
+}
+let timer: number = 0,
+  active = false,
+  recordCancelled = false,
+  recordDraft = '',
+  recordOwner = '',
+  recordGeneration = 0,
+  syncFailures = 0;
+// #ifdef APP-ANDROID
+const recorder = uni.getRecorderManager();
+async function handleRecording(result: RecorderManagerOnStopResult): Promise<void> {
+  recording.value = false;
+  if (recordCancelled) return;
+  transcribing.value = true;
+  const run = recordGeneration;
+  try {
+    const data = await upload('/app/reminder/audio/transcriptions', result.tempFilePath, 125000);
+    if (run == recordGeneration && !recordCancelled && recordOwner == session.userId)
+      draft.value = recordDraft + (recordDraft.length > 0 ? '\n' : '') + s(data, 'text');
+    if (run == recordGeneration && s(data, 'text').trim().length == 0)
+      throw new Error('未识别到语音，请重试');
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    if (run == recordGeneration) transcribing.value = false;
+  }
+}
+recorder.onStop((result) => {
+  void handleRecording(result);
+});
+recorder.onError(() => {
+  recording.value = false;
+  transcribing.value = false;
+  toast('录音失败，请检查麦克风权限');
+});
+// #endif
+let keyboardId: number = -1;
+let scrollLockedUntil: number = 0,
+  scrollTimer: number = 0,
+  scrollHeight: number = 0;
+function scrollLatest() {
+  if (!follow.value) return;
+  scrollLockedUntil = Date.now() + 450;
+  anchor.value = '';
+  scrollTop.value = scrollTop.value == 999999 ? 999998 : 999999;
+  nextTick(() => {
+    anchor.value = 'latest';
+  });
+}
+function jumpLatest() {
+  follow.value = true;
+  scrollLatest();
+}
+const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
+  keyboard.value = event.height;
+  scrollLatest();
+};
+function stopScrollLock() {
+  scrollLockedUntil = 0;
+}
+function measureScroll() {
+  // #ifdef WEB
+  const element = document.getElementById('chat-scroll');
+  if (element != null) scrollHeight = element.clientHeight;
+  // #endif
+  // #ifdef APP
+  const nativeElement = uni.getElementById('chat-scroll');
+  if (nativeElement != null) scrollHeight = nativeElement.getBoundingClientRect().height;
+  // #endif
+}
+function scrolling(event: UniScrollEvent) {
+  if (Date.now() < scrollLockedUntil) return;
+  measureScroll();
+  const detail = event.detail;
+  follow.value = detail.scrollHeight - detail.scrollTop - scrollHeight < 80;
+}
+let inputConfirmType = 'send';
+// #ifdef WEB
+inputConfirmType = 'return';
+// #endif
+async function send() {
+  if (
+    chat.busy ||
+    recording.value ||
+    transcribing.value ||
+    clearing.value ||
+    clearOpen.value ||
+    confirming.value.length > 0
+  )
+    return;
+  if (files.value.some((f: Attachment): boolean => f.state != 'ready')) {
+    toast('请等待附件解析完成');
+    return;
+  }
+  if (draft.value.trim().length == 0 && files.value.length == 0) return;
+  if (s(chat.pending, 'requestId').length > 0) {
+    toast('请先确认上一条消息的处理结果');
+    return;
+  }
+  const retained = files.value.slice(),
+    text = draft.value,
+    ids = files.value.map((f: Attachment): string => f.id);
+  follow.value = true;
+  try {
+    const task = submit(
+      text,
+      ids,
+      retained.map((file: Attachment): string => file.name),
+    );
+    draft.value = '';
+    files.value = [];
+    scrollLatest();
+    await task;
+    if (s(chat.pending, 'requestId').length == 0) retained.forEach(releaseAttachment);
+    void bootstrap().catch(() => {});
+  } catch (e) {
+    if (s(chat.pending, 'requestId').length == 0) {
+      if (draft.value.length == 0) draft.value = text;
+      files.value = retained.concat(files.value);
+    }
+    toast(message(e));
+  }
+}
+function confirmSend() {
+  // #ifndef WEB
+  void send();
+  // #endif
+}
+// #ifdef WEB
+function composerKeydown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target == null || target.closest('#chat-compose-input') == null) return;
+  if (event.key != 'Enter' || event.shiftKey || event.isComposing || event.keyCode == 229) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) void send();
+}
+onMounted(() => {
+  document.addEventListener('keydown', composerKeydown, true);
+});
+onUnmounted(() => {
+  document.removeEventListener('keydown', composerKeydown, true);
+});
+// #endif
+async function stopGeneration(): Promise<void> {
+  if (stopping.value) return;
+  stopping.value = true;
+  try {
+    if (!(await _stopGeneration())) toast('本轮已完成生成或正在执行操作，无法撤回，请等待结果');
+  } catch (e) {
+    toast('停止失败：' + message(e));
+  } finally {
+    stopping.value = false;
+  }
+}
+function requestClear() {
+  if (
+    chat.busy ||
+    confirming.value.length > 0 ||
+    recording.value ||
+    transcribing.value ||
+    files.value.some((file: Attachment): boolean => file.state == 'loading')
+  ) {
+    toast('请先结束当前操作，再清除上下文');
+    return;
+  }
+  clearOpen.value = true;
+}
+async function clearContext() {
+  if (chat.busy || s(chat.pending, 'requestId').length > 0) {
+    toast('请先确认当前消息的处理结果');
+    return;
+  }
+  if (
+    clearing.value ||
+    confirming.value.length > 0 ||
+    recording.value ||
+    transcribing.value ||
+    files.value.some((file: Attachment): boolean => file.state == 'loading')
+  )
+    return;
+  clearing.value = true;
+  invalidateHistory();
+  try {
+    await reminder('chat/context/clear');
+    clearOpen.value = false;
+    draft.value = '';
+    files.value.forEach(releaseAttachment);
+    files.value = [];
+    chat.messages = [];
+    follow.value = true;
+    await loadHistory();
+    void bootstrap().catch(() => {});
+    toast('当前上下文已清除，后台记录仍保留');
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    clearing.value = false;
+  }
+}
+async function dismiss() {
+  if (await confirm('结束本机等待', '这不会取消服务器任务。请先核对事件，避免重复发送。'))
+    await dismissPending();
+}
+async function confirmCandidate(item: UTSJSONObject, alarms: number[]) {
+  if (confirming.value.length > 0 || clearing.value || s(item, 'messageType') != 'CANDIDATE')
+    return;
+  const id = s(payload(item), 'candidateId');
+  if (id.length == 0) return;
+  confirming.value = id;
+  try {
+    let result = obj(
+      await reminder(
+        'candidate/confirm',
+        {
+          candidateId: id,
+          acceptConflicts: arr(payload(item), 'events').some(
+            (event: UTSJSONObject): boolean => arr(event, 'scheduleConflicts').length > 0,
+          ),
+        },
+        {},
+        300000,
+      ),
+      'value',
+    );
+    if (b(result, 'confirmationRequired')) {
+      await loadHistory();
+      toast('发现新的日程冲突，请查看后确认是否仍要安排');
+      return;
+    }
+    toast('智能提醒已创建', 'success');
+    const ids = strings(result, 'eventIds');
+    for (const index of alarms) {
+      if (index >= ids.length) {
+        toast('事件已创建，但未返回事件编号，请到事件详情设置闹铃');
+        continue;
+      }
+      try {
+        await setAlarm(obj(await reminder('event/detail', null, { eventId: ids[index] }), 'value'));
+        toast('本机系统闹铃已设置，可在事件详情取消');
+      } catch (e) {
+        toast('事件已创建，闹铃未设置：' + message(e));
+      }
+    }
+    await bootstrap();
+  } catch (e) {
+    toast(message(e));
+  } finally {
+    confirming.value = '';
+    await loadHistory();
+  }
+}
+async function uploadOne(file: Attachment) {
+  file.state = 'loading';
+  try {
+    let result: UTSJSONObject;
+    // #ifdef WEB
+    const raw = browserFiles.get(file.key);
+    result =
+      raw != null
+        ? await uploadBrowserFile(raw, '/app/reminder/files/upload')
+        : await upload('/app/reminder/files/upload', file.path);
+    // #endif
+    // #ifndef WEB
+    result = await upload('/app/reminder/files/upload', file.path);
+    // #endif
+    if (s(result, 'extractStatus') != 'SUCCESS')
+      throw new Error(s(result, 'extractMessage', '附件解析失败'));
+    file.id = s(result, 'id');
+    if (file.id.length == 0) throw new Error('未返回附件编号');
+    file.state = 'ready';
+  } catch (e) {
+    file.state = 'error';
+    toast(message(e));
+  }
+}
+function removeFile(key: string) {
+  const old = files.value.find((file: Attachment): boolean => file.key == key);
+  if (old != null) releaseAttachment(old);
+  files.value = files.value.filter((f: Attachment): boolean => f.key != key);
+}
+function addFile(
+  path: string,
+  name: string,
+  size: number,
+  image: boolean,
+  key: string = requestId(),
+) {
+  if (clearing.value || clearOpen.value) return;
+  if (files.value.length >= 6) {
+    toast('每条消息最多6个附件');
+    return;
+  }
+  const ext = name.split('.').pop()!.toLowerCase();
+  if (!image || !['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+    toast('仅支持 PNG、JPG、GIF、WEBP 图片');
+    return;
+  }
+  if (size > 8 * 1024 * 1024) {
+    toast('图片最大8MB');
+    return;
+  }
+  const file = reactive<Attachment>({
+    key: key,
+    path: path,
+    name: name,
+    image: image,
+    state: 'loading',
+    id: '',
+  });
+  files.value.push(file);
+  void uploadOne(file);
+}
+// #ifdef WEB
+function addBrowserFiles(selected: File[]) {
+  for (const file of selected) {
+    const key = requestId(),
+      image = /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+    const path = image ? URL.createObjectURL(file) : '';
+    browserFiles.set(key, file);
+    addFile(path, file.name, file.size, image, key);
+    if (!files.value.some((item: Attachment): boolean => item.key == key)) {
+      browserFiles.delete(key);
+      if (path.length > 0) URL.revokeObjectURL(path);
+    }
+  }
+}
+function pasteImages(event: ClipboardEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target == null || target.closest('#chat-compose-input') == null) return;
+  const images = Array.from(event.clipboardData?.files ?? []).filter((file: File): boolean =>
+    file.type.startsWith('image/'),
+  );
+  if (images.length > 0) {
+    event.preventDefault();
+    addBrowserFiles(images);
+  }
+}
+onMounted(() => {
+  document.addEventListener('paste', pasteImages);
+});
+onUnmounted(() => {
+  document.removeEventListener('paste', pasteImages);
+});
+// #endif
+function chooseAttachment() {
+  if (clearing.value || clearOpen.value) return;
+  if (files.value.length >= 6) {
+    toast('每条消息最多6张图片');
+    return;
+  }
+  // #ifdef WEB
+  chooseBrowserFiles('image/png,image/jpeg,image/webp,image/gif', addBrowserFiles);
+  return;
+  // #endif
+  // #ifndef WEB
+  uni.chooseImage({
+    count: Math.max(1, 6 - files.value.length),
+    sourceType: ['album', 'camera'],
+    success: (result) => {
+      result.tempFiles.forEach((file) =>
+        addFile(file.path, file.path.split('/').pop()!, file.size, true),
+      );
+    },
+    fail: (error) => {
+      if (!error.errMsg.toLowerCase().includes('cancel'))
+        toast('无法选择图片，请检查相机或相册权限');
+    },
+  });
+  // #endif
+}
+// #ifdef APP-IOS
+let speechId = '',
+  speechTimer: number = 0;
+async function pollSpeech(run: number): Promise<void> {
+  if (run != recordGeneration || speechId.length == 0) return;
+  try {
+    const data = await callNative('speech.poll', { session: speechId });
+    if (run != recordGeneration || recordOwner != session.userId) return;
+    const text = s(data, 'text');
+    if (text.length > 0)
+      draft.value = recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text;
+    recording.value = b(data, 'recording');
+    transcribing.value = !recording.value && !b(data, 'finished');
+    if (b(data, 'finished')) {
+      speechId = '';
+      recording.value = false;
+      transcribing.value = false;
+      if (s(data, 'message').length > 0) toast(s(data, 'message'));
+      return;
+    }
+    speechTimer = setTimeout(() => {
+      void pollSpeech(run);
+    }, 180);
+  } catch (e) {
+    recording.value = false;
+    transcribing.value = false;
+    toast(message(e));
+  }
+}
+async function beginSpeech(): Promise<void> {
+  if (chat.busy || recording.value || transcribing.value || clearing.value) return;
+  recordCancelled = false;
+  recordDraft = draft.value;
+  recordOwner = session.userId;
+  const run = ++recordGeneration,
+    id = requestId();
+  speechId = id;
+  recording.value = true;
+  try {
+    await callNative('speech.start', { session: id });
+    if (run == recordGeneration) void pollSpeech(run);
+  } catch (e) {
+    if (run == recordGeneration) {
+      speechId = '';
+      recording.value = false;
+      toast(message(e));
+    }
+  }
+}
+// #endif
+function startRecording() {
+  // #ifdef APP-IOS
+  void beginSpeech();
+  // #endif
+  // #ifdef APP-ANDROID
+  if (chat.busy || transcribing.value || recording.value) return;
+  recordCancelled = false;
+  recordGeneration++;
+  recordDraft = draft.value;
+  recordOwner = session.userId;
+  recording.value = true;
+  recorder.start({ format: 'mp3', duration: 60000, numberOfChannels: 1, sampleRate: 16000 });
+  // #endif
+  // #ifdef WEB
+  if (chat.busy || recording.value || transcribing.value || clearing.value) return;
+  recordCancelled = false;
+  recordDraft = draft.value;
+  recordOwner = session.userId;
+  const run = ++recordGeneration;
+  recording.value = true;
+  void startBrowserRecording(
+    (file: File) => {
+      recording.value = false;
+      transcribing.value = true;
+      void uploadBrowserFile(file, '/app/reminder/audio/transcriptions', 125000)
+        .then((data: UTSJSONObject) => {
+          if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
+          const text = s(data, 'text').trim();
+          if (text.length == 0) throw new Error('未识别到语音，请重试');
+          draft.value = recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text;
+        })
+        .catch((e) => {
+          if (run == recordGeneration) toast(message(e));
+        })
+        .finally(() => {
+          if (run == recordGeneration) transcribing.value = false;
+        });
+    },
+    (error: string) => {
+      if (run == recordGeneration) {
+        recording.value = false;
+        transcribing.value = false;
+        toast(error);
+      }
+    },
+  ).catch((e) => {
+    if (run == recordGeneration) {
+      recording.value = false;
+      toast(message(e));
+    }
+  });
+  // #endif
+}
+function finishRecording() {
+  // #ifdef APP-IOS
+  if (speechId.length > 0) {
+    recording.value = false;
+    transcribing.value = true;
+    void callNative('speech.stop', { session: speechId, cancel: false }).catch((e) =>
+      toast(message(e)),
+    );
+  }
+  // #endif
+  // #ifdef WEB
+  finishBrowserRecording();
+  // #endif
+  // #ifdef APP-ANDROID
+  if (recording.value) recorder.stop();
+  // #endif
+}
+function cancelRecording() {
+  // #ifdef APP-IOS
+  clearTimeout(speechTimer);
+  if (speechId.length > 0)
+    void callNative('speech.stop', { session: speechId, cancel: true }).catch(() => {});
+  speechId = '';
+  // #endif
+  recordCancelled = true;
+  recordGeneration++;
+  transcribing.value = false;
+  // #ifdef WEB
+  cancelBrowserRecording();
+  // #endif
+  // #ifdef APP-ANDROID
+  if (recording.value) recorder.stop();
+  // #endif
+  recording.value = false;
+}
+function stopPage() {
+  active = false;
+  setChatVisible(false);
+  clearTimeout(timer);
+  drawer.value = false;
+  pauseChat();
+  cancelRecording();
+  // #ifdef APP
+  if (keyboardId >= 0) uni.offKeyboardHeightChange(keyboardId);
+  keyboardId = -1;
+  // #endif
+}
+let syncCallback: () => void = () => {};
+function scheduleSync(delay: number = 3000) {
+  clearTimeout(timer);
+  if (!active) return;
+  timer = setTimeout(syncCallback, delay);
+}
+async function refreshMessages() {
+  if (!active || !session.visible) {
+    scheduleSync();
+    return;
+  }
+  if (clearing.value || confirming.value.length > 0) {
+    scheduleSync();
+    return;
+  }
+  try {
+    await syncHistory();
+    syncFailures = 0;
+    void bootstrap().catch(() => {});
+  } catch (_) {
+    syncFailures = Math.min(4, syncFailures + 1);
+  } finally {
+    scheduleSync(Math.min(30000, 3000 * Math.pow(2, syncFailures)));
+  }
+}
+// #ifdef WEB
+function browserResume() {
+  if (active && !document.hidden) {
+    void resume();
+    scheduleSync(0);
+  }
+}
+function browserLayout() {
+  if (active && follow.value)
+    nextTick(() => {
+      measureScroll();
+      scrollLatest();
+    });
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', browserResume);
+  window.addEventListener('online', browserResume);
+  window.visualViewport?.addEventListener('resize', browserLayout);
+});
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', browserResume);
+  window.removeEventListener('online', browserResume);
+  window.visualViewport?.removeEventListener('resize', browserLayout);
+});
+// #endif
+syncCallback = () => {
+  void refreshMessages();
+};
+onShow(() => {
+  if (!requireSession()) return;
+  active = true;
+  setChatVisible(true);
+  follow.value = true;
+  nextTick(() => {
+    measureScroll();
+    scrollLatest();
+  });
+  void loadHistory().then(() => {
+    jumpLatest();
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      measureScroll();
+      scrollLatest();
+    }, 180);
+  });
+  void resume();
+  void bootstrap();
+  // #ifdef APP
+  keyboardId = uni.onKeyboardHeightChange(keyboardChange);
+  // #endif
+  scheduleSync(0);
+});
+onHide(stopPage);
+onUnload(() => {
+  stopPage();
+  files.value.forEach(releaseAttachment);
+  // #ifdef WEB
+  browserFiles.clear();
+  // #endif
+  clearTimeout(scrollTimer);
+  // #ifdef APP-ANDROID
+  recorder.offStop();
+  recorder.offError();
+  // #endif
+});
+
+watch((): number => chat.messages.length, scrollLatest);
+watch((): UTSJSONObject[] => chat.messages, scrollLatest);
+watch((): string => chat.reasoning, scrollLatest);
+watch((): string => chat.reply, scrollLatest);
+</script>
+<style scoped>
+.toolbar {
+  background-color: transparent;
+  border-radius: 0;
+  width: 38px;
+  height: 42px;
+  text-align: center;
+  line-height: 42px;
+  font-size: 22px;
+  color: #43516c;
+  align-items: center;
+  justify-content: center;
+}
+.messages {
+  padding: 0 16px 16px;
+}
+.recovery {
+  padding: 8px 18px;
+  background-color: #fff7eb;
+}
+.pending-user {
+  align-self: flex-end;
+  max-width: 615rpx;
+  background-color: #5274ff;
+  border-radius: 16px;
+  padding: 12px 15px;
+  margin: 10px 0;
+}
+.pending-text {
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 24px;
+}
+.pending-ai {
+  align-self: flex-start;
+  max-width: 660rpx;
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 14px;
+  margin: 10px 0;
+}
+.thinking-toggle {
+  font-size: 12px;
+  color: #7f8ba3;
+  margin-bottom: 9px;
+}
+.latest-link {
+  flex-direction: row;
+  align-items: center;
+  box-shadow: 0 5px 18px #7183ad20;
+  border: 1px solid #ffffff;
+  align-self: flex-end;
+  color: #5269ed;
+  background-color: #ffffff;
+  padding: 9px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  position: absolute;
+  right: 16px;
+  bottom: 118px;
+}
+.composer {
+  background-color: #ffffff;
+  padding: 14px 15px 9px;
+  border-top-left-radius: 23px;
+  border-top-right-radius: 23px;
+  border-radius: 22px;
+  margin-bottom: 10px;
+}
+.composer-box {
+  background-color: #ffffff;
+  border-radius: 18px;
+  padding: 0;
+  border: 1px solid #e7edf8;
+  border-width: 0;
+}
+.input-row {
+  flex-direction: row;
+  align-items: flex-start;
+  margin-bottom: 13px;
+}
+.orb {
+  width: 24px;
+  height: 24px;
+  background-color: #8794fa;
+  border-radius: 12px;
+  margin: 2px 9px 0 0;
+  box-shadow: 0 2px 5px #827bec33;
+}
+.compose-input {
+  flex: 1;
+  font-size: 14px;
+  color: #344967;
+  min-height: 25px;
+  max-height: 144px;
+  padding: 0;
+}
+.compose-action {
+  font-size: 27px;
+  color: #8997b0;
+  width: 36px;
+  padding: 4px 0;
+  height: 36px;
+  border-radius: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px #7183ad17;
+}
+.send {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 19px;
+  line-height: 34px;
+  font-size: 24px;
+  background-color: #ffffff;
+  color: #8b80b4;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px #7183ad17;
+}
+.file-strip {
+  height: 58px;
+  margin-bottom: 8px;
+}
+.file {
+  flex-direction: row;
+  align-items: center;
+  background-color: #f3f6fc;
+  border-radius: 12px;
+  padding: 4px 7px;
+  margin-right: 8px;
+}
+.file-image {
+  width: 35px;
+  height: 35px;
+  border-radius: 7px;
+  margin-right: 5px;
+}
+.clear-copy {
+  font-size: 14px;
+  line-height: 25px;
+  color: #55616d;
+}
+.clear-note {
+  background-color: #f4f5ff;
+  border-radius: 13px;
+  padding: 13px;
+  margin: 15px 0 20px;
+}
+.clear-note .muted {
+  font-size: 14px;
+  line-height: 23px;
+}
+.clear-actions {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}
+.clear-cancel {
+  line-height: 40px;
+  min-width: 72px;
+  border: 1px solid #e6e7ed;
+  background-color: #f9faff;
+  color: #858e9e;
+  font-size: 16px;
+  font-weight: 400;
+  margin-right: 10px;
+}
+.clear-actions .primary {
+  margin: 0;
+  min-width: 104px;
+}
+.latest-text {
+  font-size: 13px;
+  color: #7c76a6;
+  margin-left: 7px;
+}
+.stop-symbol {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background-color: #8077b6;
+}
+.send-busy {
+  background-color: #f5f3ff;
+  border: 1px solid #e8e3fa;
+}
+/* #ifdef WEB */
+#chat-scroll {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent, #000 14px);
+}
+/* #endif */
+</style>

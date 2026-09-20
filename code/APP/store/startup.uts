@@ -1,0 +1,21 @@
+import { reactive } from 'vue';
+export type StartupState = { visible: boolean; leaving: boolean };
+export const startup = reactive<StartupState>({ visible: true, leaving: false });
+const started = Date.now();
+let ready = false;
+export function startupReady(): void {
+  if (ready) return;
+  ready = true;
+  // #ifdef WEB
+  window.dispatchEvent(new Event('xiaoxing:ready'));
+  // #endif
+  setTimeout(
+    () => {
+      startup.leaving = true;
+      setTimeout(() => {
+        startup.visible = false;
+      }, 260);
+    },
+    Math.max(0, 650 - (Date.now() - started)),
+  );
+}

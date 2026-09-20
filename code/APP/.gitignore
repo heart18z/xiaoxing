@@ -1,0 +1,11 @@
+unpackage/
+node_modules/
+.hbuilderx/
+*.p8
+*.p12
+*.mobileprovision
+*.ipa
+*.keystore
+config/local.uts
+output/
+.playwright-cli/

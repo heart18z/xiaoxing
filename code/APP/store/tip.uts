@@ -1,0 +1,38 @@
+import { reactive } from 'vue';
+export type TipState = { text: string; visible: boolean; rendered: boolean; tone: string };
+export const tip = reactive<TipState>({ text: '', visible: false, rendered: false, tone: 'info' });
+let hideTimer: number = 0;
+let showTimer: number = 0;
+let removeTimer: number = 0;
+export function hideTip(): void {
+  clearTimeout(showTimer);
+  clearTimeout(hideTimer);
+  clearTimeout(removeTimer);
+  tip.visible = false;
+  // Remove the transparent native view after the exit animation: it must not cover controls.
+  removeTimer = setTimeout(() => {
+    tip.rendered = false;
+    tip.text = '';
+  }, 180);
+}
+export function showTip(text: string, tone: string = ''): void {
+  if (text.trim().length == 0) return;
+  clearTimeout(hideTimer);
+  clearTimeout(showTimer);
+  clearTimeout(removeTimer);
+  tip.text = text;
+  tip.tone = ['success', 'error', 'info'].includes(tone)
+    ? tone
+    : text.includes('成功')
+      ? 'success'
+      : text.includes('失败') || text.includes('错误') || text.includes('无效')
+        ? 'error'
+        : 'info';
+  tip.rendered = true;
+  if (!tip.visible) {
+    showTimer = setTimeout(() => {
+      tip.visible = true;
+    }, 30);
+  }
+  hideTimer = setTimeout(() => hideTip(), Math.min(6000, Math.max(3200, text.length * 110)));
+}

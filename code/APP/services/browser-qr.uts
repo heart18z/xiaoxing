@@ -1,0 +1,146 @@
+// #ifdef WEB
+import jsQR from 'jsqr';
+let cleanup: (() => void) | null = null;
+export function stopBrowserQr(): void {
+  cleanup?.();
+  cleanup = null;
+}
+export function scanBrowserQr(
+  found: (value: string) => void,
+  failed: (error: string) => void,
+): void {
+  stopBrowserQr();
+  let closed = false,
+    media: MediaStream | null = null,
+    frame = 0,
+    lastScan = 0;
+  const overlay = document.createElement('div');
+  overlay.style.cssText =
+    'position:fixed;inset:0;z-index:10000;background:rgba(16,24,42,.8);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(8px)';
+  const panel = document.createElement('div');
+  panel.style.cssText =
+    'width:100%;max-width:360px;padding:22px;background:#fff;border-radius:24px;box-sizing:border-box;font-family:system-ui;color:#17264a';
+  const title = document.createElement('h3');
+  title.textContent = '扫一扫，添加好友';
+  title.style.cssText = 'margin:0 0 16px;font-size:18px';
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.muted = true;
+  video.playsInline = true;
+  video.style.cssText =
+    'width:100%;height:250px;object-fit:cover;background:#edf2fc;border-radius:16px;display:none';
+  const status = document.createElement('p');
+  status.style.cssText = 'font-size:14px;line-height:1.6;color:#7e89a1';
+  status.textContent = '将好友二维码放在取景框内，也可以从相册选择二维码图片。';
+  const pick = document.createElement('button');
+  pick.textContent = '从相册识别二维码';
+  pick.style.cssText =
+    'width:100%;height:44px;border:0;border-radius:13px;background:#4b62ff;color:#fff;font-size:15px;margin-top:8px';
+  const cancel = document.createElement('button');
+  cancel.textContent = '取消';
+  cancel.style.cssText =
+    'width:100%;height:40px;border:0;border-radius:13px;background:#f2f3f6;color:#788195;font-size:15px;margin-top:10px';
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.style.display = 'none';
+  panel.append(title, video, status, pick, cancel, input);
+  overlay.append(panel);
+  document.body.append(overlay);
+  cleanup = () => {
+    closed = true;
+    cancelAnimationFrame(frame);
+    media?.getTracks().forEach((track) => track.stop());
+    video.srcObject = null;
+    overlay.remove();
+  };
+  cancel.onclick = stopBrowserQr;
+  overlay.onclick = (event) => {
+    if (event.target == overlay) stopBrowserQr();
+  };
+  const decode = (
+    source: HTMLImageElement | HTMLVideoElement,
+    width: number,
+    height: number,
+  ): string => {
+    const canvas = document.createElement('canvas'),
+      scale = Math.min(1, 1600 / Math.max(width, height));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) return '';
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    return jsQR(pixels.data, canvas.width, canvas.height)?.data ?? '';
+  };
+  const accept = (value: string) => {
+    if (closed) return;
+    stopBrowserQr();
+    found(value);
+  };
+  pick.onclick = () => {
+    input.value = '';
+    input.click();
+  };
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) {
+      status.textContent = '请选择 16MB 以内的二维码图片';
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      if (closed) return;
+      const value = decode(image, image.naturalWidth, image.naturalHeight);
+      if (value.length > 0) accept(value);
+      else status.textContent = '未识别到二维码，请选择清晰、完整的二维码图片';
+    } catch (_) {
+      if (!closed) status.textContent = '图片无法识别，请重新选择';
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    status.textContent =
+      '当前浏览器连接无法打开相机，请从相册选择好友二维码。使用 HTTPS 或安装 APP 后可直接扫码。';
+    return;
+  }
+  navigator.mediaDevices
+    .getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+    .then(async (stream) => {
+      if (closed) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      media = stream;
+      video.srcObject = stream;
+      video.style.display = 'block';
+      await video.play();
+      const tick = () => {
+        if (closed) return;
+        if (video.readyState >= 2 && video.videoWidth > 0 && performance.now() - lastScan > 160) {
+          lastScan = performance.now();
+          const value = decode(video, video.videoWidth, video.videoHeight);
+          if (value.length > 0) {
+            accept(value);
+            return;
+          }
+        }
+        frame = requestAnimationFrame(tick);
+      };
+      tick();
+    })
+    .catch(() => {
+      if (!closed) {
+        media?.getTracks().forEach((track) => track.stop());
+        video.srcObject = null;
+        video.style.display = 'none';
+        status.textContent = '相机暂不可用，请允许相机权限，或从相册识别二维码';
+      }
+    });
+}
+// #endif

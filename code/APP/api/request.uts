@@ -1,0 +1,268 @@
+import { BASE_URL, BASIC_AUTH, TENANT, SM2_PUBLIC_KEY } from '@/config/environment.uts';
+import { session, saveSession, clearSession, applyBootstrap } from '@/store/session.uts';
+import { sm2Encrypt } from '@/core/sm2.uts';
+import { randomHex } from '@/uni_modules/xiaoxing-native';
+import { s, n, parseObject } from '@/core/json.uts';
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+export function query(params: UTSJSONObject): string {
+  return UTSJSONObject.keys(params)
+    .filter((key: string): boolean => params[key] != null)
+    .map(
+      (key: string): string => encodeURIComponent(key) + '=' + encodeURIComponent(`${params[key]}`),
+    )
+    .join('&');
+}
+export function headers(json: boolean = true): UTSJSONObject {
+  const result: UTSJSONObject = {
+    Authorization: BASIC_AUTH,
+    'Blade-Requested-With': 'BladeHttpRequest',
+    'Tenant-Id': TENANT,
+  };
+  if (json) result['Content-Type'] = 'application/json;charset=UTF-8';
+  if (session.token.length > 0) result['Blade-Auth'] = 'bearer ' + session.token;
+  return result;
+}
+function raw(
+  path: string,
+  data: UTSJSONObject | null,
+  params: UTSJSONObject,
+  timeout: number,
+): Promise<UTSJSONObject> {
+  return new Promise<UTSJSONObject>((resolve, reject) => {
+    const suffix = query(params);
+    uni.request({
+      url: BASE_URL + path + (suffix.length > 0 ? '?' + suffix : ''),
+      method: 'POST',
+      header: headers(),
+      data: data == null ? '' : JSON.stringify(data),
+      timeout: timeout,
+      success: (res) => {
+        const body = res.data as UTSJSONObject;
+        const code = n(body, 'code');
+        if (res.statusCode >= 400 || (code != 0 && code != 200) || body['success'] == false) {
+          reject(
+            new ApiError(
+              res.statusCode >= 400 ? res.statusCode : code,
+              s(body, 'msg', s(body, 'error_description', '请求未完成')),
+            ),
+          );
+          return;
+        }
+        resolve(body);
+      },
+      fail: (_) => reject(new ApiError(0, '请求失败，请检查网络后重试')),
+    });
+  });
+}
+let refreshing: Promise<void> | null = null;
+export function refreshToken(): Promise<void> {
+  if (refreshing != null) return refreshing!;
+  const owner = session.userId,
+    revision = session.revision;
+  refreshing = raw(
+    '/blade-auth/oauth/token',
+    null,
+    { grant_type: 'refresh_token', refresh_token: session.refresh, scope: 'all', tenantId: TENANT },
+    15000,
+  )
+    .then((data) => {
+      if (owner != session.userId || revision != session.revision)
+        throw new ApiError(401, '账号已变化');
+      saveSession(data);
+    })
+    .catch((error) => {
+      // A temporary server/network failure does not destroy a recoverable session.
+      if (
+        error instanceof ApiError &&
+        (error.status == 400 || error.status == 401 || error.status == 403) &&
+        revision == session.revision
+      ) {
+        clearSession();
+        uni.reLaunch({ url: '/pages/login/index' });
+      }
+      throw error instanceof Error ? error : new Error('请求未完成，请重试');
+    })
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing!;
+}
+export async function post(
+  path: string,
+  data: UTSJSONObject | null = null,
+  params: UTSJSONObject = {},
+  timeout: number = 15000,
+  auth: boolean = true,
+  allowStaleResult: boolean = false,
+): Promise<UTSJSONObject> {
+  const owner = session.userId,
+    revision = session.revision;
+  if (auth && session.token.length == 0) throw new ApiError(401, '请先登录');
+  let body: UTSJSONObject;
+  try {
+    body = await raw(path, data, params, timeout);
+  } catch (error) {
+    if (!auth || !(error instanceof ApiError) || error.status != 401)
+      throw error instanceof Error ? error : new Error('请求未完成，请重试');
+    await refreshToken();
+    if (owner != session.userId || revision != session.revision)
+      throw new ApiError(401, '账号已变化');
+    body = await raw(path, data, params, timeout);
+  }
+  if (auth && !allowStaleResult && (owner != session.userId || revision != session.revision))
+    throw new ApiError(401, '账号已变化');
+  return body;
+}
+export async function reminder(
+  action: string,
+  data: UTSJSONObject | null = null,
+  params: UTSJSONObject = {},
+  timeout: number = 15000,
+): Promise<UTSJSONObject> {
+  const body = await post('/app/reminder/' + action, data, params, timeout);
+  return { value: body['data'] };
+}
+export async function bootstrap(): Promise<void> {
+  const result = await reminder('bootstrap');
+  applyBootstrap((result['value'] as UTSJSONObject) ?? {});
+}
+export async function login(
+  account: string,
+  password: string,
+  captchaKey: string = '',
+  captchaCode: string = '',
+  confirmLogin: boolean = false,
+): Promise<void> {
+  const encrypted = sm2Encrypt(password, SM2_PUBLIC_KEY, randomHex(32));
+  const params: UTSJSONObject = {
+    tenantId: TENANT,
+    username: account,
+    password: encrypted,
+    grant_type: captchaKey.length > 0 ? 'captcha' : 'password',
+    scope: 'all',
+    type: 'account',
+  };
+  // Captcha headers are handled by the same OAuth request without changing its password format.
+  const result = await new Promise<UTSJSONObject>((resolve, reject) => {
+    const h = headers();
+    h['Captcha-Key'] = captchaKey;
+    h['Captcha-Code'] = captchaCode;
+    if (confirmLogin) h['confirm'] = 'true';
+    uni.request({
+      url: BASE_URL + '/blade-auth/oauth/token?' + query(params),
+      method: 'POST',
+      header: h,
+      timeout: 15000,
+      success: (res) => {
+        let body =
+          typeof res.data == 'string'
+            ? parseObject(res.data as string)
+            : (res.data as UTSJSONObject);
+        if (
+          body['data'] != null &&
+          typeof body['data'] == 'object' &&
+          s(body, 'error').length == 0 &&
+          s(body, 'access_token').length == 0 &&
+          s(body, 'error_description').length == 0
+        )
+          body = body['data'] as UTSJSONObject;
+        const description = s(body, 'error_description', s(body, 'msg', s(body, 'message')));
+        if (
+          s(body, 'error') == 'need_confirm_login' ||
+          n(body, 'code') == 601 ||
+          (description.includes('其他地址') && description.includes('是否继续'))
+        ) {
+          reject(
+            new ApiError(
+              601,
+              description.length > 0 ? description : '账号已在其他设备登录，请确认是否继续',
+            ),
+          );
+          return;
+        }
+        if (res.statusCode >= 400 || s(body, 'access_token').length == 0) {
+          reject(
+            new ApiError(
+              res.statusCode,
+              s(body, 'error_description', s(body, 'msg', '登录失败，请检查账号密码')),
+            ),
+          );
+          return;
+        }
+        resolve(body);
+      },
+      fail: () => reject(new ApiError(0, '登录请求失败，请稍后重试')),
+    });
+  });
+  const roles = s(result, 'role_name');
+  if (roles.length > 0 && !roles.split(',').includes('app_user'))
+    throw new ApiError(403, '当前账号未分配 APP 使用人员角色');
+  session.revision++;
+  saveSession(result);
+  try {
+    // A freshly issued token must work immediately. Do not refresh/reLaunch on
+    // bootstrap failure: preserve the login screen so it can explain the error.
+    const body = await raw('/app/reminder/bootstrap', null, {}, 15000);
+    applyBootstrap((body['data'] as UTSJSONObject) ?? {});
+  } catch (error) {
+    clearSession();
+    throw error instanceof Error ? error : new Error('请求未完成，请重试');
+  }
+}
+export async function upload(
+  path: string,
+  filePath: string,
+  timeout: number = 300000,
+): Promise<UTSJSONObject> {
+  const owner = session.userId,
+    revision = session.revision;
+  const once = (): Promise<UTSJSONObject> =>
+    new Promise<UTSJSONObject>((resolve, reject) => {
+      const h = headers(false);
+      uni.uploadFile({
+        url: BASE_URL + path,
+        filePath: filePath,
+        name: 'file',
+        header: h,
+        timeout: timeout,
+        success: (res) => {
+          try {
+            const body = parseObject(res.data);
+            if (res.statusCode >= 400 || n(body, 'code') != 200) {
+              reject(
+                new ApiError(
+                  res.statusCode >= 400 ? res.statusCode : n(body, 'code'),
+                  s(body, 'msg', '上传失败'),
+                ),
+              );
+              return;
+            }
+            resolve(body);
+          } catch (_) {
+            reject(new ApiError(0, '上传响应格式有误'));
+          }
+        },
+        fail: () => reject(new ApiError(0, '上传失败，请重试')),
+      });
+    });
+  let result: UTSJSONObject;
+  try {
+    result = await once();
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status != 401)
+      throw error instanceof Error ? error : new Error('请求未完成，请重试');
+    await refreshToken();
+    if (owner != session.userId || revision != session.revision)
+      throw new ApiError(401, '账号已变化');
+    result = await once();
+  }
+  if (owner != session.userId || revision != session.revision)
+    throw new ApiError(401, '账号已变化');
+  return (result['data'] as UTSJSONObject) ?? {};
+}

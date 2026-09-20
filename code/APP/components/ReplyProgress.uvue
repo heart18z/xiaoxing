@@ -1,0 +1,79 @@
+<template>
+  <view class="reply-progress">
+    <view class="progress-orbit" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
+    <text class="progress-text" :style="{ opacity: stageVisible ? 1 : 0 }">
+      {{ stages[stage] }}
+    </text>
+    <view class="progress-shimmer" :style="{ transform: 'translateX(' + shine + 'px)' }" />
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, onMounted, onUnmounted } from 'vue';
+const stages = ['分析中', '思考中', '规划中', '整理回复中'];
+const stage = ref(0),
+  angle = ref(0),
+  shine = ref(-170),
+  stageVisible = ref(true);
+let timer: number = 0,
+  stageTimer: number = 0,
+  fadeTimer: number = 0;
+onMounted(() => {
+  const start = Date.now();
+  timer = setInterval(() => {
+    const elapsed = Date.now() - start;
+    angle.value = elapsed * 0.36;
+    shine.value = ((elapsed % 2400) / 2400) * 340 - 170;
+  }, 50);
+  stageTimer = setInterval(() => {
+    if (stage.value >= 3) return;
+    stageVisible.value = false;
+    fadeTimer = setTimeout(() => {
+      stage.value++;
+      stageVisible.value = true;
+    }, 180);
+  }, 2800);
+});
+onUnmounted(() => {
+  clearInterval(timer);
+  clearInterval(stageTimer);
+  clearTimeout(fadeTimer);
+});
+</script>
+<style scoped>
+.reply-progress {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  min-width: 150px;
+  overflow: hidden;
+  padding: 5px 0;
+}
+.progress-orbit {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #dce6ff;
+  border-top-color: #537cff;
+  border-right-color: #42c1d8;
+  border-radius: 8px;
+  margin-right: 10px;
+  transition-property: transform;
+  transition-duration: 50ms;
+  transition-timing-function: linear;
+}
+.progress-text {
+  color: #667b9d;
+  font-size: 13px;
+  transition-property: opacity;
+  transition-duration: 180ms;
+}
+.progress-shimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 150px;
+  background-image: linear-gradient(100deg, #ffffff00, #ffffff99, #ffffff00);
+  transition-property: transform;
+  transition-duration: 50ms;
+  transition-timing-function: linear;
+}
+</style>

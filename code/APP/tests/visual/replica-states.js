@@ -1,0 +1,37 @@
+async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const safe='.frame>uni-view:nth-child(2){height:62px!important;flex-shrink:0}.dock{height:102px!important;padding-bottom:34px!important}.brand{margin-top:62px!important}.drawer>uni-view:first-child{height:62px!important;flex-shrink:0}';
+ const shot=async name=>{await page.screenshot({path:'output/playwright/replica-'+name+'.png'});};
+ const go=async(name)=>{await page.goto('http://localhost:5174/#/pages/'+name+'/index'+(name==='event-detail'?'?id=201':''));await page.locator('.frame').waitFor();await page.waitForTimeout(400);await page.addStyleTag({content:safe});};
+ await go('me');await shot('me');
+ await page.getByText('编辑资料',{exact:true}).click();await shot('edit-profile');
+ await page.locator('.mask .close').click();
+ await page.getByText('管理',{exact:true}).first().click();await shot('friend');
+ await page.getByText('权限设定',{exact:true}).click();await shot('permission');
+ await page.locator('.mask .close').click();
+ await go('event-detail');await shot('event-detail');
+ await page.getByText('查看对话',{exact:true}).first().click();await page.getByText('现在10点了，该审核第一版标书了。',{exact:true}).waitFor();await shot('conversation');
+ await page.locator('.mask .close').click();
+ await page.locator('.timeline').first().evaluate(el=>{const scroll=el.closest('.uni-scroll-view');scroll.scrollTop+=el.getBoundingClientRect().top-scroll.getBoundingClientRect().top-120;});await shot('timeline');
+ await go('settings');await shot('settings');
+ await page.locator('.select-field').first().click();await shot('language');
+ await page.locator('.option').first().click();
+ await page.locator('.model-card').first().evaluate(el=>{const scroll=el.closest('.uni-scroll-view');scroll.scrollTop+=el.getBoundingClientRect().top-scroll.getBoundingClientRect().top-16;});await shot('models');
+ await page.locator('.model-card .select-field').first().click();await shot('model-options');
+ const visibleOptions=await page.locator('.option').evaluateAll(nodes=>nodes.every(node=>{const r=node.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit!=null && node.contains(hit);}));
+ if(!visibleOptions)throw Error('Model dropdown is clipped or covered');
+ await page.getByText('qwen3.8-flash',{exact:true}).click();
+ if(!await page.locator('.model-card .select-field').first().innerText().then(s=>s.includes('qwen3.8-flash')))throw Error('model selection did not update');
+ await go('chat');
+ await page.locator('.messages').evaluate(el=>el.closest('.uni-scroll-view').scrollTop=0);
+ await shot('chat');
+ await page.locator('.toolbar').last().click();await shot('clear');
+ await page.getByText('取消',{exact:true}).click();
+ await page.locator('.toolbar').first().click();await page.getByText('今日待提醒',{exact:true}).waitFor();await shot('drawer');
+ await page.locator('.drawer-close').click();
+ await page.evaluate(()=>sessionStorage.removeItem('xiaoxing:session'));
+ await page.goto('http://localhost:5174/#/pages/login/index');await page.reload();
+ await page.locator('.login-panel').waitFor();await page.addStyleTag({content:safe});await shot('login');
+ await page.getByText('没有账号？注册账号',{exact:true}).click();await page.getByText('创建小醒账号',{exact:true}).waitFor();await shot('register');
+ return {errors};
+}

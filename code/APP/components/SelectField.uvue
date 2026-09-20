@@ -1,0 +1,146 @@
+<template>
+  <view class="select" :style="{ zIndex: rendered ? 20 : 1 }">
+    <view :class="['select-field', open ? 'focused' : '']" @click="toggle()">
+      <text class="value">{{ options[value] }}</text>
+      <view class="select-arrow" :style="{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }">
+        <UiIcon name="down" :size="17" />
+      </view>
+    </view>
+    <view
+      v-if="rendered"
+      class="options"
+      :style="{
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0px) scale(1)' : 'translateY(-8px) scale(0.98)',
+      }"
+    >
+      <scroll-view scroll-y :style="{ maxHeight: Math.min(options.length * 44 + 12, 260) + 'px' }">
+        <view
+          v-for="(option, index) in options"
+          :key="index"
+          :class="['option', index == value ? 'chosen' : '']"
+          @click="choose(index)"
+        >
+          <text :class="['option-text', index == value ? 'chosen-text' : '']">{{ option }}</text>
+          <text v-if="index == defaultIndex" class="badge">系统默认</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, onUnmounted } from 'vue';
+import UiIcon from './UiIcon.uvue';
+defineProps({
+  options: { type: Array as PropType<string[]>, default: (): string[] => [] },
+  value: { type: Number, default: 0 },
+  defaultIndex: { type: Number, default: -1 },
+});
+const emit = defineEmits(['change']);
+const open = ref(false),
+  rendered = ref(false);
+let animationTimer: number = 0;
+function close() {
+  clearTimeout(animationTimer);
+  open.value = false;
+  animationTimer = setTimeout(() => {
+    rendered.value = false;
+  }, 200);
+}
+function toggle() {
+  if (open.value) {
+    close();
+    return;
+  }
+  clearTimeout(animationTimer);
+  rendered.value = true;
+  animationTimer = setTimeout(() => {
+    open.value = true;
+  }, 30);
+}
+onUnmounted(() => clearTimeout(animationTimer));
+function choose(index: number) {
+  if (!open.value) return;
+  close();
+  emit('change', index);
+}
+</script>
+<style scoped>
+.select {
+  position: relative;
+  margin-bottom: 14px;
+  overflow: visible;
+}
+.select-field {
+  height: 46px;
+  padding: 0 13px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f9faff;
+  border: 1px solid #e0e2ea;
+  border-radius: 14px;
+}
+.focused {
+  border-color: #949bdc;
+  box-shadow: 0 0 0 3px #8999d814;
+}
+.value {
+  font-size: 16px;
+  color: #4b5565;
+  flex: 1;
+}
+.select-arrow {
+  transition-property: transform;
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+}
+.options {
+  transition-property: opacity, transform;
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+  position: absolute;
+  top: 58px;
+  left: 0;
+  right: 0;
+  border-radius: 16px;
+  padding: 6px;
+  background-color: #ffffff;
+  border: 1px solid #e7e9f0;
+  box-shadow: 0 9px 20px #67759420;
+  z-index: 30;
+}
+.option {
+  min-height: 44px;
+  padding: 10px 12px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 9px;
+}
+.chosen {
+  background-color: #edf2ff;
+}
+.option-text {
+  font-size: 14px;
+  line-height: 24px;
+  color: #56606f;
+}
+.chosen-text {
+  color: #5964d6;
+  font-weight: 600;
+}
+.badge {
+  font-size: 10px;
+  color: #727fc0;
+  margin-left: 8px;
+}
+/* #ifdef WEB */
+@media (prefers-reduced-motion: reduce) {
+  .options,
+  .select-arrow {
+    transition-duration: 0ms;
+  }
+}
+/* #endif */
+</style>

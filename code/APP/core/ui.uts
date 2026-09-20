@@ -1,0 +1,30 @@
+import { t } from './locale.uts';
+import { ASSET_ORIGIN } from '@/config/environment.uts';
+import { showTip } from '@/store/tip.uts';
+export function toast(text: string, tone: string = ''): void {
+  showTip(t(text), tone);
+}
+export function confirm(title: string, content: string): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: t(title),
+      content: t(content),
+      confirmText: t('确定'),
+      cancelText: t('取消'),
+      success: (r) => resolve(r.confirm),
+      fail: () => resolve(false),
+    });
+  });
+}
+export function asset(url: string): string {
+  if (url.startsWith('/avatars/') || url.startsWith('/images/')) return '/static' + url;
+  if (url.startsWith('/')) return ASSET_ORIGIN + url;
+  return url;
+}
+export function openEvent(id: string): void {
+  if (/^[1-9]\d{0,19}$/.test(id)) uni.navigateTo({ url: '/pages/event-detail/index?id=' + id });
+}
+export function back(): void {
+  if (getCurrentPages().length > 1) uni.navigateBack();
+  else uni.reLaunch({ url: '/pages/chat/index' });
+}

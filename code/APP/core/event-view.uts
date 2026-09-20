@@ -1,0 +1,52 @@
+import { s, b, arr } from './json.uts';
+const aiTypes = [
+  'AI_BRANCH_RESUMED',
+  'FIRST_EVALUATION_PLANNED',
+  'EVALUATION_TIME_ADJUSTED',
+  'NEXT_EVALUATION_PLANNED',
+  'ASK_CREATOR',
+  'ASK_RECIPIENT',
+  'REMINDER_SENT',
+  'AI_STOPPED',
+  'RECIPIENT_NOTIFIED',
+  'AI_RECIPIENT_ADDED',
+  'TIME_CONFLICT_DETECTED',
+];
+export function eventIsAi(row: UTSJSONObject): boolean {
+  return b(row, 'aiAction') || aiTypes.includes(s(row, 'nodeType'));
+}
+export function eventOverview(event: UTSJSONObject): string {
+  const latest = s(event, 'latest_summary');
+  return (latest.length > 0 ? latest : s(event, 'event_summary')).replace(
+    /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/g,
+    '$1 $2',
+  );
+}
+export function eventTimeline(
+  detail: UTSJSONObject,
+  showAI: boolean,
+  branch: string,
+): UTSJSONObject[] {
+  const seen = new Set<string>();
+  return arr(detail, 'timeline').filter((node: UTSJSONObject): boolean => {
+    if (!showAI && eventIsAi(node)) return false;
+    const branchId = s(node, 'branchId');
+    if (
+      branch.length > 0 &&
+      branchId != branch &&
+      !(
+        branchId.length == 0 &&
+        ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_STOPPED', 'EVENT_MERGED'].includes(
+          s(node, 'nodeType'),
+        )
+      )
+    )
+      return false;
+    if (s(node, 'nodeType') != 'NOTIFICATION_READ') return true;
+    const actor = s(node, 'actorUserId').length > 0 ? s(node, 'actorUserId') : s(node, 'actorName');
+    const key = branchId + ':' + actor + ':' + s(node, 'createTime').slice(0, 16);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}

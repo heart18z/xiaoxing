@@ -1,0 +1,162 @@
+<template>
+  <view class="card model-card">
+    <text class="heading">{{ kind == 'LLM' ? t('LLM 对话模型') : t('语音识别模型') }}</text>
+    <view class="mode-row">
+      <view class="radio-option" @click="form.mode = 'SYSTEM'">
+        <view :class="['radio', form.mode == 'SYSTEM' ? 'radio-selected' : '']">
+          <view v-if="form.mode == 'SYSTEM'" class="radio-center" />
+        </view>
+        <text class="mode-text">{{ t('使用系统配置') }}</text>
+      </view>
+      <view class="radio-option" @click="form.mode = 'PERSONAL'">
+        <view :class="['radio', form.mode == 'PERSONAL' ? 'radio-selected' : '']">
+          <view v-if="form.mode == 'PERSONAL'" class="radio-center" />
+        </view>
+        <text class="mode-text">{{ t('使用个人配置') }}</text>
+      </view>
+    </view>
+    <view v-if="form.mode == 'SYSTEM'" class="system-fields">
+      <text class="label">{{ t('我的模型') }}</text>
+      <SelectField
+        :options="labels"
+        :value="selected"
+        :default-index="defaultIndex"
+        @change="selectModel"
+      />
+      <view class="model-help">
+        <text class="muted">{{ t('使用管理员维护的模型，无需填写地址和密钥。') }}</text>
+      </view>
+    </view>
+    <view v-else>
+      <text class="label">{{ t('接口地址') }}</text>
+      <input class="input" v-model="form.baseUrl" placeholder="https://example.com/v1" />
+      <text class="label">{{ t('模型名称') }}</text>
+      <input class="input" v-model="form.modelName" :placeholder="t('请输入模型名称')" />
+      <text class="label">API Key</text>
+      <input
+        class="input"
+        v-model="form.apiKey"
+        password
+        :placeholder="t('留空保留已保存的密钥')"
+      />
+      <view v-if="kind == 'LLM'">
+        <text class="label">{{ t('额外 body（JSON）') }}</text>
+        <textarea class="json-input" v-model="form.extraBody" :maxlength="16000" />
+        <text class="muted">{{ t('不可覆盖 model、messages、stream。') }}</text>
+        <view class="between">
+          <text class="label">{{ t('显示模型思考过程') }}</text>
+          <switch :checked="form.showThinking" @change="form.showThinking = !form.showThinking" />
+        </view>
+      </view>
+      <text class="muted">
+        {{ t('仅支持公网 HTTPS 地址。密钥加密保存，仅用于自己的模型请求。') }}
+      </text>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { t as _t } from '@/core/locale.uts';
+import SelectField from './SelectField.uvue';
+import { computed } from 'vue';
+import { ModelForm } from '@/core/models.uts';
+import { s, b } from '@/core/json.uts';
+function t(value: string): string {
+  return _t(value);
+}
+const props = defineProps<{ kind: string; form: ModelForm; models: UTSJSONObject[] }>();
+const available = computed(() =>
+  props.models.filter((m: UTSJSONObject): boolean => s(m, 'configType') == props.kind),
+);
+const labels = computed(() =>
+  [t('跟随系统默认')].concat(
+    available.value.map((m: UTSJSONObject): string => s(m, 'modelAlias', s(m, 'configName'))),
+  ),
+);
+const selected = computed(() =>
+  Math.max(
+    0,
+    available.value.findIndex((m: UTSJSONObject): boolean => s(m, 'id') == props.form.configId) + 1,
+  ),
+);
+const defaultIndex = computed(() => {
+  const index = available.value.findIndex((m: UTSJSONObject): boolean => b(m, 'systemDefault'));
+  return index < 0 ? -1 : index + 1;
+});
+function selectModel(index: number) {
+  props.form.configId = index == 0 ? '' : s(available.value[index - 1], 'id');
+}
+</script>
+<style scoped>
+.choice {
+  padding: 14px;
+  background-color: #f8faff;
+  border: 1px solid #e0e7f4;
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+.json-input {
+  height: 120px;
+  width: 100%;
+  padding: 12px;
+  background-color: #f8faff;
+  border: 1px solid #e0e7f4;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.model-card {
+  padding: 20px 17px;
+  margin-bottom: 26px;
+  overflow: visible;
+}
+.heading {
+  margin-bottom: 26px;
+}
+.mode-row {
+  flex-direction: row;
+  align-items: center;
+  border-bottom: 1px solid #eef0f5;
+  padding-bottom: 16px;
+  margin-bottom: 17px;
+}
+.radio-option {
+  flex-direction: row;
+  align-items: center;
+  margin-right: 13px;
+}
+.radio {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #9a9c9c;
+  border-radius: 8px;
+  margin-right: 5px;
+  align-items: center;
+  justify-content: center;
+}
+.radio-selected {
+  background-color: #5a64f6;
+  border-color: #5a64f6;
+}
+.radio-center {
+  width: 5px;
+  height: 5px;
+  border-radius: 3px;
+  background-color: #ffffff;
+}
+.mode-text {
+  font-size: 14px;
+  font-weight: 650;
+  color: #3e4b5a;
+}
+.model-help {
+  background-color: #f6f6fc;
+  border-radius: 13px;
+  padding: 12px;
+}
+.label {
+  font-size: 14px;
+}
+.system-fields {
+  overflow: visible;
+}
+</style>

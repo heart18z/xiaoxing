@@ -1,0 +1,38 @@
+export function dayOf(ms: number = Date.now()): string {
+  return new Date(ms + 28800000).toISOString().slice(0, 10);
+}
+export function timeOf(value: string): number {
+  if (
+    !/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(
+      value,
+    )
+  )
+    return NaN;
+  const year = parseInt(value.slice(0, 4)),
+    month = parseInt(value.slice(5, 7)),
+    day = parseInt(value.slice(8, 10));
+  const leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1]) return NaN;
+  if (
+    value.length > 10 &&
+    (parseInt(value.slice(11, 13)) > 23 || parseInt(value.slice(14, 16)) > 59)
+  )
+    return NaN;
+  if (value.length >= 19 && value.charAt(16) == ':' && parseInt(value.slice(17, 19)) > 59)
+    return NaN;
+  const text = value.length == 10 ? value + 'T00:00:00' : value.replace(' ', 'T');
+  return Date.parse(/(?:Z|[+-]\d\d:\d\d)$/.test(text) ? text : text + '+08:00');
+}
+export function displayTime(value: string): string {
+  return value.length == 0 ? '未设定' : value.replace('T', ' ').slice(0, 16);
+}
+export function dayOffset(day: string, offset: number): string {
+  return dayOf(timeOf(day + ' 12:00:00') + offset * 86400000);
+}
+export function statusText(value: string): string {
+  if (value == 'ACTIVE') return '进行中';
+  if (value == 'STOPPED') return '已停止';
+  if (value == 'COMPLETED') return '已完成';
+  return value;
+}

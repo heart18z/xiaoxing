@@ -1,0 +1,369 @@
+<template>
+  <scroll-view scroll-y class="login">
+    <view class="canvas">
+      <image class="login-bg" src="/static/images/login-background.png" mode="widthFix" />
+      <view class="brand" :style="{ marginTop: top + 'px' }">
+        <view class="brand-logo">
+          <image class="brand-icon" src="/static/avatars/assistant/A3.png" />
+          <view class="brand-spark spark-one" />
+          <view class="brand-spark spark-two" />
+        </view>
+        <text class="brand-title">{{ t('智能提醒') }}</text>
+        <text class="tagline">{{ t('理解你的计划，在合适的时候重新判断') }}</text>
+      </view>
+      <view
+        class="login-panel"
+        :style="{
+          opacity: entered ? 1 : 0,
+          transform: entered ? 'translateY(0px)' : 'translateY(12px)',
+        }"
+      >
+        <text class="label">{{ t('账号') }}</text>
+        <view class="login-input">
+          <UiIcon name="user" tone="purple" :size="19" />
+          <input class="field" v-model="account" :placeholder="t('请输入账号')" :disabled="busy" />
+        </view>
+        <text class="label password-label">{{ t('密码') }}</text>
+        <view class="login-input">
+          <UiIcon name="lock" tone="purple" :size="19" />
+          <input
+            class="field"
+            v-model="password"
+            :password="!show"
+            :placeholder="t('请输入密码')"
+            :disabled="busy"
+            @confirm="submit()"
+          />
+          <view class="eye" @click="show = !show">
+            <UiIcon :name="show ? 'eye' : 'eyeOff'" tone="purple" :size="20" />
+          </view>
+        </view>
+        <view v-if="captchaEnabled" class="row">
+          <input class="input" v-model="captchaCode" :placeholder="t('验证码')" :maxlength="8" />
+          <image :src="captchaImage" style="width: 110px; height: 42px" @click="refreshCaptcha()" />
+        </view>
+        <text class="forgot" @click="forgot()">{{ t('忘记密码？') }}</text>
+
+        <button class="primary" :loading="busy" :disabled="busy" @click="submit()">
+          {{ busy ? t('正在登录…') : t('登录') }}
+        </button>
+        <text class="register" @click="register = true">{{ t('没有账号？注册账号') }}</text>
+      </view>
+      <text class="slogan">{{ t('更智能的提醒\u3000·\u3000更从容的生活') }}</text>
+    </view>
+  </scroll-view>
+  <AccountForm :open="register" :register="true" @close="register = false" @success="registered" />
+  <Popup :open="forgotOpen" :title="t('忘记密码')" @close="forgotOpen = false">
+    <text class="dialog-copy">{{ t('请联系管理员重置密码，然后使用新密码登录。') }}</text>
+    <button class="primary dialog-primary" @click="forgotOpen = false">{{ t('知道了') }}</button>
+  </Popup>
+  <Popup :open="confirmOpen" :title="t('确认在此设备登录？')" :busy="busy" @close="cancelLogin">
+    <text class="dialog-copy">{{ t('账号已在其他设备登录，继续将退出其他设备。') }}</text>
+
+    <view class="dialog-actions">
+      <button class="secondary dialog-cancel" :disabled="busy" @click="cancelLogin()">
+        {{ t('取消') }}
+      </button>
+      <button
+        class="primary dialog-primary dialog-continue"
+        :loading="busy"
+        :disabled="busy"
+        @click="continueLogin()"
+      >
+        {{ t('继续登录') }}
+      </button>
+    </view>
+  </Popup>
+  <TopTip />
+</template>
+<script setup lang="uts">
+import { startupReady } from '@/store/startup.uts';
+import TopTip from '@/components/TopTip.uvue';
+import UiIcon from '@/components/UiIcon.uvue';
+import { t as _t } from '@/core/locale.uts';
+import { ref, onUnmounted } from 'vue';
+import AccountForm from '@/components/AccountForm.uvue';
+import { login, post, ApiError } from '@/api/request.uts';
+import Popup from '@/components/Popup.uvue';
+import { hasSession } from '@/store/session.uts';
+import { syncPush } from '@/services/native.uts';
+import { message, s, obj } from '@/core/json.uts';
+import { toast } from '@/core/ui.uts';
+function t(value: string): string {
+  return _t(value);
+}
+const entered = ref(false);
+let entryTimer: number = 0;
+onUnmounted(() => clearTimeout(entryTimer));
+const top = uni.getWindowInfo().statusBarHeight;
+const account = ref((uni.getStorageSync('last-account') as string | null) ?? ''),
+  password = ref(''),
+  show = ref(false),
+  busy = ref(false),
+  register = ref(false),
+  error = ref('');
+const forgotOpen = ref(false),
+  confirmOpen = ref(false),
+  pendingAccount = ref(''),
+  confirmError = ref('');
+let pendingPassword = '';
+function cancelLogin() {
+  if (busy.value) return;
+  confirmOpen.value = false;
+  pendingAccount.value = '';
+  pendingPassword = '';
+  confirmError.value = '';
+}
+const captchaEnabled = ref(false),
+  captchaKey = ref(''),
+  captchaImage = ref(''),
+  captchaCode = ref('');
+
+async function refreshCaptcha() {
+  captchaCode.value = '';
+  try {
+    const data = obj(await post('/blade-auth/oauth/captcha', null, {}, 15000, false), 'data');
+    captchaKey.value = s(data, 'key');
+    captchaImage.value = s(data, 'image');
+  } catch (e) {
+    error.value = message(e);
+  }
+}
+async function loadCaptchaMode() {
+  try {
+    const data = obj(
+      await post('/blade-system/param/login-page-param', null, {}, 15000, false),
+      'data',
+    );
+    captchaEnabled.value = s(data, 'chekcode') == 'true';
+    if (captchaEnabled.value) await refreshCaptcha();
+  } catch (_) {
+    error.value = t('无法读取登录配置，请检查网络后重试');
+  }
+}
+async function submit(confirmed: boolean = false) {
+  if (busy.value) return;
+  if (account.value.trim().length == 0 || password.value.length == 0) {
+    error.value = '请输入账号和密码';
+    toast(error.value);
+    return;
+  }
+  if (
+    captchaEnabled.value &&
+    (captchaCode.value.trim().length == 0 || captchaKey.value.length == 0)
+  ) {
+    error.value = t('请输入验证码');
+    toast(error.value);
+    return;
+  }
+  busy.value = true;
+  error.value = '';
+  try {
+    await login(
+      account.value.trim(),
+      password.value,
+      captchaEnabled.value ? captchaKey.value : '',
+      captchaCode.value.trim(),
+      confirmed,
+    );
+    uni.setStorageSync('last-account', account.value.trim());
+    password.value = '';
+    confirmOpen.value = false;
+    pendingAccount.value = '';
+    pendingPassword = '';
+    void syncPush(true);
+    uni.reLaunch({ url: '/pages/chat/index', success: () => toast('登录成功') });
+  } catch (e) {
+    if (e instanceof ApiError && e.status == 601 && !confirmed) {
+      pendingAccount.value = account.value.trim();
+      pendingPassword = password.value;
+      confirmError.value = '';
+      confirmOpen.value = true;
+      return;
+    }
+    toast(message(e));
+    if (confirmed) confirmError.value = message(e);
+    else error.value = message(e);
+    if (captchaEnabled.value) await refreshCaptcha();
+  } finally {
+    busy.value = false;
+  }
+}
+async function continueLogin() {
+  if (account.value.trim() != pendingAccount.value || password.value != pendingPassword) {
+    cancelLogin();
+    return;
+  }
+  await submit(true);
+}
+function forgot() {
+  forgotOpen.value = true;
+}
+function registered(value: string) {
+  account.value = value;
+  password.value = '';
+  toast('注册成功，请使用刚设置的密码登录');
+}
+onReady(() => {
+  entryTimer = setTimeout(() => {
+    entered.value = true;
+  }, 30);
+  if (hasSession()) {
+    uni.reLaunch({ url: '/pages/chat/index' });
+    return;
+  }
+  void loadCaptchaMode().finally(() => startupReady());
+});
+</script>
+<style scoped>
+.login {
+  flex: 1;
+  background-color: #f8fbff;
+  height: 100%;
+}
+.canvas {
+  width: 100%;
+  max-width: 560px;
+  align-self: center;
+  padding-bottom: 30px;
+}
+.login-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+}
+.brand {
+  height: 548rpx;
+  padding: 94rpx 75rpx 0;
+  padding-top: 94rpx;
+}
+.brand-icon {
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 30rpx;
+}
+.brand-title {
+  font-size: 58rpx;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 18rpx;
+  letter-spacing: 2px;
+}
+.tagline {
+  font-size: 20rpx;
+  color: #ffffff;
+  margin-top: 12rpx;
+}
+.login-panel {
+  transition-property: opacity, transform;
+  transition-duration: 240ms;
+  transition-timing-function: ease-out;
+  margin: 0 49rpx;
+  padding: 55rpx 39rpx 47rpx;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 40rpx;
+  box-shadow: 0 15px 30px #3863bd20;
+}
+.forgot {
+  text-align: right;
+  color: #1c60e9;
+  font-size: 12px;
+  padding: 14px 0 36px;
+}
+.register {
+  text-align: center;
+  font-size: 14px;
+  color: #4264e9;
+  margin-top: 24px;
+  padding: 8px 0;
+}
+.slogan {
+  text-align: center;
+  font-size: 11px;
+  color: #7c85ad;
+  padding: 65rpx 0;
+  letter-spacing: 2px;
+  padding-top: 82rpx;
+}
+.label {
+  font-size: 14px;
+  margin-bottom: 14rpx;
+  color: #222945;
+}
+.login-input {
+  height: 44px;
+  flex-direction: row;
+  align-items: center;
+  border: 1px solid #dedfeb;
+  border-radius: 11px;
+  padding: 0 14px;
+}
+.field {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  margin-left: 14px;
+  color: #252e4c;
+}
+.password-label {
+  margin-top: 36rpx;
+}
+.eye {
+  padding: 10px 0 10px 10px;
+}
+.primary {
+  height: 48px;
+  line-height: 48px;
+  font-size: 18px;
+  letter-spacing: 3px;
+  background-image: linear-gradient(120deg, #66b6f8, #2864fc, #6375ff);
+  box-shadow: 0 12px 25px #386cff30;
+  margin: 0;
+}
+.brand-logo {
+  position: relative;
+  overflow: visible;
+  width: 150rpx;
+  height: 150rpx;
+}
+.brand-spark {
+  position: absolute;
+  width: 10rpx;
+  height: 23rpx;
+  border-radius: 6rpx;
+  background-color: #afc3ff;
+}
+.spark-one {
+  right: -24rpx;
+  top: 7rpx;
+  transform: rotate(40deg);
+}
+.spark-two {
+  right: -46rpx;
+  top: 30rpx;
+  transform: rotate(70deg);
+}
+.dialog-copy {
+  margin: 8px 0 22px;
+  font-size: 14px;
+  line-height: 24px;
+  color: #6f7c91;
+}
+.dialog-actions {
+  flex-direction: row;
+  align-items: center;
+}
+.dialog-cancel {
+  flex: 1;
+  margin: 0 10px 0 0;
+}
+.dialog-primary {
+  letter-spacing: 0;
+  font-size: 16px;
+  box-shadow: none;
+}
+.dialog-continue {
+  flex: 1.4;
+}
+</style>
