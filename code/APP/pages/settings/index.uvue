@@ -8,18 +8,18 @@
     <scroll-view scroll-y class="scroll">
       <view class="padded">
         <view class="card">
-          <text class="heading">{{ t('账号安全') }}</text>
+          <text class="app-font heading">{{ t('账号安全') }}</text>
           <view class="between" @click="passwordOpen = true">
             <view class="grow">
-              <text class="body-text">{{ t('重置密码') }}</text>
-              <text class="muted">{{ t('验证原密码，设置新的登录密码') }}</text>
+              <text class="app-font body-text">{{ t('重置密码') }}</text>
+              <text class="app-font muted">{{ t('验证原密码，设置新的登录密码') }}</text>
             </view>
             <UiIcon name="chevron" tone="blue" :size="22" />
           </view>
         </view>
         <view class="card">
-          <text class="heading">{{ t('手机通知') }}</text>
-          <text class="notification-copy">
+          <text class="app-font heading">{{ t('手机通知') }}</text>
+          <text class="app-font notification-copy">
             {{
               pushState.registered
                 ? t('设备已绑定。实际提醒还受网络、专注模式等系统设置影响。')
@@ -28,30 +28,40 @@
                   : t('请在手机 App 中开启通知。')
             }}
           </text>
-          <text class="notification-copy">
+          <text class="app-font notification-copy">
             {{ t('通知将显示你的提醒内容，可在系统设置中控制锁屏预览。点击通知查看对应事件。') }}
           </text>
-          <text v-if="pushState.error.length > 0" class="error">{{ pushState.error }}</text>
-          <button class="primary notification-button" @click="checkNotification()">
+          <text v-if="pushState.error.length > 0" class="app-font error">
+            {{ pushState.error }}
+          </text>
+          <button class="app-font primary notification-button" @click="checkNotification()">
             {{ t('开启 / 检查通知') }}
           </button>
         </view>
-        <text v-if="loading" class="muted">{{ t('正在读取设置…') }}</text>
-        <text v-if="error.length > 0" class="error">{{ error }}</text>
+        <text v-if="loading" class="app-font muted">{{ t('正在读取设置…') }}</text>
+        <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
         <view v-if="!loading" class="settings-fields">
           <view class="card">
-            <text class="label">{{ t('界面语言') }}</text>
+            <text class="app-font label">{{ t('界面语言') }}</text>
             <SelectField
               :options="['中文', 'English']"
               :value="language == 'en-us' ? 1 : 0"
               @change="selectLanguage"
             />
-            <text class="muted">{{ t('保存后生效，历史消息保持原文。') }}</text>
+            <text class="app-font muted">{{ t('保存后生效，历史消息保持原文。') }}</text>
           </view>
           <ModelSettings kind="LLM" :form="llm" :models="models" />
           <ModelSettings kind="SPEECH" :form="speech" :models="models" />
-          <button v-if="failed" class="primary" @click="load()">{{ t('重新加载') }}</button>
-          <button v-else class="primary" :loading="saving" :disabled="saving" @click="save()">
+          <button v-if="failed" class="app-font primary" @click="load()">
+            {{ t('重新加载') }}
+          </button>
+          <button
+            v-else
+            class="app-font primary"
+            :loading="saving"
+            :disabled="saving"
+            @click="save()"
+          >
             {{ t('保存设置') }}
           </button>
         </view>

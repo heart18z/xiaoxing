@@ -9,13 +9,13 @@
       />
     </view>
     <view class="voice-status">
-      <text class="voice-caption">
+      <text class="app-font voice-caption">
         {{ recording ? (live ? '正在识别…' : '正在录音…') : '正在整理识别结果…' }} {{ clock }}
       </text>
-      <button v-if="recording" class="voice-control" @click="emit('confirm')">确认</button>
-      <button class="voice-control" @click="emit('cancel')">取消</button>
+      <button v-if="recording" class="app-font voice-control" @click="emit('confirm')">确认</button>
+      <button class="app-font voice-control" @click="emit('cancel')">取消</button>
     </view>
-    <text class="voice-hint">
+    <text class="app-font voice-hint">
       {{ live ? '文字实时填入草稿，确认后停止采音' : '说完点确认后转文字，不会自动发送' }}
     </text>
   </view>

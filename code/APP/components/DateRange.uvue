@@ -1,18 +1,20 @@
 <template>
   <Popup :open="open" :title="t('提醒日期')" @close="emit('close')">
     <view class="row shortcuts">
-      <text class="chip" @click="quick(0)">{{ t('今天') }}</text>
-      <text class="chip" @click="quick(1)">{{ t('明天') }}</text>
-      <text class="chip" @click="quick(7)">{{ t('未来7天') }}</text>
-      <text class="chip" @click="quick(-1)">{{ t('不限') }}</text>
+      <text class="app-font chip" @click="quick(0)">{{ t('今天') }}</text>
+      <text class="app-font chip" @click="quick(1)">{{ t('明天') }}</text>
+      <text class="app-font chip" @click="quick(7)">{{ t('未来7天') }}</text>
+      <text class="app-font chip" @click="quick(-1)">{{ t('不限') }}</text>
     </view>
     <view class="between">
-      <text class="link" @click="move(-1)">{{ t('‹ 上月') }}</text>
-      <text class="label">{{ year }} {{ t('年') }} {{ month }} {{ t('月') }}</text>
-      <text class="link" @click="move(1)">{{ t('下月 ›') }}</text>
+      <text class="app-font link" @click="move(-1)">{{ t('‹ 上月') }}</text>
+      <text class="app-font label">{{ year }} {{ t('年') }} {{ month }} {{ t('月') }}</text>
+      <text class="app-font link" @click="move(1)">{{ t('下月 ›') }}</text>
     </view>
     <view class="calendar">
-      <text v-for="label in weekdays" :key="label" class="day weekday">{{ t(label) }}</text>
+      <text v-for="label in weekdays" :key="label" class="app-font day weekday">
+        {{ t(label) }}
+      </text>
       <view
         v-for="(cell, index) in cells"
         :key="index"
@@ -23,10 +25,10 @@
         ]"
         @click="choose(cell)"
       >
-        <text>{{ cell.length > 0 ? parseInt(cell.slice(8)) : '' }}</text>
+        <text class="app-font">{{ cell.length > 0 ? parseInt(cell.slice(8)) : '' }}</text>
       </view>
     </view>
-    <text class="muted">
+    <text class="app-font muted">
       {{
         from.length > 0
           ? from + t(' 至 ') + (to.length > 0 ? to : t('请选择结束日期'))
@@ -34,8 +36,8 @@
       }}
     </text>
     <view class="between">
-      <button class="secondary" @click="emit('close')">{{ t('取消') }}</button>
-      <button class="primary" @click="apply()">{{ t('确认') }}</button>
+      <button class="app-font secondary" @click="emit('close')">{{ t('取消') }}</button>
+      <button class="app-font primary" @click="apply()">{{ t('确认') }}</button>
     </view>
   </Popup>
 </template>

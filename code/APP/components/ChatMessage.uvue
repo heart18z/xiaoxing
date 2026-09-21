@@ -1,7 +1,7 @@
 <template>
   <view :class="['message', user ? 'user' : 'assistant']">
     <view v-if="avatarUrl.length == 0" class="initial">
-      <text>{{ s(session.profile, 'name', t('我')).slice(0, 1) }}</text>
+      <text class="app-font">{{ s(session.profile, 'name', t('我')).slice(0, 1) }}</text>
     </view>
     <image v-else class="message-avatar" :src="avatarUrl" />
     <view
@@ -27,26 +27,27 @@
           v-if="s(item, 'content').length > 0"
           :class="[reason.length > 0 ? 'reply-after-thinking' : '']"
         >
-          <text v-if="user" class="user-text" selectable>{{ s(item, 'content') }}</text>
+          <text v-if="user" class="app-font user-text" selectable>{{ s(item, 'content') }}</text>
           <rich-text v-else :nodes="markdown(replyText(item))" />
         </view>
         <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
         <text
+          class="app-font"
           v-if="strings(payload(item), 'fileNames').length > 0"
           :class="['sent-files', user ? 'user-files' : '']"
         >
           {{ t('附件：') }}{{ strings(payload(item), 'fileNames').join('、') }}
         </text>
         <view v-if="s(item, 'messageType') == 'EVENT_ASSIGNED'" class="card-footer">
-          <text class="event-link" @click="openEvent(s(item, 'eventId'))">
+          <text class="app-font event-link" @click="openEvent(s(item, 'eventId'))">
             {{ t('查看事件详情 ›') }}
           </text>
-          <text class="message-time">{{ messageTime }}</text>
+          <text class="app-font message-time">{{ messageTime }}</text>
         </view>
         <text
           v-for="id in strings(payload(item), 'eventIds')"
           :key="id"
-          class="event-link"
+          class="app-font event-link"
           @click="openEvent(id)"
         >
           {{ t('查看事件 / 设置本机闹铃 ›') }}
@@ -65,14 +66,14 @@
             @toggle="expanded = !expanded"
           />
         </view>
-        <text :class="['notice-label', noticeClass]">{{ t(label) }}</text>
+        <text class="app-font" :class="['notice-label', noticeClass]">{{ t(label) }}</text>
         <view
           :class="[
             'notification-focus',
             s(item, 'messageType') == 'REMINDER' ? 'reminder-focus' : '',
           ]"
         >
-          <text class="notification-content" selectable>
+          <text class="app-font notification-content" selectable>
             {{
               s(item, 'messageType') == 'FEEDBACK'
                 ? s(payload(item), 'fact', s(item, 'content'))
@@ -81,27 +82,32 @@
           </text>
           <text
             v-if="s(item, 'messageType') == 'FEEDBACK' && s(payload(item), 'actor').length > 0"
-            class="notification-actor"
+            class="app-font notification-actor"
           >
             {{ t('反馈人：') }}{{ s(payload(item), 'actor') }}
           </text>
-          <text v-if="s(payload(item), 'eventSummary').length > 0" class="related">
-            <text :class="['related-label', 'related-' + noticeClass]">{{ t('关联事件') }}</text>
+          <text v-if="s(payload(item), 'eventSummary').length > 0" class="app-font related">
+            <text class="app-font" :class="['related-label', 'related-' + noticeClass]">
+              {{ t('关联事件') }}
+            </text>
             　{{ s(payload(item), 'eventSummary') }}
           </text>
         </view>
         <view class="card-footer">
-          <text v-if="s(item, 'eventId').length > 0" class="event-link">
+          <text v-if="s(item, 'eventId').length > 0" class="app-font event-link">
             {{ t('查看事件详情 ›') }}
           </text>
-          <text class="message-time">{{ messageTime }}</text>
+          <text class="app-font message-time">{{ messageTime }}</text>
         </view>
       </view>
       <view v-if="candidate" :class="['candidate', macro ? 'macro-card' : '']">
-        <text :class="['notice-label', macro ? 'macro-label' : '']">
+        <text class="app-font" :class="['notice-label', macro ? 'macro-label' : '']">
           {{ macro ? '◎' : '◷' }} {{ t(candidateHeading) }}
         </text>
-        <text v-if="conflict && s(item, 'messageType') == 'CANDIDATE'" class="schedule-warning">
+        <text
+          v-if="conflict && s(item, 'messageType') == 'CANDIDATE'"
+          class="app-font schedule-warning"
+        >
           {{ t('发现不同事项的时间冲突，只有选择“仍要安排”后才会创建并通知接收人。') }}
         </text>
         <view
@@ -109,14 +115,14 @@
           :key="index"
           :class="['candidate-event', eventMacro(event) ? 'macro-event' : '']"
         >
-          <text class="candidate-title">{{ s(event, 'summary') }}</text>
-          <text class="muted">{{ t('接收人：') }}{{ recipients(event) }}</text>
-          <text class="muted">
+          <text class="app-font candidate-title">{{ s(event, 'summary') }}</text>
+          <text class="app-font muted">{{ t('接收人：') }}{{ recipients(event) }}</text>
+          <text class="app-font muted">
             {{ eventMacro(event) ? t('目标周期') : t('事件时间') }}：{{
               s(event, 'timeDescription', s(event, 'eventTime', t('持续跟进')))
             }}
           </text>
-          <text class="muted">
+          <text class="app-font muted">
             {{ eventMacro(event) ? t('首次跟进') : t('首次评估') }}：{{
               s(event, 'firstEvaluateTime')
             }}
@@ -126,21 +132,22 @@
               :class="['alarm-checkbox', alarms.includes(index) ? 'alarm-checked' : '']"
               @click="toggleAlarm(index)"
             >
-              <text v-if="alarms.includes(index)" class="alarm-tick">✓</text>
+              <text v-if="alarms.includes(index)" class="app-font alarm-tick">✓</text>
             </view>
-            <text class="alarm-copy">{{ t('同时设置本机系统闹铃（iOS 26+）') }}</text>
+            <text class="app-font alarm-copy">{{ t('同时设置本机系统闹铃（iOS 26+）') }}</text>
           </view>
           <text
             v-if="s(item, 'messageType') == 'CANDIDATE' && alarms.includes(index)"
-            class="alarm-hint"
+            class="app-font alarm-hint"
           >
             {{ t('仅为自己接收的任务设置，需系统授权；其他手机不会自动设置。') }}
           </text>
         </view>
         <view v-if="s(item, 'messageType') != 'CANDIDATE'" class="confirmed">
-          <text class="confirmed-text">{{ t(candidateLabel) }}</text>
+          <text class="app-font confirmed-text">{{ t(candidateLabel) }}</text>
         </view>
         <button
+          class="app-font"
           v-else
           :class="['primary', macro ? 'macro-button' : '']"
           :disabled="busy"
@@ -500,7 +507,7 @@ const isStreaming = computed(() => b(props.item, 'streaming'));
 }
 .confirmed-text {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   color: #9095a5;
 }
 

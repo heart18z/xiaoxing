@@ -2,7 +2,7 @@
   <AppFrame :loading="loading" :title="t('我的')" tab="me" theme="profile">
     <view class="me-page">
       <view class="me-toolbar row">
-        <text class="me-heading grow">{{ t('我的') }}</text>
+        <text class="app-font me-heading grow">{{ t('我的') }}</text>
         <view class="toolbar-button" @click="scanFriend()">
           <UiIcon name="scan" tone="ink" :size="22" />
         </view>
@@ -19,17 +19,17 @@
               :src="asset(s(session.profile, 'avatar'))"
             />
             <view v-else class="profile-avatar initial">
-              <text class="initial-text">{{ displayName.slice(0, 1) }}</text>
+              <text class="app-font initial-text">{{ displayName.slice(0, 1) }}</text>
             </view>
             <view class="camera"><UiIcon name="camera" tone="white" :size="13" /></view>
           </view>
           <view class="grow">
-            <text class="title">{{ displayName }}</text>
-            <text class="muted">@{{ s(session.profile, 'account') }}</text>
-            <text class="muted">{{ t('点击头像即可更换') }}</text>
+            <text class="app-font title">{{ displayName }}</text>
+            <text class="app-font muted">@{{ s(session.profile, 'account') }}</text>
+            <text class="app-font muted">{{ t('点击头像即可更换') }}</text>
           </view>
           <view>
-            <text class="edit-profile" @click="editProfile()">{{ t('编辑资料') }}</text>
+            <text class="app-font edit-profile" @click="editProfile()">{{ t('编辑资料') }}</text>
             <view class="profile-qr" @click="showQr()">
               <UiIcon name="qr" tone="ink" :size="22" />
             </view>
@@ -42,16 +42,24 @@
           :src="asset(s(session.summary, 'aiAvatar', '/avatars/assistant/A3.png'))"
         />
         <view class="grow">
-          <text class="label">{{ t('我的 AI 助手') }}</text>
-          <text class="muted">{{ t('设置专属于你的 AI 头像') }}</text>
+          <text class="app-font label">{{ t('我的 AI 助手') }}</text>
+          <text class="app-font muted">{{ t('设置专属于你的 AI 头像') }}</text>
         </view>
-        <text class="link">{{ t('更换 ›') }}</text>
+        <text class="app-font link">{{ t('更换 ›') }}</text>
       </view>
       <view class="segment">
-        <text :class="['segment-item', tab == 0 ? 'selected' : '']" @click="tab = 0">
+        <text
+          class="app-font"
+          :class="['segment-item', tab == 0 ? 'selected' : '']"
+          @click="tab = 0"
+        >
           {{ t('我的好友') }} {{ friends.length }}
         </text>
-        <text :class="['segment-item', tab == 1 ? 'selected' : '']" @click="tab = 1">
+        <text
+          class="app-font"
+          :class="['segment-item', tab == 1 ? 'selected' : '']"
+          @click="tab = 1"
+        >
           {{ t('申请待通过') }}
           {{
             arr(requests, 'incoming').length + arr(requests, 'outgoing').length > 0
@@ -61,44 +69,54 @@
         </text>
       </view>
       <view v-if="error.length > 0" class="card">
-        <text class="error">{{ error }}</text>
-        <button class="secondary" @click="load()">{{ t('重新加载') }}</button>
+        <text class="app-font error">{{ error }}</text>
+        <button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
       </view>
       <view v-if="tab == 0" class="friends-area">
         <view class="friend-search row">
           <view class="search-field">
             <UiIcon name="search" :size="20" />
-            <input class="friend-input" v-model="friendKeyword" :placeholder="t('查找现有好友')" />
+            <input
+              class="app-font friend-input"
+              v-model="friendKeyword"
+              :placeholder="t('查找现有好友')"
+            />
           </view>
-          <button class="primary add" @click="searchOpen = true">
+          <button class="app-font primary add" @click="searchOpen = true">
             {{ t('添加好友') }}
           </button>
         </view>
-        <scroll-view scroll-y class="friend-scroll">
-          <view class="friend-list">
-            <view v-if="filteredFriends.length == 0" class="card empty">
-              <text class="muted">
-                {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
-              </text>
-            </view>
-            <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
-              <image
-                v-if="s(friend, 'avatar').length > 0"
-                class="avatar"
-                :src="asset(s(friend, 'avatar'))"
-              />
-              <view v-else class="avatar">
-                <text class="friend-initial">{{ name(friend).slice(0, 1) }}</text>
+        <view class="friend-card">
+          <scroll-view scroll-y class="friend-scroll" :bounces="false">
+            <view class="friend-list">
+              <view v-if="filteredFriends.length == 0" class="card empty">
+                <text class="app-font muted">
+                  {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
+                </text>
               </view>
-              <view class="grow">
-                <text class="label">{{ name(friend) }}</text>
-                <text class="muted">@{{ s(friend, 'account') }}</text>
-                <text class="permission-tag">{{ permission(s(friend, 'permissionMode')) }}</text>
+              <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
+                <image
+                  v-if="s(friend, 'avatar').length > 0"
+                  class="avatar"
+                  :src="asset(s(friend, 'avatar'))"
+                />
+                <view v-else class="avatar">
+                  <text class="app-font friend-initial">{{ name(friend).slice(0, 1) }}</text>
+                </view>
+                <view class="grow">
+                  <text class="app-font label">{{ name(friend) }}</text>
+                  <text class="app-font muted">@{{ s(friend, 'account') }}</text>
+                  <text class="app-font permission-tag">
+                    {{ permission(s(friend, 'permissionMode')) }}
+                  </text>
+                </view>
+                <button class="app-font secondary manage" @click="manage(friend)">
+                  {{ t('管理') }}
+                </button>
               </view>
-              <button class="secondary manage" @click="manage(friend)">{{ t('管理') }}</button>
             </view>
-          </view>
-        </scroll-view>
+          </scroll-view>
+        </view>
       </view>
       <view v-else class="requests-area">
         <view class="request-section">
@@ -106,13 +124,15 @@
             <view class="request-section-icon">
               <UiIcon name="people" tone="blue" :size="18" />
             </view>
-            <text class="request-section-title">{{ t('等待我处理') }}</text>
-            <text class="request-section-count">{{ arr(requests, 'incoming').length }}</text>
+            <text class="app-font request-section-title">{{ t('等待我处理') }}</text>
+            <text class="app-font request-section-count">
+              {{ arr(requests, 'incoming').length }}
+            </text>
           </view>
           <scroll-view scroll-y class="request-section-scroll">
             <view v-if="arr(requests, 'incoming').length == 0" class="request-empty">
-              <text class="request-empty-title">{{ t('暂时没有待处理申请') }}</text>
-              <text class="muted">{{ t('新的好友和权限申请会显示在这里') }}</text>
+              <text class="app-font request-empty-title">{{ t('暂时没有待处理申请') }}</text>
+              <text class="app-font muted">{{ t('新的好友和权限申请会显示在这里') }}</text>
             </view>
             <view
               v-for="item in arr(requests, 'incoming')"
@@ -126,22 +146,22 @@
                   :src="asset(s(item, 'avatar'))"
                 />
                 <view v-else class="avatar">
-                  <text class="friend-initial">{{ name(item).slice(0, 1) }}</text>
+                  <text class="app-font friend-initial">{{ name(item).slice(0, 1) }}</text>
                 </view>
                 <view class="grow">
-                  <text class="request-name">{{ name(item) }}</text>
-                  <text class="muted">@{{ s(item, 'account') }}</text>
+                  <text class="app-font request-name">{{ name(item) }}</text>
+                  <text class="app-font muted">@{{ s(item, 'account') }}</text>
                 </view>
                 <view class="request-actions">
                   <button
-                    class="secondary request-action"
+                    class="app-font secondary request-action"
                     :disabled="saving"
                     @click="reply(s(item, 'id'), false)"
                   >
                     {{ t('拒绝') }}
                   </button>
                   <button
-                    class="primary request-action"
+                    class="app-font primary request-action"
                     :disabled="saving"
                     @click="reply(s(item, 'id'), true)"
                   >
@@ -150,10 +170,10 @@
                 </view>
               </view>
               <view class="request-meta">
-                <text class="permission-tag">
+                <text class="app-font permission-tag">
                   {{ permission(s(item, 'permissionMode'), true) }}
                 </text>
-                <text class="request-kind">
+                <text class="app-font request-kind">
                   {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
                 </text>
               </view>
@@ -165,15 +185,15 @@
             <view class="request-section-icon outgoing-icon">
               <UiIcon name="clock" tone="violet" :size="18" />
             </view>
-            <text class="request-section-title">{{ t('我申请的') }}</text>
-            <text class="request-section-count outgoing-count">
+            <text class="app-font request-section-title">{{ t('我申请的') }}</text>
+            <text class="app-font request-section-count outgoing-count">
               {{ arr(requests, 'outgoing').length }}
             </text>
           </view>
           <scroll-view scroll-y class="request-section-scroll">
             <view v-if="arr(requests, 'outgoing').length == 0" class="request-empty">
-              <text class="request-empty-title">{{ t('暂无发出的申请') }}</text>
-              <text class="muted">{{ t('添加好友后，可在这里查看申请状态') }}</text>
+              <text class="app-font request-empty-title">{{ t('暂无发出的申请') }}</text>
+              <text class="app-font muted">{{ t('添加好友后，可在这里查看申请状态') }}</text>
             </view>
             <view
               v-for="item in arr(requests, 'outgoing')"
@@ -187,17 +207,19 @@
                   :src="asset(s(item, 'avatar'))"
                 />
                 <view v-else class="avatar">
-                  <text class="friend-initial">{{ name(item).slice(0, 1) }}</text>
+                  <text class="app-font friend-initial">{{ name(item).slice(0, 1) }}</text>
                 </view>
                 <view class="grow">
-                  <text class="request-name">{{ name(item) }}</text>
-                  <text class="muted">@{{ s(item, 'account') }}</text>
+                  <text class="app-font request-name">{{ name(item) }}</text>
+                  <text class="app-font muted">@{{ s(item, 'account') }}</text>
                 </view>
-                <text class="request-status">{{ t('已发送') }}</text>
+                <text class="app-font request-status">{{ t('已发送') }}</text>
               </view>
               <view class="request-meta">
-                <text class="permission-tag">{{ permission(s(item, 'permissionMode')) }}</text>
-                <text class="request-kind">
+                <text class="app-font permission-tag">
+                  {{ permission(s(item, 'permissionMode')) }}
+                </text>
+                <text class="app-font request-kind">
                   {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
                 </text>
               </view>
@@ -207,33 +229,37 @@
       </view>
       <view class="logout" @click="logoutOpen = true">
         <UiIcon name="logout" tone="red" :size="23" />
-        <text class="logout-label">{{ t('退出登录') }}</text>
+        <text class="app-font logout-label">{{ t('退出登录') }}</text>
       </view>
     </view>
   </AppFrame>
   <Popup :open="editing" :title="t('编辑资料')" :busy="saving" @close="editing = false">
-    <text class="label">{{ t('姓名 *') }}</text>
-    <input class="input" v-model="profileName" maxlength="20" />
-    <text class="label">{{ t('手机号（选填）') }}</text>
-    <input class="input" v-model="profilePhone" type="number" maxlength="11" />
-    <text class="label">{{ t('邮箱（选填）') }}</text>
-    <input class="input" v-model="profileEmail" maxlength="45" />
-    <text class="muted">{{ t('登录账号不可修改。手机号和邮箱可留空。') }}</text>
-    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
-    <button class="primary" :loading="saving" :disabled="saving" @click="saveProfile()">
+    <text class="app-font label">{{ t('姓名 *') }}</text>
+    <input class="app-font input" v-model="profileName" maxlength="20" />
+    <text class="app-font label">{{ t('手机号（选填）') }}</text>
+    <input class="app-font input" v-model="profilePhone" type="number" maxlength="11" />
+    <text class="app-font label">{{ t('邮箱（选填）') }}</text>
+    <input class="app-font input" v-model="profileEmail" maxlength="45" />
+    <text class="app-font muted">{{ t('登录账号不可修改。手机号和邮箱可留空。') }}</text>
+    <text v-if="formError.length > 0" class="app-font error">{{ formError }}</text>
+    <button class="app-font primary" :loading="saving" :disabled="saving" @click="saveProfile()">
       {{ t('保存资料') }}
     </button>
   </Popup>
   <Popup :open="logoutOpen" :title="t('退出登录')" :busy="loggingOut" @close="logoutOpen = false">
     <view class="logout-confirm">
       <view class="logout-symbol"><UiIcon name="logout" tone="red" :size="25" /></view>
-      <text class="logout-question">{{ t('确定退出当前账号吗？') }}</text>
+      <text class="app-font logout-question">{{ t('确定退出当前账号吗？') }}</text>
       <view class="logout-actions">
-        <button class="secondary logout-cancel" :disabled="loggingOut" @click="logoutOpen = false">
+        <button
+          class="app-font secondary logout-cancel"
+          :disabled="loggingOut"
+          @click="logoutOpen = false"
+        >
           {{ t('取消') }}
         </button>
         <button
-          class="logout-submit"
+          class="app-font logout-submit"
           :disabled="loggingOut"
           :loading="loggingOut"
           @click="signOut()"
@@ -252,13 +278,13 @@
   >
     <view class="row friend-query">
       <input
-        class="input grow"
+        class="app-font input grow"
         style="margin: 0"
         v-model="keyword"
         :placeholder="t('账号 / 手机号 / 邮箱')"
       />
       <button
-        class="primary add friend-query-button"
+        class="app-font primary add friend-query-button"
         style="margin: 0 0 0 9px"
         :disabled="searching"
         @click="searchFriends()"
@@ -266,12 +292,14 @@
         {{ t('查找') }}
       </button>
     </view>
-    <text class="muted search-help">{{ t('请输入完整账号、手机号或邮箱，不支持姓名搜索') }}</text>
-    <text v-if="searching" class="muted">{{ t('正在查找好友…') }}</text>
-    <text v-if="searched && results.length == 0 && !searching" class="muted">
+    <text class="app-font muted search-help">
+      {{ t('请输入完整账号、手机号或邮箱，不支持姓名搜索') }}
+    </text>
+    <text v-if="searching" class="app-font muted">{{ t('正在查找好友…') }}</text>
+    <text v-if="searched && results.length == 0 && !searching" class="app-font muted">
       {{ t('没有找到匹配的用户') }}
     </text>
-    <text v-if="searchError.length > 0" class="error">{{ searchError }}</text>
+    <text v-if="searchError.length > 0" class="app-font error">{{ searchError }}</text>
     <view v-for="person in results" :key="s(person, 'id')" class="search-person">
       <image
         v-if="s(person, 'avatar').length > 0"
@@ -279,20 +307,20 @@
         :src="asset(s(person, 'avatar'))"
       />
       <view v-else class="avatar">
-        <text class="friend-initial">{{ name(person).slice(0, 1) }}</text>
+        <text class="app-font friend-initial">{{ name(person).slice(0, 1) }}</text>
       </view>
       <view class="grow">
-        <text class="label">{{ name(person) }}</text>
-        <text class="muted">@{{ s(person, 'account') }}</text>
+        <text class="app-font label">{{ name(person) }}</text>
+        <text class="app-font muted">@{{ s(person, 'account') }}</text>
       </view>
       <button
         v-if="s(person, 'relationStatus') == 'NONE'"
-        class="secondary"
+        class="app-font secondary"
         @click="choosePermission(person)"
       >
         {{ t('添加') }}
       </button>
-      <text v-else class="muted">
+      <text v-else class="app-font muted">
         {{ s(person, 'relationStatus') == 'FRIEND' ? t('已是好友') : t('申请处理中') }}
       </text>
     </view>
@@ -300,38 +328,50 @@
   <Popup :open="managing" :title="t('好友资料')" :busy="saving" @close="managing = false">
     <view class="friend-info">
       <view class="info-row">
-        <text class="info-key">{{ t('姓名') }}</text>
-        <text class="info-value">
+        <text class="app-font info-key">{{ t('姓名') }}</text>
+        <text class="app-font info-value">
           {{ s(selected, 'name', s(selected, 'realName', t('未填写'))) }}
         </text>
       </view>
       <view class="info-row">
-        <text class="info-key">{{ t('账号（人员号）') }}</text>
-        <text class="info-value">{{ s(selected, 'account') }}</text>
+        <text class="app-font info-key">{{ t('账号（人员号）') }}</text>
+        <text class="app-font info-value">{{ s(selected, 'account') }}</text>
       </view>
       <view class="info-row">
-        <text class="info-key">{{ t('手机号') }}</text>
-        <text class="info-value">
+        <text class="app-font info-key">{{ t('手机号') }}</text>
+        <text class="app-font info-value">
           {{ s(selected, 'phone').length > 0 ? s(selected, 'phone') : t('未填写') }}
         </text>
       </view>
       <view class="info-row">
-        <text class="info-key">{{ t('邮箱') }}</text>
-        <text class="info-value">
+        <text class="app-font info-key">{{ t('邮箱') }}</text>
+        <text class="app-font info-value">
           {{ s(selected, 'email').length > 0 ? s(selected, 'email') : t('未填写') }}
         </text>
       </view>
     </view>
     <view class="spacer" />
-    <text class="label">{{ t('备注（昵称）') }}</text>
-    <input class="input" v-model="remark" maxlength="30" :placeholder="t('仅自己可见，最多30字')" />
-    <text class="muted">{{ t('不修改好友本名。可在 AI 对话中使用此备注；留空可清除。') }}</text>
-    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
-    <button class="primary remark-save" :disabled="saving" :loading="saving" @click="saveRemark()">
+    <text class="app-font label">{{ t('备注（昵称）') }}</text>
+    <input
+      class="app-font input"
+      v-model="remark"
+      maxlength="30"
+      :placeholder="t('仅自己可见，最多30字')"
+    />
+    <text class="app-font muted">
+      {{ t('不修改好友本名。可在 AI 对话中使用此备注；留空可清除。') }}
+    </text>
+    <text v-if="formError.length > 0" class="app-font error">{{ formError }}</text>
+    <button
+      class="app-font primary remark-save"
+      :disabled="saving"
+      :loading="saving"
+      @click="saveRemark()"
+    >
       {{ t('保存备注') }}
     </button>
     <button
-      class="secondary remark-permission"
+      class="app-font secondary remark-permission"
       :disabled="saving"
       @click="
         managing = false;
@@ -348,7 +388,7 @@
     :busy="saving"
     @close="permissionOpen = false"
   >
-    <text class="body-text">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
+    <text class="app-font body-text">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
     <view
       v-for="mode in modes"
       :key="mode"
@@ -356,8 +396,8 @@
       @click="permissionMode = mode"
     >
       <view class="grow">
-        <text class="permission-title">{{ permission(mode) }}</text>
-        <text class="muted">
+        <text class="app-font permission-title">{{ permission(mode) }}</text>
+        <text class="app-font muted">
           {{
             mode == 'MUTUAL'
               ? t('双方都可以向对方创建提醒')
@@ -370,14 +410,19 @@
       <UiIcon v-if="permissionMode == mode" name="check" tone="blue" :size="20" />
     </view>
 
-    <text v-if="formError.length > 0" class="error">{{ formError }}</text>
-    <button class="primary" :disabled="saving" :loading="saving" @click="requestPermission()">
+    <text v-if="formError.length > 0" class="app-font error">{{ formError }}</text>
+    <button
+      class="app-font primary"
+      :disabled="saving"
+      :loading="saving"
+      @click="requestPermission()"
+    >
       {{ t('发送变更申请') }}
     </button>
-    <text class="permission-note">{{ t('对方同意后权限才会生效') }}</text>
+    <text class="app-font permission-note">{{ t('对方同意后权限才会生效') }}</text>
     <button
       v-if="friends.some((person: UTSJSONObject): boolean => s(person, 'id') == s(selected, 'id'))"
-      class="danger remove-friend"
+      class="app-font danger remove-friend"
       :disabled="saving"
       @click="remove()"
     >
@@ -393,23 +438,25 @@
           :src="asset(s(session.profile, 'avatar'))"
         />
         <view v-else class="qr-avatar qr-initial">
-          <text class="qr-initial-text">{{ displayName.slice(0, 1) }}</text>
+          <text class="app-font qr-initial-text">{{ displayName.slice(0, 1) }}</text>
         </view>
         <view class="qr-identity">
-          <text class="qr-name">{{ displayName }}</text>
-          <text class="qr-account">@{{ s(session.profile, 'account') }}</text>
+          <text class="app-font qr-name">{{ displayName }}</text>
+          <text class="app-font qr-account">@{{ s(session.profile, 'account') }}</text>
         </view>
       </view>
       <view class="qr-paper">
         <image v-if="qrImage.length > 0" class="personal-qr" :src="qrImage" mode="aspectFit" />
-        <text v-else class="qr-status">{{ qrBusy ? '正在生成二维码…' : qrError }}</text>
+        <text v-else class="app-font qr-status">{{ qrBusy ? '正在生成二维码…' : qrError }}</text>
       </view>
-      <button v-if="qrError.length > 0" class="secondary" @click="showQr()">重新加载</button>
+      <button v-if="qrError.length > 0" class="app-font secondary" @click="showQr()">
+        重新加载
+      </button>
       <view class="qr-caption">
         <UiIcon name="scan" tone="blue" :size="16" />
-        <text class="qr-caption-text">扫一扫，添加我为好友</text>
+        <text class="app-font qr-caption-text">扫一扫，添加我为好友</text>
       </view>
-      <text class="qr-hint">在 AI小醒中打开扫一扫，即可找到我</text>
+      <text class="app-font qr-hint">在 AI小醒中打开扫一扫，即可找到我</text>
     </view>
   </Popup>
   <AvatarPicker
@@ -1011,11 +1058,17 @@ function openSettings() {
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
 }
+.friend-card {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: #ffffffeb;
+  border-radius: 22px;
+  padding: 10px 0;
+}
 .friend-list {
   flex-shrink: 0;
-  background-color: #ffffffeb;
   padding: 0 14px;
-  border-radius: 22px;
 }
 .friend-row {
   flex-shrink: 0;
@@ -1029,7 +1082,7 @@ function openSettings() {
   font-size: 15px;
   margin-bottom: 0;
   color: #263451;
-  font-weight: 650;
+  font-weight: 600;
 }
 .friend-row .muted {
   line-height: 19px;
@@ -1089,7 +1142,7 @@ function openSettings() {
 }
 .permission-title {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   color: #182033;
   margin-bottom: 6px;
 }
@@ -1141,7 +1194,7 @@ function openSettings() {
   font-weight: 700;
 }
 .friend-row .label {
-  font-weight: 650;
+  font-weight: 600;
 }
 .permission-note {
   margin-bottom: 6px;
@@ -1180,7 +1233,7 @@ function openSettings() {
 .request-section-title {
   flex: 1;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: #253652;
 }
 .request-section-count {

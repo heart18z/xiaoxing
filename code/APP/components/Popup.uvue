@@ -29,7 +29,7 @@
       }"
     >
       <view class="popup-head">
-        <text class="title">{{ title }}</text>
+        <text class="app-font title">{{ title }}</text>
         <view class="close" role="button" aria-label="关闭弹窗" @click.stop="close()">
           <UiIcon name="close" tone="muted" :size="20" />
         </view>

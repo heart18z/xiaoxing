@@ -1,42 +1,60 @@
 <template>
   <view class="select" :style="{ zIndex: rendered ? 20 : 1 }">
-    <view :class="['select-field', open ? 'focused' : '']" @click="toggle()">
-      <text class="value">{{ options[value] }}</text>
+    <view :id="fieldId" :class="['select-field', open ? 'focused' : '']" @click="toggle()">
+      <text class="app-font value">{{ options[value] }}</text>
       <view class="select-arrow" :style="{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }">
         <UiIcon name="down" :size="17" />
       </view>
     </view>
+    <!-- #ifndef WEB -->
+    <view v-if="rendered" class="select-dismiss" @click="close()" />
+    <!-- #endif -->
     <view
       v-if="rendered"
       class="options"
       :style="{
+        ...panelStyle,
         opacity: open ? 1 : 0,
         transform: open ? 'translateY(0px) scale(1)' : 'translateY(-8px) scale(0.98)',
       }"
     >
-      <scroll-view scroll-y :style="{ height: Math.min(options.length * 44 + 12, 260) + 'px' }">
+      <scroll-view scroll-y :style="{ height: listHeight + 'px' }" :bounces="false">
         <view
           v-for="(option, index) in options"
           :key="index"
           :class="['option', index == value ? 'chosen' : '']"
           @click="choose(index)"
         >
-          <text :class="['option-text', index == value ? 'chosen-text' : '']">{{ option }}</text>
-          <text v-if="index == defaultIndex" class="badge">系统默认</text>
+          <text class="app-font" :class="['option-text', index == value ? 'chosen-text' : '']">
+            {{ option }}
+          </text>
+          <text v-if="index == defaultIndex" class="app-font badge">系统默认</text>
         </view>
       </scroll-view>
     </view>
   </view>
 </template>
 <script setup lang="uts">
-import { ref, onUnmounted } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
+import { dropdownRect } from '@/core/overlayLayout.uts';
 import UiIcon from './UiIcon.uvue';
-defineProps({
+const props = defineProps({
   options: { type: Array as PropType<string[]>, default: (): string[] => [] },
   value: { type: Number, default: 0 },
   defaultIndex: { type: Number, default: -1 },
 });
 const emit = defineEmits(['change']);
+const fieldId = 'select-' + Math.random().toString(36).slice(2);
+const panelStyle = ref<UTSJSONObject>({});
+const panelHeight = ref(0);
+const listHeight = computed((): number => {
+  // #ifndef WEB
+  return Math.max(0, panelHeight.value - 14);
+  // #endif
+  // #ifdef WEB
+  return Math.min(props.options.length * 48, 260);
+  // #endif
+});
 const open = ref(false),
   rendered = ref(false);
 let animationTimer: number = 0;
@@ -53,12 +71,34 @@ function toggle() {
     return;
   }
   clearTimeout(animationTimer);
+  // Native fixed elements are hosted at the page root, outside the settings scroll-view.
+  // #ifndef WEB
+  const element = uni.getElementById(fieldId);
+  if (element == null) return;
+  const rect = element.getBoundingClientRect();
+  const info = uni.getWindowInfo();
+  const panel = dropdownRect(
+    { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+    info.windowWidth,
+    info.windowHeight,
+    info.safeAreaInsets.top,
+    info.safeAreaInsets.bottom,
+    props.options.length,
+  );
+  panelStyle.value = { left: panel.left + 'px', top: panel.top + 'px', width: panel.width + 'px' };
+  panelHeight.value = panel.height;
+  // #endif
   rendered.value = true;
   animationTimer = setTimeout(() => {
     open.value = true;
   }, 30);
 }
 onUnmounted(() => clearTimeout(animationTimer));
+onHide(() => {
+  clearTimeout(animationTimer);
+  open.value = false;
+  rendered.value = false;
+});
 function choose(index: number) {
   if (!open.value) return;
   close();
@@ -111,8 +151,9 @@ function choose(index: number) {
   z-index: 30;
 }
 .option {
-  min-height: 44px;
-  padding: 10px 12px;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0 12px;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -145,10 +186,18 @@ function choose(index: number) {
 /* #endif */
 /* #ifndef WEB */
 .options {
-  position: relative;
-  top: 0;
-  margin-top: 10px;
+  position: fixed;
+  right: auto;
+  z-index: 201;
   flex-shrink: 0;
+}
+.select-dismiss {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 200;
 }
 /* #endif */
 </style>

@@ -1,0 +1,26 @@
+export type OverlayRect = { left: number; top: number; width: number; height: number };
+
+// Both above/below placement and the scroll viewport stay inside the safe area.
+export function dropdownRect(
+  anchor: OverlayRect,
+  width: number,
+  height: number,
+  safeTop: number,
+  safeBottom: number,
+  count: number,
+): OverlayRect {
+  const gap = 8,
+    edge = 12;
+  const availableBelow = Math.max(0, height - safeBottom - edge - anchor.top - anchor.height - gap);
+  const availableAbove = Math.max(0, anchor.top - safeTop - edge - gap);
+  const desired = Math.min(count * 48 + 14, 274);
+  const below = availableBelow >= desired || availableBelow >= availableAbove;
+  const panelHeight = Math.min(desired, below ? availableBelow : availableAbove);
+  const panelWidth = Math.min(anchor.width, width - edge * 2);
+  return {
+    left: Math.max(edge, Math.min(anchor.left, width - panelWidth - edge)),
+    top: below ? anchor.top + anchor.height + gap : anchor.top - gap - panelHeight,
+    width: panelWidth,
+    height: panelHeight,
+  };
+}

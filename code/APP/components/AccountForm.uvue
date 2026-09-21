@@ -9,15 +9,15 @@
     <view v-if="register">
       <view class="form-columns">
         <view class="grow">
-          <text class="form-label">{{ t('登录账号 *') }}</text>
-          <input class="input" v-model="account" maxlength="32" />
+          <text class="app-font form-labelapp-font">{{ t('登录账号 *') }}</text>
+          <input class="app-font input" v-model="account" maxlength="32" />
         </view>
         <view class="grow second-column">
-          <text class="form-label">{{ t('姓名 *') }}</text>
-          <input class="input" v-model="name" maxlength="20" />
+          <text class="app-font form-labelapp-font">{{ t('姓名 *') }}</text>
+          <input class="app-font input" v-model="name" maxlength="20" />
         </view>
       </view>
-      <text class="form-help">
+      <text class="app-font form-help" app-font>
         {{
           suggesting
             ? t('正在生成推荐账号…')
@@ -26,18 +26,19 @@
       </text>
     </view>
     <view v-else>
-      <text class="label">{{ t('原密码') }}</text>
+      <text class="app-font label">{{ t('原密码') }}</text>
       <input
-        class="input"
+        class="app-font input"
+        app-font
         v-model="oldPassword"
         :password="!show"
         :placeholder="t('请输入原密码')"
       />
     </view>
-    <text class="form-label">{{ register ? t('密码 *') : t('新密码') }}</text>
+    <text class="app-font form-labelapp-font">{{ register ? t('密码 *') : t('新密码') }}</text>
     <view class="password-input">
       <input
-        class="password-field"
+        class="app-font password-field"
         v-model="password"
         :password="!show"
         maxlength="64"
@@ -46,15 +47,18 @@
       <view @click="show = !show"><UiIcon :name="show ? 'eye' : 'eyeOff'" :size="20" /></view>
     </view>
     <view v-if="register">
-      <text class="form-help">{{ t('已预填默认密码，建议修改（8–64位）。') }}</text>
+      <text class="app-font form-help" app-font>
+        {{ t('已预填默认密码，建议修改（8–64位）。') }}
+      </text>
       <view class="contact">
-        <text class="label">{{ t('联系方式') }}</text>
-        <text class="form-help">{{ t('手机号 / 邮箱至少填写一项') }}</text>
+        <text class="app-font label">{{ t('联系方式') }}</text>
+        <text class="app-font form-help" app-font>{{ t('手机号 / 邮箱至少填写一项') }}</text>
         <view class="form-columns">
           <view class="grow">
-            <text class="form-label">{{ t('手机号') }}</text>
+            <text class="app-font form-labelapp-font">{{ t('手机号') }}</text>
             <input
-              class="input"
+              class="app-font input"
+              app-font
               v-model="phone"
               type="number"
               maxlength="11"
@@ -62,24 +66,33 @@
             />
           </view>
           <view class="grow second-column">
-            <text class="form-label">{{ t('邮箱') }}</text>
-            <input class="input" v-model="email" maxlength="45" :placeholder="t('常用邮箱')" />
+            <text class="app-font form-labelapp-font">{{ t('邮箱') }}</text>
+            <input
+              class="app-font input"
+              v-mapp-font
+              odel="email"
+              maxlength="45"
+              :placeholder="t('常用邮箱')"
+            />
           </view>
         </view>
-        <text class="form-help">{{ t('填写的手机号、邮箱不能与其他账号重复。') }}</text>
+        <text class="app-font form-help" app-font>
+          {{ t('填写的手机号、邮箱不能与其他账号重复。') }}
+        </text>
       </view>
     </view>
     <view v-else>
-      <text class="label">{{ t('确认新密码') }}</text>
+      <text class="app-font label">{{ t('确认新密码') }}</text>
       <input
-        class="input"
+        class="app-font input"
+        app-font
         v-model="confirmation"
         :password="!show"
         :placeholder="t('再次输入新密码')"
       />
     </view>
-    <text class="error" v-if="error.length > 0">{{ error }}</text>
-    <button class="primary" :loading="busy" :disabled="busy" @click="submit()">
+    <text class="app-font error" v-if="error.length > 0">{{ error }}</text>
+    <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
       {{ register ? t('注册') : t('修改密码') }}
     </button>
   </Popup>

@@ -1,7 +1,7 @@
 <template>
   <view class="reply-progress">
     <view class="progress-orbit" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
-    <text class="progress-text" :style="{ opacity: stageVisible ? 1 : 0 }">
+    <text class="app-font progress-text" :style="{ opacity: stageVisible ? 1 : 0 }">
       {{ stages[stage] }}
     </text>
     <view class="progress-shimmer" :style="{ transform: 'translateX(' + shine + 'px)' }" />

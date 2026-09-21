@@ -20,7 +20,7 @@
         :size="19"
       />
     </view>
-    <text class="tip-text">{{ tip.text }}</text>
+    <text class="app-font tip-text">{{ tip.text }}</text>
   </view>
 </template>
 <script setup lang="uts">

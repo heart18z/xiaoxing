@@ -8,8 +8,8 @@
           <view class="brand-spark spark-one" />
           <view class="brand-spark spark-two" />
         </view>
-        <text class="brand-title">{{ t('智能提醒') }}</text>
-        <text class="tagline">{{ t('理解你的计划，在合适的时候重新判断') }}</text>
+        <text class="app-font brand-title">{{ t('智能提醒') }}</text>
+        <text class="app-font tagline">{{ t('理解你的计划，在合适的时候重新判断') }}</text>
       </view>
       <view
         class="login-panel"
@@ -18,16 +18,21 @@
           transform: entered ? 'translateY(0px)' : 'translateY(12px)',
         }"
       >
-        <text class="label">{{ t('账号') }}</text>
+        <text class="app-font label">{{ t('账号') }}</text>
         <view class="login-input">
           <UiIcon name="user" tone="purple" :size="19" />
-          <input class="field" v-model="account" :placeholder="t('请输入账号')" :disabled="busy" />
+          <input
+            class="app-font field"
+            v-model="account"
+            :placeholder="t('请输入账号')"
+            :disabled="busy"
+          />
         </view>
-        <text class="label password-label">{{ t('密码') }}</text>
+        <text class="app-font label password-label">{{ t('密码') }}</text>
         <view class="login-input">
           <UiIcon name="lock" tone="purple" :size="19" />
           <input
-            class="field"
+            class="app-font field"
             v-model="password"
             :password="!show"
             :placeholder="t('请输入密码')"
@@ -39,33 +44,42 @@
           </view>
         </view>
         <view v-if="captchaEnabled" class="row">
-          <input class="input" v-model="captchaCode" :placeholder="t('验证码')" :maxlength="8" />
+          <input
+            class="app-font input"
+            v-model="captchaCode"
+            :placeholder="t('验证码')"
+            :maxlength="8"
+          />
           <image :src="captchaImage" style="width: 110px; height: 42px" @click="refreshCaptcha()" />
         </view>
-        <text class="forgot" @click="forgot()">{{ t('忘记密码？') }}</text>
+        <text class="app-font forgot" @click="forgot()">{{ t('忘记密码？') }}</text>
 
-        <button class="primary" :loading="busy" :disabled="busy" @click="submit()">
+        <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
           {{ busy ? t('正在登录…') : t('登录') }}
         </button>
-        <text class="register" @click="register = true">{{ t('没有账号？注册账号') }}</text>
+        <text class="app-font register" @click="register = true">
+          {{ t('没有账号？注册账号') }}
+        </text>
       </view>
-      <text class="slogan">{{ t('更智能的提醒\u3000·\u3000更从容的生活') }}</text>
+      <text class="app-font slogan">{{ t('更智能的提醒\u3000·\u3000更从容的生活') }}</text>
     </view>
   </scroll-view>
   <AccountForm :open="register" :register="true" @close="register = false" @success="registered" />
   <Popup :open="forgotOpen" :title="t('忘记密码')" @close="forgotOpen = false">
-    <text class="dialog-copy">{{ t('请联系管理员重置密码，然后使用新密码登录。') }}</text>
-    <button class="primary dialog-primary" @click="forgotOpen = false">{{ t('知道了') }}</button>
+    <text class="app-font dialog-copy">{{ t('请联系管理员重置密码，然后使用新密码登录。') }}</text>
+    <button class="app-font primary dialog-primary" @click="forgotOpen = false">
+      {{ t('知道了') }}
+    </button>
   </Popup>
   <Popup :open="confirmOpen" :title="t('确认在此设备登录？')" :busy="busy" @close="cancelLogin">
-    <text class="dialog-copy">{{ t('账号已在其他设备登录，继续将退出其他设备。') }}</text>
+    <text class="app-font dialog-copy">{{ t('账号已在其他设备登录，继续将退出其他设备。') }}</text>
 
     <view class="dialog-actions">
-      <button class="secondary dialog-cancel" :disabled="busy" @click="cancelLogin()">
+      <button class="app-font secondary dialog-cancel" :disabled="busy" @click="cancelLogin()">
         {{ t('取消') }}
       </button>
       <button
-        class="primary dialog-primary dialog-continue"
+        class="app-font primary dialog-primary dialog-continue"
         :loading="busy"
         :disabled="busy"
         @click="continueLogin()"

@@ -17,11 +17,11 @@
       </view>
     </template>
     <view v-if="chat.notice.length > 0 && s(chat.pending, 'requestId').length > 0" class="recovery">
-      <text class="error">{{ chat.notice }}</text>
+      <text class="app-font error">{{ chat.notice }}</text>
       <view v-if="!chat.busy" class="row">
-        <text class="link" @click="resume()">{{ t('重新查询') }}</text>
-        <text class="link" @click="drawer = true">{{ t('核对事件') }}</text>
-        <text v-if="!chat.busy" class="link" @click="dismiss()">{{ t('结束等待') }}</text>
+        <text class="app-font link" @click="resume()">{{ t('重新查询') }}</text>
+        <text class="app-font link" @click="drawer = true">{{ t('核对事件') }}</text>
+        <text v-if="!chat.busy" class="app-font link" @click="dismiss()">{{ t('结束等待') }}</text>
       </view>
     </view>
     <scroll-view
@@ -36,11 +36,11 @@
     >
       <view class="messages">
         <view v-if="chat.loading" class="card">
-          <text class="muted">{{ t('正在加载对话记录…') }}</text>
+          <text class="app-font muted">{{ t('正在加载对话记录…') }}</text>
         </view>
         <view v-if="chat.error.length > 0" class="card">
-          <text class="error">{{ chat.error }}</text>
-          <button class="secondary" @click="loadHistory()">{{ t('重新加载') }}</button>
+          <text class="app-font error">{{ chat.error }}</text>
+          <button class="app-font secondary" @click="loadHistory()">{{ t('重新加载') }}</button>
         </view>
         <view
           v-if="
@@ -51,8 +51,8 @@
           "
           class="card"
         >
-          <text class="heading">{{ t('今天想提醒什么？') }}</text>
-          <text class="body-text">
+          <text class="app-font heading">{{ t('今天想提醒什么？') }}</text>
+          <text class="app-font body-text">
             {{ t('例如：“明天上午10点前提醒我确认合同，如果已完成就不要提醒。”') }}
           </text>
         </view>
@@ -74,14 +74,14 @@
       <view style="transform: rotate(180deg)">
         <UiIcon name="arrowUp" tone="purple" :size="18" />
       </view>
-      <text class="latest-text">{{ t('回到最新') }}</text>
+      <text class="app-font latest-text">{{ t('回到最新') }}</text>
     </view>
-    <view class="composer">
+    <view class="composer" :style="{ marginBottom: keyboard > 0 ? '0px' : '10px' }">
       <scroll-view v-if="files.length > 0" scroll-x class="file-strip">
         <view class="row">
           <view v-for="file in files" :key="file.key" class="file">
             <image v-if="file.image" :src="file.path" class="file-image" />
-            <text class="muted">
+            <text class="app-font muted">
               {{ file.name }} ·
               {{
                 file.state == 'loading'
@@ -91,23 +91,23 @@
                     : t('失败')
               }}
             </text>
-            <text class="link" v-if="file.state == 'error'" @click="uploadOne(file)">
+            <text class="app-font link" v-if="file.state == 'error'" @click="uploadOne(file)">
               {{ t('重试') }}
             </text>
-            <text class="link" @click="removeFile(file.key)">×</text>
+            <text class="app-font link" @click="removeFile(file.key)">×</text>
           </view>
         </view>
       </scroll-view>
       <view class="composer-box">
         <view class="input-row">
           <image class="orb" src="/static/icons/input-orb.png" mode="aspectFit" />
-          <text v-if="recording || transcribing" class="voice-draft">
+          <text v-if="recording || transcribing" class="app-font voice-draft">
             {{ draft.length > 0 ? draft : t('说说你想提醒的事…') }}
           </text>
           <textarea
             v-else
             id="chat-compose-input"
-            class="compose-input"
+            class="app-font compose-input"
             :confirm-type="inputConfirmType"
             @confirm="confirmSend()"
             v-model="draft"
@@ -116,6 +116,7 @@
             :disabled="recording || transcribing"
             :placeholder="t('说说你想提醒的事…')"
             :adjust-position="false"
+            @keyboardheightchange="updateKeyboard($event.detail.height)"
             @focus="
               follow = true;
               scrollLatest();
@@ -158,25 +159,35 @@
   <ReminderDrawer :open="drawer" @close="drawer = false" />
 
   <Popup :open="clearOpen" :title="t('清除当前上下文')" :busy="clearing" @close="clearOpen = false">
-    <text class="clear-copy">
+    <text class="app-font clear-copy">
       {{ t('清除后，对话页将不再显示之前的消息，AI 也不再沿用此前的聊天上下文和未确认操作。') }}
     </text>
     <view class="clear-note">
-      <text class="muted">
+      <text class="app-font muted">
         {{ t('后台聊天记录仍保留，好友、人员别称和已创建事件不受影响，提醒继续执行。') }}
       </text>
     </view>
     <view class="clear-actions">
-      <button class="secondary clear-cancel" :disabled="clearing" @click="clearOpen = false">
+      <button
+        class="app-font secondary clear-cancel"
+        :disabled="clearing"
+        @click="clearOpen = false"
+      >
         {{ t('取消') }}
       </button>
-      <button class="primary" :loading="clearing" :disabled="clearing" @click="clearContext()">
+      <button
+        class="app-font primary"
+        :loading="clearing"
+        :disabled="clearing"
+        @click="clearContext()"
+      >
         {{ t('确认清除') }}
       </button>
     </view>
   </Popup>
 </template>
 <script setup lang="uts">
+import { pickImages } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import VoiceInputStatus from '@/components/VoiceInputStatus.uvue';
 import { t as _t } from '@/core/locale.uts';
@@ -325,6 +336,7 @@ let liveSpeech = false;
 liveSpeech = true;
 // #endif
 let keyboardId: number = -1;
+let keyboardLayoutTimer: number = 0;
 let scrollLockedUntil: number = 0,
   scrollTimer: number = 0,
   scrollHeight: number = 0;
@@ -342,9 +354,15 @@ function jumpLatest() {
   scrollLatest();
 }
 const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
-  keyboard.value = event.height;
-  scrollLatest();
+  updateKeyboard(event.height);
 };
+function updateKeyboard(height: number) {
+  keyboard.value = height;
+  clearTimeout(keyboardLayoutTimer);
+  scrollLatest();
+  // The scroll viewport changes throughout the frame/dock animation.
+  keyboardLayoutTimer = setTimeout(() => scrollLatest(), 280);
+}
 function stopScrollLock() {
   scrollLockedUntil = 0;
 }
@@ -644,18 +662,10 @@ function chooseAttachment() {
   return;
   // #endif
   // #ifndef WEB
-  uni.chooseImage({
-    count: Math.max(1, 6 - files.value.length),
-    sourceType: ['album', 'camera'],
-    success: (result) => {
-      result.tempFiles.forEach((file) =>
-        addFile(file.path, file.path.split('/').pop()!, file.size, true),
-      );
-    },
-    fail: (error) => {
-      if (!error.errMsg.toLowerCase().includes('cancel'))
-        toast('无法选择图片，请检查相机或相册权限');
-    },
+  pickImages(Math.max(1, 6 - files.value.length), (result) => {
+    result.tempFiles.forEach((file) =>
+      addFile(file.path, file.path.split('/').pop()!, file.size, true),
+    );
   });
   // #endif
 }
@@ -807,6 +817,7 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
+  clearTimeout(keyboardLayoutTimer);
   keyboard.value = 0;
   active = false;
   setChatVisible(false);

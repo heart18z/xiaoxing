@@ -1,5 +1,5 @@
 <template>
-  <view class="frame" :style="{ paddingBottom: keyboardInset + 'px' }">
+  <view class="frame" :style="frameStyle">
     <image class="background" :src="background" mode="scaleToFill" />
     <view style="flex-shrink: 0" :style="{ height: top + 'px' }" />
     <view
@@ -11,11 +11,12 @@
       ]"
     >
       <view v-if="backButton" class="back-button" @click="back()">
-        <text class="back-glyph">‹</text>
+        <text class="app-font back-glyph">‹</text>
       </view>
       <view v-if="theme == 'chat'" class="chat-side"><slot name="left" /></view>
       <view :class="['header-title', theme == 'chat' ? 'center-title' : '']">
         <text
+          class="app-font"
           :class="[
             'title',
             tab == 'events' ? 'events-title' : '',
@@ -24,7 +25,7 @@
         >
           {{ title }}
         </text>
-        <text v-if="subtitle.length > 0" class="subtitle">{{ subtitle }}</text>
+        <text v-if="subtitle.length > 0" class="app-font subtitle">{{ subtitle }}</text>
       </view>
       <view :class="['right', theme == 'chat' ? 'chat-side' : '']"><slot name="right" /></view>
     </view>
@@ -32,9 +33,12 @@
       <slot />
     </view>
     <view
-      v-if="tab.length > 0 && keyboardHeight == 0"
+      v-if="tab.length > 0"
       class="dock"
-      :style="{ paddingBottom: bottom + 'px', height: 68 + bottom + 'px' }"
+      :style="{
+        paddingBottom: keyboardHeight > 0 ? '0px' : bottom + 'px',
+        height: keyboardHeight > 0 ? '0px' : 68 + bottom + 'px',
+      }"
     >
       <view class="tab" @click="go('events')">
         <view :class="['tab-inner', tab == 'events' ? 'tab-selected' : '']">
@@ -42,18 +46,22 @@
           <view :class="['calendar', tab == 'events' ? 'calendar-active' : '']">
             <view :class="['binder binder-left', tab == 'events' ? 'binder-active' : '']" />
             <view :class="['binder binder-right', tab == 'events' ? 'binder-active' : '']" />
-            <text :class="['counter', tab == 'events' ? 'active' : '']">
+            <text class="app-font" :class="['counter', tab == 'events' ? 'active' : '']">
               {{ n(session.summary, 'activeEventCount') }}
             </text>
           </view>
-          <text :class="['tab-label', tab == 'events' ? 'active' : '']">{{ t('事件') }}</text>
+          <text class="app-font" :class="['tab-label', tab == 'events' ? 'active' : '']">
+            {{ t('事件') }}
+          </text>
         </view>
       </view>
       <view class="tab" @click="go('chat')">
         <view :class="['tab-inner', tab == 'chat' ? 'tab-selected' : '']">
           <view v-if="tab == 'chat'" class="tab-marker" />
           <image class="ai-icon" src="/static/images/ai-assistant-tab.png" mode="aspectFit" />
-          <text :class="['tab-label', tab == 'chat' ? 'active' : '']">{{ t('AI助手') }}</text>
+          <text class="app-font" :class="['tab-label', tab == 'chat' ? 'active' : '']">
+            {{ t('AI助手') }}
+          </text>
         </view>
       </view>
       <view class="tab" @click="go('me')">
@@ -72,7 +80,7 @@
           />
           <!-- #endif -->
           <view v-if="n(session.summary, 'pendingFriendRequests') > 0" class="nav-badge">
-            <text class="nav-badge-text">
+            <text class="app-font nav-badge-text">
               {{
                 n(session.summary, 'pendingFriendRequests') > 99
                   ? '99+'
@@ -80,7 +88,9 @@
               }}
             </text>
           </view>
-          <text :class="['tab-label', tab == 'me' ? 'active' : '']">{{ t('我的') }}</text>
+          <text class="app-font" :class="['tab-label', tab == 'me' ? 'active' : '']">
+            {{ t('我的') }}
+          </text>
         </view>
       </view>
     </view>
@@ -125,6 +135,16 @@ const keyboardInset = computed((): number => {
   const resized = Math.max(0, info.windowHeight - uni.getWindowInfo().windowHeight);
   return Math.max(0, props.keyboardHeight - resized);
 });
+const frameStyle = computed((): UTSJSONObject => {
+  // iOS overlays the keyboard; size the fixed frame itself, never its padding.
+  // A fixed top/bottom frame also remains bounded after the native tab bar hides.
+  // #ifdef APP-IOS
+  return { bottom: props.keyboardHeight + 'px' };
+  // #endif
+  // #ifndef APP-IOS
+  return { paddingBottom: keyboardInset.value + 'px' };
+  // #endif
+});
 const background = computed(
   () =>
     '/static/images/' +
@@ -150,6 +170,19 @@ function go(tab: string) {
   overflow: hidden;
   background-color: #edf4ff;
 }
+/* #ifdef APP-IOS */
+.frame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  flex: none;
+  transition-property: bottom;
+  transition-duration: 250ms;
+  transition-timing-function: ease-out;
+}
+/* #endif */
 .background {
   position: absolute;
   left: 0;
@@ -230,11 +263,19 @@ function go(tab: string) {
 }
 .dock {
   flex-shrink: 0;
+  overflow: hidden;
   flex-direction: row;
   background-color: #ffffffee;
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
 }
+/* #ifdef APP-IOS */
+.dock {
+  transition-property: height, padding-bottom;
+  transition-duration: 250ms;
+  transition-timing-function: ease-out;
+}
+/* #endif */
 .tab {
   flex: 1;
   align-items: center;
@@ -296,7 +337,7 @@ function go(tab: string) {
 }
 .counter {
   font-size: 17px;
-  font-weight: 650;
+  font-weight: 600;
   color: #9ba3b4;
   line-height: 22px;
 }

@@ -1,22 +1,24 @@
 <template>
   <view class="card model-card">
-    <text class="heading">{{ kind == 'LLM' ? t('LLM 对话模型') : t('语音识别模型') }}</text>
+    <text class="app-font heading">
+      {{ kind == 'LLM' ? t('LLM 对话模型') : t('语音识别模型') }}
+    </text>
     <view class="mode-row">
       <view class="radio-option" @click="form.mode = 'SYSTEM'">
         <view :class="['radio', form.mode == 'SYSTEM' ? 'radio-selected' : '']">
           <view v-if="form.mode == 'SYSTEM'" class="radio-center" />
         </view>
-        <text class="mode-text">{{ t('使用系统配置') }}</text>
+        <text class="app-font mode-text">{{ t('使用系统配置') }}</text>
       </view>
       <view class="radio-option" @click="form.mode = 'PERSONAL'">
         <view :class="['radio', form.mode == 'PERSONAL' ? 'radio-selected' : '']">
           <view v-if="form.mode == 'PERSONAL'" class="radio-center" />
         </view>
-        <text class="mode-text">{{ t('使用个人配置') }}</text>
+        <text class="app-font mode-text">{{ t('使用个人配置') }}</text>
       </view>
     </view>
     <view v-if="form.mode == 'SYSTEM'" class="system-fields">
-      <text class="label">{{ t('我的模型') }}</text>
+      <text class="app-font label">{{ t('我的模型') }}</text>
       <SelectField
         :options="labels"
         :value="selected"
@@ -24,31 +26,31 @@
         @change="selectModel"
       />
       <view class="model-help">
-        <text class="muted">{{ t('使用管理员维护的模型，无需填写地址和密钥。') }}</text>
+        <text class="app-font muted">{{ t('使用管理员维护的模型，无需填写地址和密钥。') }}</text>
       </view>
     </view>
     <view v-else>
-      <text class="label">{{ t('接口地址') }}</text>
-      <input class="input" v-model="form.baseUrl" placeholder="https://example.com/v1" />
-      <text class="label">{{ t('模型名称') }}</text>
-      <input class="input" v-model="form.modelName" :placeholder="t('请输入模型名称')" />
-      <text class="label">API Key</text>
+      <text class="app-font label">{{ t('接口地址') }}</text>
+      <input class="app-font input" v-model="form.baseUrl" placeholder="https://example.com/v1" />
+      <text class="app-font label">{{ t('模型名称') }}</text>
+      <input class="app-font input" v-model="form.modelName" :placeholder="t('请输入模型名称')" />
+      <text class="app-font label">API Key</text>
       <input
-        class="input"
+        class="app-font input"
         v-model="form.apiKey"
         password
         :placeholder="t('留空保留已保存的密钥')"
       />
       <view v-if="kind == 'LLM'">
-        <text class="label">{{ t('额外 body（JSON）') }}</text>
-        <textarea class="json-input" v-model="form.extraBody" :maxlength="16000" />
-        <text class="muted">{{ t('不可覆盖 model、messages、stream。') }}</text>
+        <text class="app-font label">{{ t('额外 body（JSON）') }}</text>
+        <textarea class="app-font json-input" v-model="form.extraBody" :maxlength="16000" />
+        <text class="app-font muted">{{ t('不可覆盖 model、messages、stream。') }}</text>
         <view class="between">
-          <text class="label">{{ t('显示模型思考过程') }}</text>
+          <text class="app-font label">{{ t('显示模型思考过程') }}</text>
           <switch :checked="form.showThinking" @change="form.showThinking = !form.showThinking" />
         </view>
       </view>
-      <text class="muted">
+      <text class="app-font muted">
         {{ t('仅支持公网 HTTPS 地址。密钥加密保存，仅用于自己的模型请求。') }}
       </text>
     </view>
@@ -145,7 +147,7 @@ function selectModel(index: number) {
 }
 .mode-text {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: #3e4b5a;
 }
 .model-help {

@@ -1,15 +1,15 @@
 <template>
   <view v-if="state.visible" class="startup-mask" :style="{ opacity: state.leaving ? 0 : 1 }">
     <image class="startup-logo" src="/static/images/ai-assistant-tab.png" />
-    <text class="startup-title">AI小醒</text>
-    <text class="startup-subtitle">让提醒更贴心</text>
+    <text class="app-font startup-title">AI小醒</text>
+    <text class="app-font startup-subtitle">让提醒更贴心</text>
     <view class="startup-track">
       <view
         class="startup-progress"
         :style="{ transform: moving ? 'translateX(65px)' : 'translateX(0px)' }"
       />
     </view>
-    <text class="startup-subtitle">正在准备你的智能助手…</text>
+    <text class="app-font startup-subtitle">正在准备你的智能助手…</text>
   </view>
 </template>
 <script setup lang="uts">
@@ -58,7 +58,7 @@ watch(
 }
 .startup-title {
   font-size: 25px;
-  font-weight: 650;
+  font-weight: 600;
   color: #273755;
   margin-bottom: 12px;
 }

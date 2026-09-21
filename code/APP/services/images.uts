@@ -1,0 +1,26 @@
+import { toast } from '@/core/ui.uts';
+
+// Keep a cancelable source menu and the OS photo picker. A canceled picker never
+// calls the consumer, so the current draft and attachments remain untouched.
+export function pickImages(count: number, success: (result: ChooseImageSuccess) => void): void {
+  uni.hideKeyboard();
+  uni.showActionSheet({
+    itemList: ['从相册选择', '拍照'],
+    success: (source) => {
+      uni.chooseImage({
+        count: source.tapIndex == 1 ? 1 : count,
+        sourceType: source.tapIndex == 1 ? ['camera'] : ['album'],
+        albumMode: 'system',
+        sizeType: ['original'],
+        success: (result) => {
+          if (result.tempFilePaths.length > 0) success(result);
+        },
+        fail: (error) => {
+          if (!error.errMsg.toLowerCase().includes('cancel'))
+            toast('无法选择图片，请检查相机或相册权限');
+        },
+      });
+    },
+    fail: (_) => {},
+  });
+}

@@ -13,15 +13,15 @@
       <view :style="{ height: top + 'px' }" />
       <view class="drawer-heading">
         <view class="grow">
-          <text class="drawer-title">{{ t('提醒列表') }}</text>
-          <text class="drawer-subtitle">{{ t('查看与管理全部提醒') }}</text>
+          <text class="app-font drawer-title">{{ t('提醒列表') }}</text>
+          <text class="app-font drawer-subtitle">{{ t('查看与管理全部提醒') }}</text>
         </view>
         <view class="drawer-close" @click="emit('close')"><UiIcon name="close" :size="24" /></view>
       </view>
       <view class="drawer-filter">
         <view class="date-filter" @click="dateOpen = true">
           <view class="date-icon"><UiIcon name="calendar" tone="purple" :size="17" /></view>
-          <text class="date-label">
+          <text class="app-font date-label">
             {{ start.length > 0 ? start + t(' 至 ') + end : t('选择日期范围') }}
           </text>
           <UiIcon name="down" :size="12" />
@@ -36,11 +36,12 @@
           "
         >
           <UiIcon name="reset" tone="purple" :size="17" />
-          <text class="reset-text">{{ t('还原') }}</text>
+          <text class="app-font reset-text">{{ t('还原') }}</text>
         </view>
       </view>
       <view class="drawer-tabs">
         <text
+          class="app-font"
           v-for="(label, index) in labels"
           :key="label"
           :class="['drawer-tab', type == index ? 'drawer-tab-selected' : '']"
@@ -53,19 +54,19 @@
         </text>
       </view>
       <scroll-view scroll-y class="scroll">
-        <text v-if="loading" class="muted">{{ t('正在读取…') }}</text>
+        <text v-if="loading" class="app-font muted">{{ t('正在读取…') }}</text>
         <view v-if="error.length > 0">
-          <text class="error">{{ error }}</text>
-          <button class="secondary" @click="load()">{{ t('重试') }}</button>
+          <text class="app-font error">{{ error }}</text>
+          <button class="app-font secondary" @click="load()">{{ t('重试') }}</button>
         </view>
         <view v-for="group in groups" :key="group.key" class="reminder-group">
           <view class="group-heading">
-            <text class="group-title">{{ t(group.title) }}</text>
-            <text :class="['group-count', 'count-' + group.key]">
+            <text class="app-font group-title">{{ t(group.title) }}</text>
+            <text class="app-font" :class="['group-count', 'count-' + group.key]">
               {{ group.items.length }}
             </text>
           </view>
-          <text v-if="group.items.length == 0" class="muted">{{ t('暂无提醒') }}</text>
+          <text v-if="group.items.length == 0" class="app-font muted">{{ t('暂无提醒') }}</text>
           <view
             v-for="item in group.items"
             :key="s(item, 'eventId')"
@@ -91,23 +92,25 @@
               />
             </view>
             <view class="drawer-event-main">
-              <text class="drawer-event-title">
+              <text class="app-font drawer-event-title">
                 {{ firstText(item, ['summary', 'taskContent', 'eventSummary']) }}
               </text>
-              <text class="drawer-event-meta">
+              <text class="app-font drawer-event-meta">
                 {{ t('发给') }}{{ s(item, 'people') }} ·
                 {{ displayTime(s(item, 'displayTime')).slice(5)
                 }}{{ b(item, 'differentTimes') ? t(' · 多个时间') : '' }}
               </text>
             </view>
-            <text :class="['drawer-status', 'status-' + group.key]">
+            <text class="app-font" :class="['drawer-status', 'status-' + group.key]">
               {{ group.key == 'sent' ? t('已提醒') : t('待提醒') }}
             </text>
             <UiIcon name="chevron" :size="18" />
           </view>
         </view>
       </scroll-view>
-      <text class="drawer-footer">{{ t('按北京时间分组 · 待提醒按计划评估时间展示') }}</text>
+      <text class="app-font drawer-footer">
+        {{ t('按北京时间分组 · 待提醒按计划评估时间展示') }}
+      </text>
     </view>
   </view>
   <DateRange
@@ -257,7 +260,7 @@ watch(
 }
 .drawer-title {
   font-size: 23px;
-  font-weight: 750;
+  font-weight: 700;
   color: #13234b;
 }
 .drawer-subtitle {
@@ -409,7 +412,7 @@ watch(
   /* #endif */
   text-overflow: ellipsis;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 21px;
   color: #172746;
 }

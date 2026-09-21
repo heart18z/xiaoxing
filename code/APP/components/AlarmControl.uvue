@@ -1,23 +1,30 @@
 <template>
   <view class="alarm">
-    <text class="label">{{ t('本机闹铃') }}</text>
-    <text class="muted">
+    <text class="app-font label">{{ t('本机闹铃') }}</text>
+    <text class="app-font muted">
+      app-font
       {{ active ? displayTime(s(activeItem, 'displayTime')) : t('未设置 · 按我的任务时间响铃') }}
     </text>
     <button
-      :class="[active ? 'danger' : 'primary', 'alarm-button']"
+      class="app-font"
+      :cl
+      ass="[active ? 'danger' : 'primary', 'alarm-button']"
       :loading="busy"
       :disabled="busy"
       @click="toggle()"
     >
       {{ active ? t('取消本机闹铃') : t('设置本机闹铃') }}
     </button>
-    <text class="alarm-help" @click="helpOpen = true">{{ t('闹铃说明') }}</text>
-    <text v-if="error.length > 0" class="error">{{ error }}</text>
+    <text class="app-font alarm-helpapp-font" @click="helpOpen = true">{{ t('闹铃说明') }}</text>
+    <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
   </view>
   <Popup :open="helpOpen" :title="t('闹铃说明')" @close="helpOpen = false">
-    <text class="body-text">{{ t('仅为自己接收的任务设置；好友需在自己的手机上操作。') }}</text>
-    <text class="muted">{{ t('需要 iOS 26 及支持 AlarmKit 的安装包，普通提醒继续生效。') }}</text>
+    <text class="app-font body-text" app-font>
+      {{ t('仅为自己接收的任务设置；好友需在自己的手机上操作。') }}
+    </text>
+    <text class="app-font muted">
+      {{ t('需要 iOS 26 及支持 AlarmKit 的安装包，普通提醒继续生效。') }}
+    </text>
   </Popup>
 </template>
 <script setup lang="uts">

@@ -8,7 +8,7 @@
     <template #right>
       <text
         v-if="b(detail, 'creator') && s(event, 'event_status') == 'ACTIVE'"
-        class="stop-button"
+        class="app-font stop-button"
         @click="stop()"
       >
         {{ t('停止') }}
@@ -16,18 +16,19 @@
     </template>
     <scroll-view scroll-y class="scroll">
       <view class="padded">
-        <text class="muted" v-if="loading">{{ t('正在读取…') }}</text>
+        <text class="app-font muted" v-if="loading">{{ t('正在读取…') }}</text>
         <view v-if="error.length > 0" class="card">
-          <text class="error">{{ error }}</text>
-          <button class="secondary" @click="load()">{{ t('重新加载') }}</button>
+          <text class="app-font error">{{ error }}</text>
+          <button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
         </view>
         <view v-if="s(event, 'id').length > 0">
           <view class="card hero">
-            <text class="chip">{{ s(event, 'event_no') }}</text>
-            <text class="summary-label">
+            <text class="app-font chip">{{ s(event, 'event_no') }}</text>
+            <text class="app-font summary-label">
               {{ b(detail, 'creator') ? t('事件概述') : t('我的任务') }}
             </text>
             <text
+              class="app-font"
               :class="[
                 'heading',
                 overview.length > 85 && !overviewExpanded ? 'overview-collapsed' : '',
@@ -37,25 +38,29 @@
             </text>
             <text
               v-if="overview.length > 85"
-              class="overview-toggle"
+              class="app-font overview-toggle"
               @click="overviewExpanded = !overviewExpanded"
             >
               {{ overviewExpanded ? t('收起') : t('展开完整概述') }}
             </text>
             <view v-if="progressItems.length > 0" class="progress">
-              <text class="progress-label">{{ t('最新进展') }}</text>
-              <text v-for="branch in visibleProgress" :key="s(branch, 'id')" class="progress-copy">
+              <text class="app-font progress-label">{{ t('最新进展') }}</text>
+              <text
+                v-for="branch in visibleProgress"
+                :key="s(branch, 'id')"
+                class="app-font progress-copy"
+              >
                 {{ b(detail, 'creator') ? name(branch) + '： ' : '' }}{{ s(branch, 'currentFact') }}
               </text>
               <text
                 v-if="progressItems.length > 2"
-                class="overview-toggle"
+                class="app-font overview-toggle"
                 @click="progressExpanded = !progressExpanded"
               >
                 {{ progressExpanded ? t('收起') : t('查看全部进展') }}
               </text>
             </view>
-            <text class="body-text">
+            <text class="app-font body-text">
               {{ t('事件时间：')
               }}{{
                 b(event, 'event_timeVaries')
@@ -63,7 +68,7 @@
                   : displayTime(s(event, 'event_time'))
               }}
             </text>
-            <text class="body-text">
+            <text class="app-font body-text">
               {{ t('截止时间：')
               }}{{
                 b(event, 'deadline_timeVaries')
@@ -74,11 +79,13 @@
             <AlarmControl :detail="detail" />
             <view v-if="b(detail, 'creator')" class="creator-entry">
               <view class="grow">
-                <text class="creator-title">{{ t('发起人对话') }}</text>
-                <text class="muted creator-subtitle">{{ t('查看事件创建、调整及反馈记录') }}</text>
+                <text class="app-font creator-title">{{ t('发起人对话') }}</text>
+                <text class="app-font muted creator-subtitle">
+                  {{ t('查看事件创建、调整及反馈记录') }}
+                </text>
               </view>
               <button
-                class="primary conversation-button"
+                class="app-font primary conversation-button"
                 @click="
                   conversation(
                     s(event, 'creator_user_id'),
@@ -91,17 +98,17 @@
             </view>
           </view>
           <view v-if="arr(detail, 'relatedEvents').length > 0" class="card">
-            <text class="heading">{{ t('合并关联') }}</text>
+            <text class="app-font heading">{{ t('合并关联') }}</text>
             <text
               v-for="related in arr(detail, 'relatedEvents')"
               :key="s(related, 'id')"
-              class="link"
+              class="app-font link"
               @click="openEvent(s(related, 'id'))"
             >
               {{ s(related, 'summary') }} ›
             </text>
           </view>
-          <text class="section">{{ t('接收人分支') }}</text>
+          <text class="app-font section">{{ t('接收人分支') }}</text>
           <view v-for="branch in branches" :key="s(branch, 'id')" class="card branch">
             <view class="between">
               <image
@@ -110,37 +117,39 @@
                 :src="asset(s(branch, 'avatar'))"
               />
               <view v-else class="avatar">
-                <text>{{ name(branch).slice(0, 1) }}</text>
+                <text class="app-font">{{ name(branch).slice(0, 1) }}</text>
               </view>
               <view class="grow">
-                <text class="heading">{{ name(branch) }}</text>
-                <text class="muted">
+                <text class="app-font heading">{{ name(branch) }}</text>
+                <text class="app-font muted">
                   {{ statusText(s(branch, 'branchStatus')) }} {{ t('· 下次评估') }}
                   {{ s(branch, 'nextEvaluateTime', t('无')) }}
                 </text>
               </view>
               <text
-                class="branch-conversation"
+                class="app-font branch-conversation"
                 @click="conversation(s(branch, 'recipientUserId'), name(branch))"
               >
                 {{ t('查看对话') }}
               </text>
             </view>
-            <text class="body-text">{{ t('当前任务：') }}{{ s(branch, 'latestSummary') }}</text>
-            <text class="muted">
+            <text class="app-font body-text">
+              {{ t('当前任务：') }}{{ s(branch, 'latestSummary') }}
+            </text>
+            <text class="app-font muted">
               {{ t('事件时间：') }}{{ displayTime(s(branch, 'taskEventTime')) }}
             </text>
-            <text class="muted">
+            <text class="app-font muted">
               {{ t('截止时间：') }}{{ displayTime(s(branch, 'taskDeadlineTime')) }}
             </text>
-            <text v-if="s(branch, 'currentFact').length > 0" class="body-text">
+            <text v-if="s(branch, 'currentFact').length > 0" class="app-font body-text">
               {{ t('最新事实：') }}{{ s(branch, 'currentFact') }}
             </text>
           </view>
           <view class="between">
-            <text class="section">{{ t('时间轴') }}</text>
+            <text class="app-font section">{{ t('时间轴') }}</text>
             <view class="row">
-              <text class="muted">{{ t('AI节点') }}</text>
+              <text class="app-font muted">{{ t('AI节点') }}</text>
               <switch
                 color="#7959d9"
                 :checked="showAI"
@@ -152,12 +161,14 @@
           <scroll-view scroll-x style="height: 48px">
             <view class="row">
               <text
+                class="app-font"
                 :class="['timeline-tab', branchFilter.length == 0 ? 'timeline-selected' : '']"
                 @click="branchFilter = ''"
               >
                 {{ t('全部') }}
               </text>
               <text
+                class="app-font"
                 v-for="branch in branches"
                 :key="s(branch, 'id')"
                 :class="[
@@ -181,8 +192,8 @@
             </view>
             <view class="node-content">
               <view class="row">
-                <text v-if="isAi(node)" class="ai-mark">AI</text>
-                <text class="node-title">
+                <text v-if="isAi(node)" class="app-font ai-mark">AI</text>
+                <text class="app-font node-title">
                   {{
                     !isAi(node) && s(node, 'actorName').length > 0
                       ? s(node, 'actorName') + ' · '
@@ -190,14 +201,16 @@
                   }}{{ nodeLabel(s(node, 'nodeType')) }}
                 </text>
               </view>
-              <text class="node-copy">{{ s(node, 'content') }}</text>
-              <text class="node-time">
+              <text class="app-font node-copy">{{ s(node, 'content') }}</text>
+              <text class="app-font node-time">
                 {{ t('操作人：') }}{{ isAi(node) ? 'AI' : s(node, 'actorName', t('系统')) }} ·
                 {{ displayTime(s(node, 'createTime')) }}
               </text>
             </view>
           </view>
-          <text v-if="timeline.length == 0" class="muted">{{ t('当前分支暂无时间轴记录') }}</text>
+          <text v-if="timeline.length == 0" class="app-font muted">
+            {{ t('当前分支暂无时间轴记录') }}
+          </text>
         </view>
       </view>
     </scroll-view>
@@ -209,8 +222,8 @@
     @close="closeConversation"
   >
     <scroll-view scroll-y class="conversation" :style="{ height: conversationHeight + 'px' }">
-      <text class="muted" v-if="conversationLoading">{{ t('正在读取对话…') }}</text>
-      <text class="muted" v-else-if="conversationRows.length == 0">
+      <text class="app-font muted" v-if="conversationLoading">{{ t('正在读取对话…') }}</text>
+      <text class="app-font muted" v-else-if="conversationRows.length == 0">
         {{ t('该事件暂时没有对话记录') }}
       </text>
       <view
@@ -227,16 +240,22 @@
           :src="conversationAvatar(row)"
         />
         <view v-else class="dialog-avatar dialog-initial">
-          <text>{{ conversationName.slice(0, 1) }}</text>
+          <text class="app-font">{{ conversationName.slice(0, 1) }}</text>
         </view>
         <view
-          :class="['dialog-bubble', s(row, 'messageRole') == 'user' ? 'dialog-user-bubble' : '']"
+          :class="[
+            'dialog-bubble',
+            s(row, 'messageRole') == 'user' ? 'dialog-user-bubble' : 'dialog-assistant-bubble',
+          ]"
         >
-          <text v-if="s(row, 'messageRole') == 'user'" class="dialog-user-text">
+          <text v-if="s(row, 'messageRole') == 'user'" class="app-font dialog-user-text">
             {{ s(row, 'content') }}
           </text>
-          <rich-text v-else :nodes="markdown(s(row, 'content'))" />
-          <text :class="['dialog-time', s(row, 'messageRole') == 'user' ? 'dialog-user-time' : '']">
+          <rich-text v-else class="dialog-rich-text" :nodes="markdown(s(row, 'content'))" />
+          <text
+            class="app-font"
+            :class="['dialog-time', s(row, 'messageRole') == 'user' ? 'dialog-user-time' : '']"
+          >
             {{ displayTime(s(row, 'createTime')) }}
           </text>
         </view>
@@ -285,7 +304,7 @@ function statusText(value: string): string {
   return _statusText(value);
 }
 function markdown(value: string): string {
-  return _markdown(value).replace('font-size:16px', 'font-size:14px');
+  return _markdown(value).replace('font-size:15px', 'font-size:14px');
 }
 function openEvent(id: string): void {
   return _openEvent(id);
@@ -611,7 +630,7 @@ function closeConversation() {
 }
 .node-title {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   color: #1e293e;
   line-height: 24px;
   flex-shrink: 1;
@@ -663,13 +682,13 @@ function closeConversation() {
 .dialog-bubble {
   flex-shrink: 1;
   margin: 0 0 0 8px;
-  max-width: 510rpx;
   padding: 11px 13px;
   background-color: #f5f5fb;
   border-radius: 16px;
   border-bottom-left-radius: 4px;
 }
 .dialog-user-bubble {
+  max-width: 510rpx;
   margin: 0 8px 0 0;
   /* #ifdef WEB */
   background-image: linear-gradient(120deg, #315bff, #6578ff);
@@ -679,6 +698,15 @@ function closeConversation() {
   /* #endif */
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
+}
+.dialog-assistant-bubble {
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+}
+.dialog-rich-text {
+  width: 100%;
+  align-self: stretch;
 }
 .dialog-user-text {
   color: #ffffff;
@@ -706,8 +734,5 @@ function closeConversation() {
 }
 .node-content {
   padding-bottom: 8px;
-}
-.dialog-bubble {
-  max-width: 510rpx;
 }
 </style>

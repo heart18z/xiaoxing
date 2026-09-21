@@ -7,14 +7,14 @@
       >
         <UiIcon name="spark" tone="blue" :size="15" />
       </view>
-      <text class="thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
-      <text class="thinking-action">{{ open ? t('收起') : t('查看') }}</text>
+      <text class="app-font thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
+      <text class="app-font thinking-action">{{ open ? t('收起') : t('查看') }}</text>
       <view :style="{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }">
         <UiIcon name="chevron" :size="14" />
       </view>
     </view>
     <scroll-view v-if="open" scroll-y class="thinking-content" :scroll-into-view="anchor">
-      <text class="thinking-text" selectable>{{ displayed }}</text>
+      <text class="app-font thinking-text" selectable>{{ displayed }}</text>
       <view id="reasoning-end" style="height: 1px" />
     </scroll-view>
   </view>
