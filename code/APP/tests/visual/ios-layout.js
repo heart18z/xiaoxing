@@ -10,6 +10,14 @@ async page => {
  const after=await card.boundingBox(), firstAfter=await page.locator('.friend-row').first().boundingBox(), searchAfter=await page.locator('.friend-search').boundingBox();
  if(Math.abs(before.y-after.y)>1||Math.abs(before.height-after.height)>1||Math.abs(searchBefore.y-searchAfter.y)>1||firstBefore.y-firstAfter.y<100)throw Error('Friend card/search must stay still while rows scroll');
  await page.screenshot({path:'output/playwright/round2-friends.png'});
+ const last=await page.locator('.friend-row').last().boundingBox();
+ if(last.y<after.y||last.y+last.height>after.y+after.height+2)throw Error('Last friend is not visible at scroll bottom');
+ await page.locator('.friend-input input').fill('谢鑫');await page.waitForTimeout(250);
+ if(await page.locator('.friend-row').count()!==1)throw Error('Filtered friend list is incorrect');
+ const filtered=await page.locator('.friend-row').first().boundingBox();
+ if(filtered.y<after.y||filtered.y>after.y+40)throw Error('Search kept stale scroll position');
+ await page.locator('.friend-input input').fill('');await page.waitForTimeout(200);
+
  await go('settings');
  const nextCard=page.locator('.model-card').first();const y=(await nextCard.boundingBox()).y;
  await page.locator('.select-field').first().click();await page.waitForTimeout(250);

@@ -1,5 +1,13 @@
-import { s, obj, arr } from './json.uts';
+import { s, n, obj, arr } from './json.uts';
 import { timeOf } from './time.uts';
+// AlarmKit records Unix seconds, not a preformatted displayTime field.
+export function alarmTime(item: UTSJSONObject): string {
+  const seconds = n(item, 'timestamp');
+  if (!Number.isFinite(seconds) || seconds <= 0) return '';
+  const date = new Date(seconds * 1000 + 28800000);
+  if (!Number.isFinite(date.getTime())) return '';
+  return date.toISOString().slice(0, 16).replace('T', ' ');
+}
 export function alarmPlan(
   detail: UTSJSONObject,
   owner: string,

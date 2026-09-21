@@ -87,33 +87,36 @@
           </button>
         </view>
         <view class="friend-card">
-          <scroll-view scroll-y class="friend-scroll" :bounces="false">
-            <view class="friend-list">
-              <view v-if="filteredFriends.length == 0" class="card empty">
-                <text class="app-font muted">
-                  {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
+          <scroll-view
+            :key="'friends-' + friendKeyword + '-' + filteredFriends.length"
+            scroll-y
+            class="friend-scroll"
+            :bounces="false"
+          >
+            <view v-if="filteredFriends.length == 0" class="card empty">
+              <text class="app-font muted">
+                {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
+              </text>
+            </view>
+            <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
+              <image
+                v-if="s(friend, 'avatar').length > 0"
+                class="avatar"
+                :src="asset(s(friend, 'avatar'))"
+              />
+              <view v-else class="avatar">
+                <text class="app-font friend-initial">{{ name(friend).slice(0, 1) }}</text>
+              </view>
+              <view class="grow">
+                <text class="app-font label">{{ name(friend) }}</text>
+                <text class="app-font muted">@{{ s(friend, 'account') }}</text>
+                <text class="app-font permission-tag">
+                  {{ permission(s(friend, 'permissionMode')) }}
                 </text>
               </view>
-              <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
-                <image
-                  v-if="s(friend, 'avatar').length > 0"
-                  class="avatar"
-                  :src="asset(s(friend, 'avatar'))"
-                />
-                <view v-else class="avatar">
-                  <text class="app-font friend-initial">{{ name(friend).slice(0, 1) }}</text>
-                </view>
-                <view class="grow">
-                  <text class="app-font label">{{ name(friend) }}</text>
-                  <text class="app-font muted">@{{ s(friend, 'account') }}</text>
-                  <text class="app-font permission-tag">
-                    {{ permission(s(friend, 'permissionMode')) }}
-                  </text>
-                </view>
-                <button class="app-font secondary manage" @click="manage(friend)">
-                  {{ t('管理') }}
-                </button>
-              </view>
+              <button class="app-font secondary manage" @click="manage(friend)">
+                {{ t('管理') }}
+              </button>
             </view>
           </scroll-view>
         </view>
@@ -1051,12 +1054,8 @@ function openSettings() {
 }
 .friend-scroll {
   height: 0;
-  border-radius: 20px;
-  overflow: hidden;
   flex: 1;
   min-height: 0;
-  border-top-left-radius: 22px;
-  border-top-right-radius: 22px;
 }
 .friend-card {
   flex: 1;
@@ -1066,11 +1065,8 @@ function openSettings() {
   border-radius: 22px;
   padding: 10px 0;
 }
-.friend-list {
-  flex-shrink: 0;
-  padding: 0 14px;
-}
 .friend-row {
+  margin: 0 14px;
   flex-shrink: 0;
   flex-direction: row;
   align-items: center;
