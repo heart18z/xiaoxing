@@ -35,7 +35,11 @@ export function nativeMarkdown(value: string): string {
     output += formatted + '<br/>';
   }
   if (code) output += '</pre>';
-  return '<div style="font-size:16px;line-height:1.65;word-break:break-word;">' + output + '</div>';
+  return (
+    '<div style="font-family:-apple-system,PingFang SC,sans-serif;font-size:15px;line-height:25px;color:#263451;word-break:break-word;">' +
+    output +
+    '</div>'
+  );
 }
 
 export function markdown(value: string): string {

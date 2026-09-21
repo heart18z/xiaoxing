@@ -42,7 +42,12 @@ watch(
   align-items: center;
   justify-content: center;
   background-color: #f3f8ff;
+  /* #ifdef WEB */
   background-image: linear-gradient(135deg, #e4f5ff, #f8fbff, #eaeaff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #e4f5ff, #eaeaff);
+  /* #endif */
   transition-property: opacity;
   transition-duration: 240ms;
 }

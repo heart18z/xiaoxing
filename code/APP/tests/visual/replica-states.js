@@ -1,17 +1,17 @@
 async page => {
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const safe='.frame>uni-view:nth-child(2){height:62px!important;flex-shrink:0}.dock{height:102px!important;padding-bottom:34px!important}.brand{margin-top:62px!important}.drawer>uni-view:first-child{height:62px!important;flex-shrink:0}';
- const shot=async name=>{await page.screenshot({path:'output/playwright/replica-'+name+'.png'});};
- const go=async(name)=>{await page.goto('http://localhost:5174/#/pages/'+name+'/index'+(name==='event-detail'?'?id=201':''));await page.locator('.frame').waitFor();await page.waitForTimeout(400);await page.addStyleTag({content:safe});};
+ const shot=async name=>{await page.locator('#xiaoxing-startup').waitFor({state:'hidden'});await page.waitForTimeout(250);await page.screenshot({path:'output/playwright/replica-'+name+'.png'});};
+ const go=async(name)=>{await page.goto('http://localhost:5174/#/pages/'+name+'/index'+(name==='event-detail'?'?id=201':''));await page.reload();await page.locator('.frame').waitFor();await page.waitForTimeout(400);await page.addStyleTag({content:safe});};
  await go('me');await shot('me');
  await page.getByText('编辑资料',{exact:true}).click();await shot('edit-profile');
- await page.locator('.mask .close').click();
+ await page.waitForTimeout(250);await page.locator('.mask .close').click();await page.waitForTimeout(250);
  await page.getByText('管理',{exact:true}).first().click();await shot('friend');
  await page.getByText('权限设定',{exact:true}).click();await shot('permission');
- await page.locator('.mask .close').click();
+ await page.waitForTimeout(250);await page.locator('.mask .close').click();await page.waitForTimeout(250);
  await go('event-detail');await shot('event-detail');
  await page.getByText('查看对话',{exact:true}).first().click();await page.getByText('现在10点了，该审核第一版标书了。',{exact:true}).waitFor();await shot('conversation');
- await page.locator('.mask .close').click();
+ await page.waitForTimeout(250);await page.locator('.mask .close').click();await page.waitForTimeout(250);
  await page.locator('.timeline').first().evaluate(el=>{const scroll=el.closest('.uni-scroll-view');scroll.scrollTop+=el.getBoundingClientRect().top-scroll.getBoundingClientRect().top-120;});await shot('timeline');
  await go('settings');await shot('settings');
  await page.locator('.select-field').first().click();await shot('language');

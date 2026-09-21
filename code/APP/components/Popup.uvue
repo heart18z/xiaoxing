@@ -30,9 +30,9 @@
     >
       <view class="popup-head">
         <text class="title">{{ title }}</text>
-        <button class="close" aria-label="关闭弹窗" :disabled="busy" @click.stop="close()">
+        <view class="close" role="button" aria-label="关闭弹窗" @click.stop="close()">
           <UiIcon name="close" tone="muted" :size="20" />
-        </button>
+        </view>
       </view>
       <scroll-view scroll-y class="popup-scroll">
         <view class="popup-body"><slot /></view>
@@ -183,7 +183,12 @@ function noop() {}
 }
 .personal-qr-panel {
   background-color: #eef3ff;
+  /* #ifdef WEB */
   background-image: linear-gradient(145deg, #eaf6ff, #f3efff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #eaf6ff, #f3efff);
+  /* #endif */
   border: 1px solid #ffffff;
   border-radius: 26px;
 }

@@ -8,10 +8,21 @@ button::after,uni-button::after{border:0;}
 .card{padding:17px;background-color:rgba(255,255,255,0.95);border-radius:21px;margin-bottom:14px;box-shadow:0 8px 24px #607aa910;}
 .input{height:45px;border:1px solid #dedfe7;border-radius:13px;padding:0 13px;background-color:#ffffff;font-size:16px;color:#263451;margin-bottom:14px;}
 .label{font-size:14px;font-weight:600;color:#455064;margin-bottom:12px;}
-.primary{background-color:#4a60ff;background-image:linear-gradient(120deg,#315bff,#647bff);color:#ffffff;border-radius:13px;font-size:16px;font-weight:600;margin:8px 0;padding:0 14px;min-height:44px;line-height:44px;}
+.primary{background-color:#4a60ff;/* #ifdef WEB */
+background-image:linear-gradient(120deg,#315bff,#647bff);
+/* #endif */
+/* #ifndef WEB */
+background-image: linear-gradient(to right, #315bff, #647bff);
+/* #endif */color:#ffffff;border-radius:13px;font-size:16px;font-weight:600;margin:8px 0;padding:0 14px;min-height:44px;line-height:44px;}
 .secondary{background-color:#edf1ff;color:#4264dc;border-radius:12px;font-size:13px;font-weight:600;margin:0;padding:0 12px;line-height:38px;}
 .danger{background-color:#fff1f2;color:#f0525b;border-radius:16px;font-size:16px;margin:8px 0;line-height:44px;}
 .error{color:#be515e;font-size:13px;line-height:21px;margin-bottom:12px;}.empty{padding:40px 18px;align-items:center;justify-content:center;}.spacer{height:14px;}
 .chip{font-size:12px;background-color:#eef0ff;color:#4262ed;padding:5px 9px;border-radius:14px;align-self:flex-start;}
 .segment{flex-direction:row;padding:3px;background-color:#e8edf6b3;border-radius:15px;margin-bottom:14px;}.segment-item{flex:1;text-align:center;font-size:15px;font-weight:600;padding:10px 2px;color:#7a8499;border-radius:13px;}.selected{background-color:#ffffff;color:#315bff;font-weight:700;}
 .avatar{width:44px;height:44px;border-radius:14px;background-color:#efedff;margin-right:12px;align-items:center;justify-content:center;}.section{font-size:16px;font-weight:700;color:#202a3d;margin:14px 2px;}.scroll{flex:1;min-height:0;}.padded{padding:16px 16px 24px;}
+
+.primary{height:44px;flex-shrink:0;border-width:0;text-align:center;}
+.secondary{height:38px;flex-shrink:0;border-width:0;text-align:center;}
+.danger{height:44px;flex-shrink:0;border-width:0;text-align:center;}
+.scroll{height:0;}
+.padded{flex-shrink:0;}

@@ -871,6 +871,7 @@ function openSettings() {
 }
 
 .profile {
+  flex-shrink: 0;
   padding-top: 16px;
   padding-bottom: 16px;
   padding: 18px 15px;
@@ -926,6 +927,7 @@ function openSettings() {
   box-shadow: 0 0 0 2px #e5e9f8;
 }
 .me-page {
+  overflow: hidden;
   flex: 1;
   min-height: 0;
   padding: 10px 16px 12px;
@@ -958,6 +960,7 @@ function openSettings() {
   background-color: #f5f8ff;
 }
 .assistant-card {
+  flex-shrink: 0;
   padding: 13px 15px;
   background-color: #ffffffcc;
   margin-bottom: 12px;
@@ -971,6 +974,7 @@ function openSettings() {
   line-height: 21px;
 }
 .segment {
+  flex-shrink: 0;
   margin-bottom: 13px;
 }
 .friends-area {
@@ -978,6 +982,7 @@ function openSettings() {
   min-height: 0;
 }
 .friend-search {
+  flex-shrink: 0;
   margin-bottom: 10px;
 }
 .search-field {
@@ -998,17 +1003,22 @@ function openSettings() {
   font-size: 13px;
 }
 .friend-scroll {
+  height: 0;
+  border-radius: 20px;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
 }
 .friend-list {
+  flex-shrink: 0;
   background-color: #ffffffeb;
   padding: 0 14px;
   border-radius: 22px;
 }
 .friend-row {
+  flex-shrink: 0;
   flex-direction: row;
   align-items: center;
   min-height: 73px;
@@ -1189,6 +1199,7 @@ function openSettings() {
   background-color: #f0eaff;
 }
 .request-section-scroll {
+  height: 0;
   flex: 1;
   min-height: 0;
 }

@@ -1,5 +1,11 @@
 <template>
-  <AppFrame :title="t('AI小醒')" :subtitle="t('智能提醒助手')" tab="chat" theme="chat">
+  <AppFrame
+    :title="t('AI小醒')"
+    :subtitle="t('智能提醒助手')"
+    tab="chat"
+    theme="chat"
+    :keyboard-height="keyboard"
+  >
     <template #left>
       <view class="toolbar" @click="drawer = true">
         <UiIcon name="menu" tone="ink" :size="20" />
@@ -95,7 +101,11 @@
       <view class="composer-box">
         <view class="input-row">
           <image class="orb" src="/static/icons/input-orb.png" mode="aspectFit" />
+          <text v-if="recording || transcribing" class="voice-draft">
+            {{ draft.length > 0 ? draft : t('说说你想提醒的事…') }}
+          </text>
           <textarea
+            v-else
             id="chat-compose-input"
             class="compose-input"
             :confirm-type="inputConfirmType"
@@ -112,6 +122,14 @@
             "
           />
         </view>
+        <VoiceInputStatus
+          v-if="recording || transcribing"
+          :recording="recording"
+          :level="voiceLevel"
+          :live="liveSpeech"
+          @confirm="finishRecording()"
+          @cancel="cancelRecording()"
+        />
         <view class="between">
           <view class="row">
             <view class="compose-action" @click="chooseAttachment()">
@@ -121,47 +139,24 @@
               <UiIcon name="microphone" tone="purple" :size="24" />
             </view>
           </view>
-          <button
+          <view
+            role="button"
+            aria-label="停止生成"
             v-if="chat.busy"
             class="send send-busy"
-            :disabled="stopping"
-            @click="stopGeneration()"
+            @click="!stopping && stopGeneration()"
           >
             <view class="stop-symbol" />
-          </button>
-          <button
-            v-else
-            class="send"
-            :disabled="
-              transcribing ||
-              recording ||
-              files.some((file: Attachment): boolean => file.state != 'ready')
-            "
-            @click="send()"
-          >
+          </view>
+          <view role="button" aria-label="发送" v-else class="send" @click="send()">
             <UiIcon name="arrowUp" tone="purple" :size="24" />
-          </button>
+          </view>
         </view>
       </view>
     </view>
-    <view :style="{ height: keyboard + 'px' }" />
   </AppFrame>
   <ReminderDrawer :open="drawer" @close="drawer = false" />
-  <Popup
-    :open="recording || transcribing"
-    :title="t('语音输入')"
-    :busy="false"
-    @close="cancelRecording"
-  >
-    <text class="body-text">
-      {{ transcribing ? t('正在转写，请稍候…') : t('正在录音，说完后点击“完成”') }}
-    </text>
-    <text class="muted">{{ t('取消会丢弃此次录音，原有草稿保留。') }}</text>
-    <view class="between">
-      <button class="secondary" @click="cancelRecording()">{{ t('取消') }}</button>
-      <button v-if="recording" class="primary" @click="finishRecording()">{{ t('完成') }}</button>
-    </view>
-  </Popup>
+
   <Popup :open="clearOpen" :title="t('清除当前上下文')" :busy="clearing" @close="clearOpen = false">
     <text class="clear-copy">
       {{ t('清除后，对话页将不再显示之前的消息，AI 也不再沿用此前的聊天上下文和未确认操作。') }}
@@ -183,6 +178,7 @@
 </template>
 <script setup lang="uts">
 import UiIcon from '@/components/UiIcon.uvue';
+import VoiceInputStatus from '@/components/VoiceInputStatus.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { onMounted, onUnmounted, ref, reactive, watch, nextTick, computed } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
@@ -322,6 +318,11 @@ recorder.onError(() => {
   transcribing.value = false;
   toast('录音失败，请检查麦克风权限');
 });
+// #endif
+const voiceLevel = ref(0);
+let liveSpeech = false;
+// #ifdef APP-IOS
+liveSpeech = true;
 // #endif
 let keyboardId: number = -1;
 let scrollLockedUntil: number = 0,
@@ -666,6 +667,7 @@ async function pollSpeech(run: number): Promise<void> {
   try {
     const data = await callNative('speech.poll', { session: speechId });
     if (run != recordGeneration || recordOwner != session.userId) return;
+    voiceLevel.value = (data['level'] as number) ?? 0;
     const text = s(data, 'text');
     if (text.length > 0)
       draft.value = recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text;
@@ -709,6 +711,8 @@ async function beginSpeech(): Promise<void> {
 }
 // #endif
 function startRecording() {
+  uni.hideKeyboard();
+  voiceLevel.value = 0;
   // #ifdef APP-IOS
   void beginSpeech();
   // #endif
@@ -753,6 +757,9 @@ function startRecording() {
         toast(error);
       }
     },
+    (level: number) => {
+      if (run == recordGeneration) voiceLevel.value = level;
+    },
   ).catch((e) => {
     if (run == recordGeneration) {
       recording.value = false;
@@ -779,6 +786,9 @@ function finishRecording() {
   // #endif
 }
 function cancelRecording() {
+  const restoreDraft = (recording.value || transcribing.value) && recordOwner == session.userId;
+  if (restoreDraft) draft.value = recordDraft;
+  voiceLevel.value = 0;
   // #ifdef APP-IOS
   clearTimeout(speechTimer);
   if (speechId.length > 0)
@@ -797,6 +807,7 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
+  keyboard.value = 0;
   active = false;
   setChatVisible(false);
   clearTimeout(timer);
@@ -966,6 +977,7 @@ watch((): string => chat.reply, scrollLatest);
   bottom: 118px;
 }
 .composer {
+  flex-shrink: 0;
   background-color: #ffffff;
   padding: 14px 15px 9px;
   border-top-left-radius: 23px;
@@ -1103,4 +1115,10 @@ watch((): string => chat.reply, scrollLatest);
   mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
 /* #endif */
+.voice-draft {
+  flex: 1;
+  font-size: 14px;
+  line-height: 23px;
+  color: #344967;
+}
 </style>

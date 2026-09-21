@@ -7,6 +7,11 @@ async page => {
   });
   await page.evaluate(()=>{
     window.voiceStopped=0;
+    window.AudioContext=class {
+      createMediaStreamSource(){return {connect(){}};}
+      createAnalyser(){return {fftSize:256,getFloatTimeDomainData(samples){samples.fill(0.15);}};}
+      close(){return Promise.resolve();}
+    };
     Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>({getTracks:()=>[{stop:()=>window.voiceStopped++}]})});
     window.MediaRecorder=class {
       static isTypeSupported(){return true;}
@@ -17,17 +22,19 @@ async page => {
   });
   await page.locator('.compose-input textarea').fill('原有草稿');
   await page.locator('.compose-action').nth(1).click();
-  await page.getByText('正在录音，说完后点击“完成”',{exact:true}).waitFor();
+  await page.locator('.voice-inline').waitFor();
   await page.waitForTimeout(600);
-  await page.getByText('完成',{exact:true}).click();
-  await page.getByText('正在转写，请稍候…',{exact:true}).waitFor();
+  if(!await page.locator('.voice-bar').evaluateAll(bars=>bars.some(bar=>bar.getBoundingClientRect().height>4)))throw Error('Microphone energy did not reach waveform');
+  await page.screenshot({path:'output/playwright/ios-inline-voice.png'});
+  await page.locator('.voice-inline').getByText('确认',{exact:true}).click();
+  await page.locator('.voice-caption').filter({hasText:'正在整理识别结果'}).waitFor();
   if(!await page.evaluate(()=>window.voiceStopped>0))throw Error('Microphone not released before upload');
   await page.getByText('取消',{exact:true}).click();finishUpload();
   await page.waitForTimeout(500);
   if(await page.locator('.compose-input textarea').inputValue()!=='原有草稿')throw Error('Cancelled transcription overwrote draft');
-  await page.locator('.compose-action').nth(1).click();await page.waitForTimeout(600);await page.getByText('完成',{exact:true}).click();
-  await page.getByText('正在转写，请稍候…',{exact:true}).waitFor();finishUpload();
-  await page.waitForFunction(()=>document.querySelector('.compose-input textarea').value.includes('识别的语音'));
+  await page.locator('.compose-action').nth(1).click();await page.waitForTimeout(600);await page.locator('.voice-inline').getByText('确认',{exact:true}).click();
+  await page.locator('.voice-caption').filter({hasText:'正在整理识别结果'}).waitFor();finishUpload();
+  await page.waitForFunction(()=>document.querySelector('.compose-input textarea')?.value.includes('识别的语音'));
   if(await page.locator('.compose-input textarea').inputValue()!=='原有草稿\n识别的语音')throw Error('Speech lost existing draft');
   if(await page.locator('.send-busy').count())throw Error('Speech sent automatically');
   if(errors.length)throw Error(errors.join(';'));

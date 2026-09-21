@@ -71,7 +71,12 @@ onUnmounted(() => {
   top: 0;
   bottom: 0;
   width: 150px;
+  /* #ifdef WEB */
   background-image: linear-gradient(100deg, #ffffff00, #ffffff99, #ffffff00);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to right, #ffffff00, #ffffff00);
+  /* #endif */
   transition-property: transform;
   transition-duration: 50ms;
   transition-timing-function: linear;

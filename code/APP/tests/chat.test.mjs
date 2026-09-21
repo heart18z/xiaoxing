@@ -9,7 +9,7 @@ async function fixture(handler,stream=[],history=null){
   const env={session,persist:(k,v)=>storage.set(k,v),requestId:()=>`request-id-${'a'.repeat(24)}`,secureRead:k=>storage.get(k)||'{}',headers:()=>({}),BASE_URL:'https://fixture.invalid',reactive:v=>v,ApiError,
     reminder:async(action,data,params)=>{calls.push([action,data,params]);if(action==='chat/messages'||action==='chat/read')return {value:history?await history(action,data):action==='chat/messages'?[]:true};return {value:await handler(action,data,session)}}};
   const streams=[...stream];let aborted=0;
-  globalThis.uni={request:options=>{let stopped=false;return{abort(){if(stopped)return;stopped=true;aborted++;options.fail?.();options.complete?.()},onChunkReceived(callback){queueMicrotask(()=>{for(const frame of streams.shift()||[]){if(stopped)break;const bytes=Buffer.from(`data: ${JSON.stringify(frame)}\n\n`);for(const byte of bytes){if(stopped)break;callback({data:Uint8Array.of(byte).buffer})}}if(!stopped){options.success?.({statusCode:200});options.complete?.()}})}}}};
+  globalThis.uni={request:options=>{let stopped=false;return{abort(){if(stopped)return;stopped=true;aborted++;options.fail?.();options.complete?.()},onChunkReceived(callback){queueMicrotask(()=>{const batch=streams.shift();if(batch===null)return;for(const frame of batch||[]){if(stopped)break;const bytes=Buffer.from(`data: ${JSON.stringify(frame)}\n\n`);for(const byte of bytes){if(stopped)break;callback({data:Uint8Array.of(byte).buffer})}}if(!stopped){options.success?.({statusCode:200});options.complete?.()}})}}}};
   globalThis.__chatFixture=env;JSON.parseObject=JSON.parse;
   const imports=['vue','@/store/session.uts','@/uni_modules/xiaoxing-native','@/api/request.uts','@/config/environment.uts'];
   const bundle=await dependency('esbuild').build({entryPoints:[root+'services/chat.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__chatFixture;',loader:'js'}))}}]});
@@ -84,4 +84,18 @@ test('committed candidate appears even if history reload fails',async()=>{
  await f.module.submit('提醒我明天交标书',[]);
  const card=f.module.chat.messages.find(x=>x.messageType==='CANDIDATE');
  assert.equal(card.payload.candidateId,'321');assert.equal(card.payload.events[0].summary,'明天交标书');assert.equal(f.module.chat.busy,false);
+});
+
+
+test('buffered stream falls back to status polling without resubmitting the job',async()=>{
+ let status=0;
+ const f=await fixture(action=>{
+  if(action==='chat/jobs/status')return ++status===1?{status:'NOT_FOUND'}:{status:'SUCCEEDED',result:{reply:'完成',reasoningContent:'逐步确认完成'}};
+  return {status:'RUNNING',streamSupported:true};
+ },[null],()=>{throw new Error("history unavailable")});
+ await f.module.submit('明天提醒我',[]);
+ assert.equal(f.calls.filter(c=>c[0]==='chat/jobs/submit').length,1);
+ assert.equal(f.aborted(),1);
+ assert.equal(f.module.chat.messages.at(-1).reasoningContent,'逐步确认完成');
+ assert.equal(f.module.chat.busy,false);
 });

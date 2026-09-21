@@ -1,7 +1,7 @@
 <template>
-  <view class="frame">
+  <view class="frame" :style="{ paddingBottom: keyboardInset + 'px' }">
     <image class="background" :src="background" mode="scaleToFill" />
-    <view :style="{ height: top + 'px' }" />
+    <view style="flex-shrink: 0" :style="{ height: top + 'px' }" />
     <view
       v-if="theme != 'profile'"
       :class="[
@@ -32,7 +32,7 @@
       <slot />
     </view>
     <view
-      v-if="tab.length > 0"
+      v-if="tab.length > 0 && keyboardHeight == 0"
       class="dock"
       :style="{ paddingBottom: bottom + 'px', height: 68 + bottom + 'px' }"
     >
@@ -109,6 +109,7 @@ function back(): void {
   _back();
 }
 const props = defineProps({
+  keyboardHeight: { type: Number, default: 0 },
   loading: { type: Boolean, default: false },
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
@@ -119,6 +120,11 @@ const props = defineProps({
 const info = uni.getWindowInfo(),
   top = info.statusBarHeight,
   bottom = info.safeAreaInsets.bottom;
+// Avoid applying the same keyboard displacement twice when the OS resizes the window.
+const keyboardInset = computed((): number => {
+  const resized = Math.max(0, info.windowHeight - uni.getWindowInfo().windowHeight);
+  return Math.max(0, props.keyboardHeight - resized);
+});
 const background = computed(
   () =>
     '/static/images/' +
@@ -218,6 +224,7 @@ function go(tab: string) {
   font-size: 14px;
 }
 .content {
+  overflow: hidden;
   flex: 1;
   min-height: 0;
 }
@@ -242,7 +249,12 @@ function go(tab: string) {
   border-radius: 24px;
 }
 .tab-selected {
+  /* #ifdef WEB */
   background-image: linear-gradient(145deg, #eaf7ff, #f6f2ff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #eaf7ff, #f6f2ff);
+  /* #endif */
 }
 .tab-marker {
   position: absolute;
@@ -250,7 +262,12 @@ function go(tab: string) {
   width: 18px;
   height: 3px;
   border-radius: 3px;
+  /* #ifdef WEB */
   background-image: linear-gradient(90deg, #71c5f7, #8882f5);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to right, #71c5f7, #8882f5);
+  /* #endif */
 }
 .tab-label {
   font-size: 12px;

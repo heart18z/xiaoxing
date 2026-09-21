@@ -14,7 +14,7 @@
         transform: open ? 'translateY(0px) scale(1)' : 'translateY(-8px) scale(0.98)',
       }"
     >
-      <scroll-view scroll-y :style="{ maxHeight: Math.min(options.length * 44 + 12, 260) + 'px' }">
+      <scroll-view scroll-y :style="{ height: Math.min(options.length * 44 + 12, 260) + 'px' }">
         <view
           v-for="(option, index) in options"
           :key="index"
@@ -141,6 +141,14 @@ function choose(index: number) {
   .select-arrow {
     transition-duration: 0ms;
   }
+}
+/* #endif */
+/* #ifndef WEB */
+.options {
+  position: relative;
+  top: 0;
+  margin-top: 10px;
+  flex-shrink: 0;
 }
 /* #endif */
 </style>

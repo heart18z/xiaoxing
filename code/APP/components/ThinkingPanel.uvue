@@ -14,7 +14,7 @@
       </view>
     </view>
     <scroll-view v-if="open" scroll-y class="thinking-content" :scroll-into-view="anchor">
-      <text class="thinking-text" selectable>{{ content }}</text>
+      <text class="thinking-text" selectable>{{ displayed }}</text>
       <view id="reasoning-end" style="height: 1px" />
     </scroll-view>
   </view>
@@ -26,6 +26,30 @@ import { t as _t } from '@/core/locale.uts';
 const props = defineProps<{ content: string; open: boolean; streaming: boolean }>();
 const emit = defineEmits(['toggle']);
 const anchor = ref('');
+const displayed = ref('');
+let revealTimer: number = 0;
+function revealContent() {
+  clearInterval(revealTimer);
+  if (!props.streaming || !props.content.startsWith(displayed.value)) {
+    displayed.value = props.content;
+    return;
+  }
+  // Reveal only text already received from the server; snapshots can arrive in bursts.
+  revealTimer = setInterval(() => {
+    const remaining = props.content.length - displayed.value.length;
+    if (remaining <= 0) {
+      clearInterval(revealTimer);
+      return;
+    }
+    displayed.value = props.content.slice(
+      0,
+      displayed.value.length + Math.max(2, Math.ceil(remaining / 12)),
+    );
+  }, 32);
+}
+watch((): string => props.content, revealContent, { immediate: true });
+watch((): boolean => props.streaming, revealContent);
+onUnmounted(() => clearInterval(revealTimer));
 const pulse = ref(false);
 let pulseTimer: number = 0;
 function stopPulse() {
@@ -49,7 +73,7 @@ function t(value: string): string {
   return _t(value);
 }
 watch(
-  (): string => props.content,
+  (): string => displayed.value,
   () => {
     if (!props.open || !props.streaming) return;
     anchor.value = '';

@@ -241,7 +241,12 @@ watch(
   max-width: 560px;
   height: 100%;
   padding: 28px 12px 24px;
+  /* #ifdef WEB */
   background-image: linear-gradient(125deg, #f8fbff, #eef4ff, #f8fbff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #f8fbff, #f8fbff);
+  /* #endif */
   border-top-right-radius: 26px;
   border-bottom-right-radius: 26px;
 }
@@ -332,7 +337,12 @@ watch(
 }
 .drawer-tab-selected {
   color: #ffffff;
+  /* #ifdef WEB */
   background-image: linear-gradient(125deg, #54c2f7, #6584ff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #54c2f7, #6584ff);
+  /* #endif */
 }
 .reminder-group {
   padding: 14px 6px 7px;

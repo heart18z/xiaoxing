@@ -72,7 +72,15 @@ let recorder: MediaRecorder | null = null,
   stream: MediaStream | null = null,
   timer = 0,
   generation = 0;
+let meterContext: AudioContext | null = null;
+let meterTimer = 0;
+function stopMeter(): void {
+  clearInterval(meterTimer);
+  if (meterContext != null) void meterContext.close().catch(() => {});
+  meterContext = null;
+}
 export function cancelBrowserRecording(): void {
+  stopMeter();
   generation++;
   clearTimeout(timer);
   if (recorder != null && recorder.state != 'inactive') recorder.stop();
@@ -81,6 +89,7 @@ export function cancelBrowserRecording(): void {
   stream = null;
 }
 export function finishBrowserRecording(): void {
+  stopMeter();
   if (recorder != null && recorder.state != 'inactive') recorder.stop();
   stream?.getTracks().forEach((track) => track.stop());
   stream = null;
@@ -89,6 +98,7 @@ export function finishBrowserRecording(): void {
 export async function startBrowserRecording(
   done: (file: File) => void,
   failed: (message: string) => void,
+  level: (value: number) => void = (_: number) => {},
 ): Promise<void> {
   cancelBrowserRecording();
   const run = generation;
@@ -122,6 +132,7 @@ export async function startBrowserRecording(
       }
     };
     rec.onstop = () => {
+      stopMeter();
       media.getTracks().forEach((track) => track.stop());
       clearTimeout(timer);
       if (run != generation) return;
@@ -144,6 +155,28 @@ export async function startBrowserRecording(
       done(new File([blob], 'recording.' + ext, { type: rec.mimeType }));
     };
     rec.start();
+    try {
+      const context = new AudioContext();
+      meterContext = context;
+      const source = context.createMediaStreamSource(media),
+        analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const samples = new Float32Array(analyser.fftSize);
+      meterTimer = setInterval(() => {
+        if (run != generation) return;
+        analyser.getFloatTimeDomainData(samples);
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+        const rms = Math.sqrt(sum / samples.length);
+        level(
+          Math.max(0, Math.min(100, ((20 * Math.log10(Math.max(rms, 0.00001)) + 60) / 60) * 100)),
+        );
+      }, 100);
+    } catch (_) {
+      stopMeter();
+    }
+
     timer = setTimeout(finishBrowserRecording, 90000);
   } catch (e) {
     cancelBrowserRecording();

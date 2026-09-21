@@ -671,7 +671,12 @@ function closeConversation() {
 }
 .dialog-user-bubble {
   margin: 0 8px 0 0;
+  /* #ifdef WEB */
   background-image: linear-gradient(120deg, #315bff, #6578ff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to right, #315bff, #6578ff);
+  /* #endif */
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
 }

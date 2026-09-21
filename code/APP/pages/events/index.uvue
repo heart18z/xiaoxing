@@ -347,7 +347,12 @@ onUnload(stop);
   width: 38px;
   height: 3px;
   border-radius: 3px;
+  /* #ifdef WEB */
   background-image: linear-gradient(90deg, #79a0ff, #3548ee);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to right, #79a0ff, #3548ee);
+  /* #endif */
 }
 .search-box {
   height: 44px;
@@ -431,7 +436,12 @@ onUnload(stop);
   align-items: center;
   padding: 11px 10px;
   margin: 13px 0 11px;
+  /* #ifdef WEB */
   background-image: linear-gradient(100deg, #f1f3ff, #f7f7fc);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to right, #f1f3ff, #f7f7fc);
+  /* #endif */
   border-radius: 12px;
 }
 .progress-label {

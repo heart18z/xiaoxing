@@ -158,9 +158,11 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     const decoder = new Utf8Stream(),
       frames = new SseFrames();
     let settled = false;
+    let idleTimer: number = 0;
     const finish = (value: UTSJSONObject) => {
       if (settled) return;
       settled = true;
+      clearTimeout(idleTimer);
       resolve(value);
       const task = observeTask;
       observeTask = null;
@@ -169,9 +171,20 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(idleTimer);
       reject(error);
+      const task = observeTask;
+      observeTask = null;
+      task?.abort();
+    };
+    const armIdleTimeout = () => {
+      if (settled) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => fail(new Error('流式连接未返回增量，改用状态查询')), 4000);
     };
     const consume = (text: string) => {
+      if (settled || current != version) return;
+      armIdleTimeout();
       try {
         frames.push(text).forEach((frame: string) => {
           if (settled || current != version) return;
@@ -211,6 +224,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     });
     observeTask = task;
     task!.onChunkReceived((chunk) => consume(decoder.decode(chunk.data)));
+    armIdleTimeout();
   });
 }
 export async function submit(

@@ -24,3 +24,6 @@ npx --yes --package @playwright/cli playwright-cli -s=visual run-code --filename
 截图写到忽略提交的 `output/playwright/replica-*.png`。截图脚本在 Web 中补入 62px/34px 安全区作同尺寸对照；运行代码使用系统安全区，不包含模拟状态栏。
 
 - `contracts.js`：先加载 replica-fixture，核对后端 summary、头像 nickname、好友/申请头像、回车与换行；接口均拦截，不写真实用户数据。
+
+
+2026-09-21 iOS parity checks: `chat-voice.js` now checks the inline recording panel, microphone release, cancellation and late transcription results. `native-ui.test.mjs` prevents nested elements in native buttons. HBuilderX 5.24 bundles Vue 3.4.21; Web verification must use the matching compiler and `@vue/shared`, rather than accidentally resolving the project's newer test-only Vue dependencies.

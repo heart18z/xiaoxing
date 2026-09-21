@@ -1,0 +1,100 @@
+<template>
+  <view class="voice-inline">
+    <view v-if="recording" class="voice-wave">
+      <view
+        v-for="(height, index) in levels"
+        :key="index"
+        class="voice-bar"
+        :style="{ height: height + 'px' }"
+      />
+    </view>
+    <view class="voice-status">
+      <text class="voice-caption">
+        {{ recording ? (live ? '正在识别…' : '正在录音…') : '正在整理识别结果…' }} {{ clock }}
+      </text>
+      <button v-if="recording" class="voice-control" @click="emit('confirm')">确认</button>
+      <button class="voice-control" @click="emit('cancel')">取消</button>
+    </view>
+    <text class="voice-hint">
+      {{ live ? '文字实时填入草稿，确认后停止采音' : '说完点确认后转文字，不会自动发送' }}
+    </text>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, computed, watch, onUnmounted } from 'vue';
+const props = defineProps<{ recording: boolean; level: number; live: boolean }>();
+const emit = defineEmits(['confirm', 'cancel']);
+const elapsed = ref(0);
+const levels = ref<number[]>(new Array<number>(25).fill(3));
+const clock = computed(
+  (): string =>
+    Math.floor(elapsed.value / 60).toString() +
+    ':' +
+    (elapsed.value % 60).toString().padStart(2, '0'),
+);
+let timer: number = 0;
+watch(
+  (): boolean => props.recording,
+  (recording: boolean) => {
+    clearInterval(timer);
+    elapsed.value = 0;
+    const started = Date.now();
+    timer = setInterval(() => {
+      elapsed.value = Math.floor((Date.now() - started) / 1000);
+      if (!recording) return;
+      // iOS supplies microphone energy; silence stays quiet rather than faking speech.
+      levels.value = levels.value
+        .slice(1)
+        .concat([3 + Math.max(0, Math.min(100, props.level)) * 0.29]);
+    }, 100);
+  },
+  { immediate: true },
+);
+onUnmounted(() => clearInterval(timer));
+</script>
+<style scoped>
+.voice-inline {
+  padding: 2px 0 7px;
+}
+.voice-wave {
+  height: 34px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.voice-bar {
+  width: 2px;
+  margin: 0 1.5px;
+  border-radius: 2px;
+  background-color: #8f8dff;
+  transition-property: height;
+  transition-duration: 100ms;
+}
+.voice-status {
+  flex-direction: row;
+  align-items: center;
+}
+.voice-caption {
+  flex: 1;
+  font-size: 12px;
+  line-height: 20px;
+  color: #7381a0;
+}
+.voice-control {
+  height: 34px;
+  line-height: 34px;
+  margin: 0 0 0 6px;
+  padding: 0 9px;
+  border-width: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #6978dc;
+  background-color: #f0f2ff;
+}
+.voice-hint {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 17px;
+  color: #909aaf;
+}
+</style>

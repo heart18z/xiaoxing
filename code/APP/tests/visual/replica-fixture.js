@@ -10,7 +10,9 @@ async page => {
  const timeline=[['NOTIFICATION_READ','已阅读提醒','陈通','14:26:13'],['NEXT_EVALUATION_PLANNED','下次评估：2026-09-17 18:00:00；本次决策：ASK_RECIPIENT','AI','14:02:00'],['ASK_RECIPIENT','上午10点安排的第一版标书审核完成了吗？如已完成或不再需要提醒，请告诉我。','AI','14:02:00'],['NEXT_EVALUATION_PLANNED','下次评估：2026-09-17 14:00:00；本次决策：DEFER','AI','12:00:17'],['NOTIFICATION_READ','已阅读提醒','陈通','10:31:17'],['NEXT_EVALUATION_PLANNED','下次评估：2026-09-17 12:00:00；本次决策：ASK_RECIPIENT','AI','10:30:54'],['ASK_RECIPIENT','标书审核是否已经完成？','AI','10:30:54']].map((r,i)=>({id:String(i),branchId:'b1',nodeType:r[0],content:r[1],actorName:r[2],aiAction:r[2]==='AI',createTime:'2026-09-17 '+r[3]}));
  const models=['GLM-5.3-Flash','qwen3.8-flash','deepseek-v4.1-flash','glm-5.2'].map((modelAlias,i)=>({id:String(i+1),modelAlias,configType:'LLM',systemDefault:i===0}));
  const writes=[];
+ await page.unroute('**/api/**');
  await page.route('**/api/**',async route=>{
+  if(route.request().url().includes('/@fs/') || route.request().url().split('?')[0].endsWith('.uts'))return route.continue();
   const path=route.request().url().split('?')[0];let data={};
   if(path.endsWith('/login-page-param'))data={chekcode:'false'};
   if(path.endsWith('/bootstrap'))data={user,aiAvatar:'/avatars/assistant/A3.png',activeEventCount:3,sentActiveEventCount:2,receivedActiveEventCount:1,pendingFriendRequests:0,language:'zh-cn'};
