@@ -1,38 +1,37 @@
 <template>
-  <view class="alarm" :class="active ? 'alarm-active' : ''">
-    <view class="alarm-header">
-      <UiIcon name="clock" :size="17" tone="blue" />
-      <text class="app-font alarm-title">{{ t('本机闹铃') }}</text>
-      <text class="app-font alarm-state" :class="active ? 'alarm-state-active' : ''">
-        {{ !ready ? t('读取中…') : active ? t('已开启') : t('未开启') }}
-      </text>
-    </view>
-    <view class="alarm-main">
+  <view class="alarm">
+    <view class="alarm-row">
+      <UiIcon name="clock" :size="18" tone="muted" />
       <view class="alarm-copy">
+        <view class="alarm-heading">
+          <text class="app-font alarm-title">{{ t('本机闹铃') }}</text>
+          <text class="app-font alarm-help" @click="helpOpen = true">{{ t('说明') }}</text>
+        </view>
         <text class="app-font alarm-time">
           {{
-            active
-              ? scheduledTime.length > 0
-                ? scheduledTime
-                : t('时间读取中')
-              : t('按我的任务时间响铃')
+            !ready
+              ? t('读取中…')
+              : busy
+                ? t('处理中…')
+                : active
+                  ? scheduledTime.length > 0
+                    ? scheduledTime + ' ' + t('响铃 · 北京时间')
+                    : t('已开启 · 时间读取中')
+                  : t('未开启 · 按我的任务时间响铃')
           }}
         </text>
-        <text class="app-font alarm-caption">
-          {{ active ? t('响铃时间 · 北京时间') : t('仅在这台设备生效') }}
-        </text>
       </view>
-      <button
-        class="app-font alarm-button"
-        :class="active ? 'alarm-cancel' : ''"
-        :loading="busy"
-        :disabled="busy || !ready"
-        @click="toggle()"
-      >
-        {{ busy ? t('处理中') : active ? t('关闭') : t('开启闹铃') }}
-      </button>
+      <view class="alarm-switch-wrap">
+        <switch
+          :key="switchRevision"
+          :checked="active"
+          :disabled="busy || !ready"
+          color="#5865ef"
+          style="transform: scale(0.75)"
+          @change="toggle()"
+        />
+      </view>
     </view>
-    <text class="app-font alarm-help" @click="helpOpen = true">{{ t('闹铃说明') }} ›</text>
     <text v-if="error.length > 0" class="app-font alarm-error">{{ error }}</text>
   </view>
   <Popup :open="helpOpen" :title="t('闹铃说明')" @close="helpOpen = false">
@@ -62,6 +61,7 @@ function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
 const props = defineProps<{ detail: UTSJSONObject }>();
 const helpOpen = ref(false);
 const ready = ref(false);
+const switchRevision = ref(0);
 const supported = ref(false),
   items = ref<UTSJSONObject[]>([]),
   busy = ref(false),
@@ -84,6 +84,7 @@ async function toggle() {
   if (busy.value || !ready.value) return;
   if (!supported.value) {
     helpOpen.value = true;
+    switchRevision.value++;
     return;
   }
   busy.value = true;
@@ -97,6 +98,7 @@ async function toggle() {
     error.value = message(e);
   } finally {
     busy.value = false;
+    switchRevision.value++;
   }
 }
 onMounted(() => {
@@ -112,90 +114,55 @@ onMounted(() => {
 
 <style scoped>
 .alarm {
-  margin-top: 14px;
-  padding: 12px;
-  background-color: #f4f6ff;
-  border: 1px solid #e8ecfa;
-  border-radius: 14px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  background-color: #f3f4f6;
+  border-radius: 11px;
 }
-.alarm-active {
-  background-color: #f0f8f6;
-  border-color: #dceee8;
-}
-.alarm-header {
+.alarm-row {
   flex-direction: row;
   align-items: center;
-}
-.alarm-title {
-  flex: 1;
-  margin-left: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #455371;
-}
-.alarm-state {
-  font-size: 10px;
-  line-height: 18px;
-  padding: 0 6px;
-  border-radius: 6px;
-  color: #8590a5;
-  background-color: #e9edf6;
-}
-.alarm-state-active {
-  color: #248774;
-  background-color: #ddf1e9;
-}
-.alarm-main {
-  flex-direction: row;
-  align-items: center;
-  margin-top: 10px;
 }
 .alarm-copy {
   flex: 1;
   min-width: 0;
+  margin-left: 8px;
 }
-.alarm-time {
-  font-size: 14px;
-  line-height: 21px;
-  font-weight: 600;
-  color: #263b56;
+.alarm-heading {
+  flex-direction: row;
+  align-items: center;
 }
-.alarm-caption {
-  margin-top: 3px;
-  font-size: 10px;
-  line-height: 16px;
-  color: #8994a7;
-}
-.alarm-button {
-  flex-shrink: 0;
-  height: 32px;
-  min-height: 32px;
-  line-height: 32px;
-  margin: 0 0 0 8px;
-  padding: 0 10px;
+.alarm-title {
   font-size: 12px;
+  line-height: 18px;
   font-weight: 600;
-  border-width: 0;
-  border-radius: 9px;
-  color: #ffffff;
-  background-color: #4a60ff;
-}
-.alarm-cancel {
-  color: #65718a;
-  background-color: #e6eeed;
+  color: #485163;
 }
 .alarm-help {
-  align-self: flex-start;
-  margin-top: 6px;
-  padding: 4px 0;
+  margin-left: 8px;
+  padding: 2px 4px;
   font-size: 10px;
   line-height: 16px;
-  color: #7b88a1;
+  color: #9299a6;
+}
+.alarm-time {
+  margin-top: 1px;
+  font-size: 10px;
+  line-height: 17px;
+  color: #798291;
+}
+.alarm-switch-wrap {
+  width: 44px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-left: 6px;
+  align-items: center;
+  justify-content: center;
 }
 .alarm-error {
+  margin-top: 4px;
   font-size: 11px;
   line-height: 18px;
   color: #be515e;
-  margin-top: 4px;
 }
 </style>
