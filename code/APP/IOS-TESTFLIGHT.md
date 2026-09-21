@@ -14,7 +14,7 @@
 - 插件最低系统配置 iOS 15.0。AlarmKit 功能另需 iOS 26+，完整构建需兼容当前 Apple 上传要求的 SDK。
 - 直接 APNs 配置为 production，UTS.entitlements 中 aps-environment 同为 production。
 - 已有相机、相册、麦克风、语音识别、AlarmKit 用途描述及原生插件；仍需在正式 IPA 中验证合并结果。
-- 已复制旧应用的1024×1024无透明PNG图标到 static/app-icon.png，并配置 app-ios.distribute.icons.appstore；旧工程未修改。
+- 桌面图标统一使用 static/avatars/assistant/A3.png 的小狗图案。iOS 使用 static/app-icon.png（1024×1024、RGB 无透明通道）；安卓使用 static/app-icons/ 的 72/96/144/192 尺寸；鸿蒙已配置同图前景及蓝色背景。当前原图为 139×139，打包图标按尺寸缩放生成，未增加原图细节。
 
 ## 先完成正式后端核对
 
