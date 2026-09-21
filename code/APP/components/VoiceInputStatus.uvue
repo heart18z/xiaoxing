@@ -25,7 +25,9 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 const props = defineProps<{ recording: boolean; level: number; live: boolean }>();
 const emit = defineEmits(['confirm', 'cancel']);
 const elapsed = ref(0);
-const levels = ref<number[]>(new Array<number>(25).fill(3));
+const initialLevels: number[] = [];
+for (let i = 0; i < 25; i++) initialLevels.push(3);
+const levels = ref<number[]>(initialLevels);
 const clock = computed(
   (): string =>
     Math.floor(elapsed.value / 60).toString() +

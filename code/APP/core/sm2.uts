@@ -5,8 +5,11 @@ const P = fromHex('fffffffeffffffffffffffffffffffffffffffff00000000fffffffffffff
 const N = fromHex('fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123');
 const GX = fromHex('32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7');
 const GY = fromHex('bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0');
-function zero(): number[] {
-  return new Array<number>(16).fill(0);
+function zero(length: number = 16): number[] {
+  // Native UTS treats new Array(length) as a single element, not a size.
+  const out: number[] = [];
+  for (let i = 0; i < length; i++) out.push(0);
+  return out;
 }
 function one(): number[] {
   const a = zero();
@@ -134,7 +137,7 @@ export function sm3(bytes: number[]): number[] {
     0x7380166f, 0x4914b2b9, 0x172442d7, 0xda8a0600, 0xa96f30bc, 0x163138aa, 0xe38dee4d, 0xb0fb0e4e,
   ];
   for (let off = 0; off < data.length; off += 64) {
-    const w = new Array<number>(68).fill(0);
+    const w = zero(68);
     for (let j = 0; j < 16; j++)
       w[j] =
         ((data[off + j * 4] << 24) |

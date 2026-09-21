@@ -9,15 +9,15 @@
     <view v-if="register">
       <view class="form-columns">
         <view class="grow">
-          <text class="app-font form-labelapp-font">{{ t('登录账号 *') }}</text>
+          <text class="app-font form-label">{{ t('登录账号 *') }}</text>
           <input class="app-font input" v-model="account" maxlength="32" />
         </view>
         <view class="grow second-column">
-          <text class="app-font form-labelapp-font">{{ t('姓名 *') }}</text>
+          <text class="app-font form-label">{{ t('姓名 *') }}</text>
           <input class="app-font input" v-model="name" maxlength="20" />
         </view>
       </view>
-      <text class="app-font form-help" app-font>
+      <text class="app-font form-help">
         {{
           suggesting
             ? t('正在生成推荐账号…')
@@ -29,13 +29,12 @@
       <text class="app-font label">{{ t('原密码') }}</text>
       <input
         class="app-font input"
-        app-font
         v-model="oldPassword"
         :password="!show"
         :placeholder="t('请输入原密码')"
       />
     </view>
-    <text class="app-font form-labelapp-font">{{ register ? t('密码 *') : t('新密码') }}</text>
+    <text class="app-font form-label">{{ register ? t('密码 *') : t('新密码') }}</text>
     <view class="password-input">
       <input
         class="app-font password-field"
@@ -47,18 +46,17 @@
       <view @click="show = !show"><UiIcon :name="show ? 'eye' : 'eyeOff'" :size="20" /></view>
     </view>
     <view v-if="register">
-      <text class="app-font form-help" app-font>
+      <text class="app-font form-help">
         {{ t('已预填默认密码，建议修改（8–64位）。') }}
       </text>
       <view class="contact">
         <text class="app-font label">{{ t('联系方式') }}</text>
-        <text class="app-font form-help" app-font>{{ t('手机号 / 邮箱至少填写一项') }}</text>
+        <text class="app-font form-help">{{ t('手机号 / 邮箱至少填写一项') }}</text>
         <view class="form-columns">
           <view class="grow">
-            <text class="app-font form-labelapp-font">{{ t('手机号') }}</text>
+            <text class="app-font form-label">{{ t('手机号') }}</text>
             <input
               class="app-font input"
-              app-font
               v-model="phone"
               type="number"
               maxlength="11"
@@ -66,17 +64,16 @@
             />
           </view>
           <view class="grow second-column">
-            <text class="app-font form-labelapp-font">{{ t('邮箱') }}</text>
+            <text class="app-font form-label">{{ t('邮箱') }}</text>
             <input
               class="app-font input"
-              v-mapp-font
-              odel="email"
+              v-model="email"
               maxlength="45"
               :placeholder="t('常用邮箱')"
             />
           </view>
         </view>
-        <text class="app-font form-help" app-font>
+        <text class="app-font form-help">
           {{ t('填写的手机号、邮箱不能与其他账号重复。') }}
         </text>
       </view>
@@ -85,7 +82,6 @@
       <text class="app-font label">{{ t('确认新密码') }}</text>
       <input
         class="app-font input"
-        app-font
         v-model="confirmation"
         :password="!show"
         :placeholder="t('再次输入新密码')"
