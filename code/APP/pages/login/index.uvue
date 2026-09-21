@@ -54,9 +54,12 @@
         </view>
         <text class="app-font forgot" @click="forgot()">{{ t('忘记密码？') }}</text>
 
-        <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
-          {{ busy ? t('正在登录…') : t('登录') }}
-        </button>
+        <LoginButton
+          :busy="busy"
+          :label="t('登录')"
+          :busy-label="t('正在登录…')"
+          @click="submit()"
+        />
         <text class="app-font register" @click="register = true">
           {{ t('没有账号？注册账号') }}
         </text>
@@ -78,14 +81,14 @@
       <button class="app-font secondary dialog-cancel" :disabled="busy" @click="cancelLogin()">
         {{ t('取消') }}
       </button>
-      <button
-        class="app-font primary dialog-primary dialog-continue"
-        :loading="busy"
-        :disabled="busy"
-        @click="continueLogin()"
-      >
-        {{ t('继续登录') }}
-      </button>
+      <view class="dialog-continue">
+        <LoginButton
+          :busy="busy"
+          :label="t('继续登录')"
+          :busy-label="t('正在登录…')"
+          @click="continueLogin()"
+        />
+      </view>
     </view>
   </Popup>
   <TopTip />
@@ -95,7 +98,8 @@ import { startupReady } from '@/store/startup.uts';
 import TopTip from '@/components/TopTip.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
-import { ref, onUnmounted } from 'vue';
+import { ref, nextTick, onUnmounted } from 'vue';
+import LoginButton from '@/components/LoginButton.uvue';
 import AccountForm from '@/components/AccountForm.uvue';
 import { login, post, ApiError } from '@/api/request.uts';
 import Popup from '@/components/Popup.uvue';
@@ -173,6 +177,7 @@ async function submit(confirmed: boolean = false) {
   busy.value = true;
   error.value = '';
   try {
+    await nextTick();
     await login(
       account.value.trim(),
       password.value,
@@ -186,7 +191,16 @@ async function submit(confirmed: boolean = false) {
     pendingAccount.value = '';
     pendingPassword = '';
     void syncPush(true);
-    uni.reLaunch({ url: '/pages/chat/index', success: () => toast('登录成功') });
+    await new Promise<void>((resolve, reject) => {
+      uni.reLaunch({
+        url: '/pages/chat/index',
+        success: () => {
+          toast('登录成功');
+          resolve();
+        },
+        fail: () => reject(new Error('登录成功，但页面打开失败，请重新进入应用')),
+      });
+    });
   } catch (e) {
     if (e instanceof ApiError && e.status == 601 && !confirmed) {
       pendingAccount.value = account.value.trim();

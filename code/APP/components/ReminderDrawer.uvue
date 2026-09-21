@@ -348,15 +348,15 @@ watch(
   /* #endif */
 }
 .reminder-group {
-  padding: 14px 6px 7px;
+  padding: 10px 6px 4px;
   border-radius: 19px;
   background-color: #eaf2fc75;
-  margin-bottom: 17px;
+  margin-bottom: 12px;
 }
 .group-heading {
   flex-direction: row;
   align-items: center;
-  margin: 0 6px 12px;
+  margin: 0 6px 8px;
 }
 .group-title {
   font-size: 15px;
@@ -383,9 +383,10 @@ watch(
   align-items: center;
   background-color: #ffffffed;
   border-radius: 17px;
-  padding: 14px 8px;
-  margin-bottom: 9px;
-  min-height: 92px;
+  padding: 10px 8px;
+  margin-bottom: 6px;
+  min-height: 64px;
+  flex-shrink: 0;
 }
 .drawer-symbol {
   width: 30px;
@@ -420,7 +421,7 @@ watch(
   font-size: 12px;
   color: #929baa;
   line-height: 18px;
-  margin-top: 5px;
+  margin-top: 3px;
 }
 .drawer-status {
   flex-shrink: 0;
@@ -428,7 +429,7 @@ watch(
   font-weight: 600;
   color: #4799da;
   background-color: #ecf3ff;
-  padding: 7px 9px;
+  padding: 4px 7px;
   border-radius: 18px;
   margin: 0 7px;
 }

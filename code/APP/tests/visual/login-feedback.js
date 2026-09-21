@@ -1,0 +1,31 @@
+async page => {
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://localhost:5174/#/pages/chat/index');await page.reload();await page.locator('#xiaoxing-startup').waitFor({state:'hidden'});
+ await page.locator('.toolbar').first().click();await page.getByText('今日待提醒',{exact:true}).waitFor();
+ const heights=await page.locator('.drawer-card').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().height));
+ if(!heights.length||heights.some(h=>h>90))throw Error('Reminder cards remain too tall: '+heights);
+ await page.screenshot({path:'output/playwright/round3-drawer.png'});
+ await page.evaluate(()=>sessionStorage.clear());
+ await page.goto('http://localhost:5174/#/pages/login/index');await page.reload();await page.locator('#xiaoxing-startup').waitFor({state:'hidden'});
+ let requests=0, release;
+ const pending=new Promise(resolve=>release=resolve);
+ await page.route('**/api/blade-auth/oauth/token**',async route=>{requests++;await pending;await route.fulfill({status:400,json:{error:'invalid_grant',error_description:'测试登录失败'}});});
+ await page.locator('.login-panel input').nth(0).fill('fixture-user');await page.locator('.login-panel input').nth(1).fill('fixture-password');
+ const button=page.locator('.login-panel .login-submit');
+ await button.click();await button.getByText('正在登录…',{exact:true}).waitFor();
+ const spinner=button.locator('.login-spinner');await spinner.waitFor();
+ const rotation=await spinner.evaluate(e=>e.style.transform);await page.waitForTimeout(180);
+ const nextRotation=await spinner.evaluate(e=>e.style.transform);
+ if(rotation===nextRotation)throw Error('Spinner is not animated');
+ await button.click({force:true});await button.click({force:true});
+ if(requests!==1)throw Error('Unexpected request count: '+requests);
+ const color=await button.evaluate(e=>getComputedStyle(e).backgroundImage);
+ if(!color.includes('linear-gradient'))throw Error('Missing blue background');
+ await page.screenshot({path:'output/playwright/round3-login-busy.png'});
+ release();await button.getByText('登录',{exact:true}).waitFor();await spinner.waitFor({state:'hidden'});
+ const tip=page.locator('.top-tip');await tip.waitFor();const tipBox=await tip.boundingBox();
+ if(tipBox.y>20)throw Error('Tip is too low: '+tipBox.y);
+ await page.screenshot({path:'output/playwright/round3-login-tip.png'});
+ if(errors.length)throw Error(errors.join('\n'));
+ return {requests,spinnerAnimated:true,buttonRecovers:true,tipTop:tipBox.y,cardHeights:heights,errors};
+}

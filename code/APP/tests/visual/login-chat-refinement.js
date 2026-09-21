@@ -39,10 +39,10 @@ async page => {
   const headers=route.request().headers();requests.push(headers.confirm||'');
   await route.fulfill({status:headers.confirm==='true'?200:401,json:headers.confirm==='true'?{access_token:'local-fixture',refresh_token:'local-fixture',user_id:'9001',role_name:'app_user',expires_in:3600}:{error:'need_confirm_login',error_description:'账号已在其他地址登录，是否继续？'}});
  });
- await page.locator('.login-panel input').nth(0).fill('fixture-user');await page.locator('.login-panel input').nth(1).fill('fixture-password');await page.locator('.login-panel .primary').click();
+ await page.locator('.login-panel input').nth(0).fill('fixture-user');await page.locator('.login-panel input').nth(1).fill('fixture-password');await page.locator('.login-panel .login-submit').click();
  await page.getByText('账号已在其他设备登录，继续将退出其他设备。',{exact:true}).waitFor();await shot('confirm-login');await page.getByText('取消',{exact:true}).click();
  if(requests.length!==1)throw Error('Cancel retried login');
- await page.locator('.login-panel .primary').click();await page.getByText('继续登录',{exact:true}).click();await page.waitForURL('**/pages/chat/index');
+ await page.locator('.login-panel .login-submit').click();await page.getByText('继续登录',{exact:true}).click();await page.waitForURL('**/pages/chat/index');
  if(JSON.stringify(requests)!==JSON.stringify(['','','true']))throw Error('Unexpected confirmation headers');
  checks.push('Cancel preserves existing login; continue sends confirm header once');
  if(errors.length)throw Error(JSON.stringify(errors));return {checks,errors};

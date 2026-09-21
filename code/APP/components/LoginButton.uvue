@@ -1,0 +1,67 @@
+<template>
+  <view
+    class="login-submit"
+    role="button"
+    :aria-label="busy ? busyLabel : label"
+    :aria-disabled="busy"
+    @click="activate()"
+  >
+    <view v-if="busy" class="login-spinner" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
+    <text class="app-font login-submit-label">{{ busy ? busyLabel : label }}</text>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onUnmounted } from 'vue';
+const props = defineProps({
+  busy: { type: Boolean, default: false },
+  label: { type: String, default: '登录' },
+  busyLabel: { type: String, default: '正在登录…' },
+});
+const emit = defineEmits(['click']);
+const angle = ref(0);
+let spinTimer: number = 0;
+watch(
+  (): boolean => props.busy,
+  (busy: boolean) => {
+    clearInterval(spinTimer);
+    angle.value = 0;
+    if (busy)
+      spinTimer = setInterval(() => {
+        angle.value = (angle.value + 18) % 360;
+      }, 40);
+  },
+  { immediate: true },
+);
+onUnmounted(() => clearInterval(spinTimer));
+function activate() {
+  if (!props.busy) emit('click');
+}
+</script>
+<style scoped>
+.login-submit {
+  height: 48px;
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background-color: #315bff;
+  background-image: linear-gradient(to right, #315bff, #647bff);
+  box-shadow: 0 8px 20px #386cff25;
+}
+.login-submit-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 26px;
+}
+.login-spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid #ffffff66;
+  border-top-color: #ffffff;
+  border-radius: 9px;
+  margin-right: 9px;
+}
+</style>
