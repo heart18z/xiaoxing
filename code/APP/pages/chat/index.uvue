@@ -116,7 +116,7 @@
             :disabled="recording || transcribing"
             :placeholder="t('说说你想提醒的事…')"
             :adjust-position="false"
-            @keyboardheightchange="updateKeyboard($event.detail.height)"
+            @keyboardheightchange="inputKeyboardChange"
             @focus="
               follow = true;
               scrollLatest();
@@ -145,7 +145,7 @@
             aria-label="停止生成"
             v-if="chat.busy"
             class="send send-busy"
-            @click="!stopping && stopGeneration()"
+            @click="stopGeneration()"
           >
             <view class="stop-symbol" />
           </view>
@@ -353,15 +353,18 @@ function jumpLatest() {
   follow.value = true;
   scrollLatest();
 }
-const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
-  updateKeyboard(event.height);
-};
 function updateKeyboard(height: number) {
   keyboard.value = height;
   clearTimeout(keyboardLayoutTimer);
   scrollLatest();
   // The scroll viewport changes throughout the frame/dock animation.
   keyboardLayoutTimer = setTimeout(() => scrollLatest(), 280);
+}
+const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
+  updateKeyboard(event.height);
+};
+function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) {
+  updateKeyboard(event.detail.height);
 }
 function stopScrollLock() {
   scrollLockedUntil = 0;
