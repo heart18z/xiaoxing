@@ -109,8 +109,9 @@
             id="chat-compose-input"
             class="app-font compose-input"
             :confirm-type="inputConfirmType"
-            @confirm="confirmSend()"
-            v-model="draft"
+            @confirm="confirmSend"
+            :value="inputValue"
+            @input="composerInput"
             auto-height
             :maxlength="20000"
             :disabled="recording || transcribing"
@@ -270,6 +271,7 @@ type Attachment = {
 };
 const drawer = ref(false),
   draft = ref(''),
+  inputValue = ref(''),
   files = ref<Attachment[]>([]),
   anchor = ref(''),
   scrollTop = ref(0),
@@ -280,6 +282,30 @@ const drawer = ref(false),
   keyboard = ref(0),
   recording = ref(false),
   transcribing = ref(false);
+// Native IME owns the live text. Never echo input events back into value:
+// replacing UITextView.text can discard its marked (unconfirmed Pinyin) range.
+function composerInput(event: UniInputEvent) {
+  draft.value = event.detail.value;
+}
+function setDraft(value: string) {
+  draft.value = value;
+  inputValue.value = value;
+  // An explicit clear must also work when the last programmatic value was "".
+  // Do not remount the textarea: preserve its focus and keyboard.
+  // #ifdef APP
+  const input = uni.getElementById('chat-compose-input') as UniTextareaElement | null;
+  if (input != null) input.value = value;
+  // #endif
+  // #ifdef WEB
+  const browserInput = document.querySelector(
+    '#chat-compose-input textarea',
+  ) as HTMLTextAreaElement | null;
+  if (browserInput != null) {
+    browserInput.value = value;
+    browserInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // #endif
+}
 function releaseAttachment(file: Attachment) {
   // #ifdef WEB
   browserFiles.delete(file.key);
@@ -291,7 +317,7 @@ async function resume(): Promise<void> {
   try {
     await _resume();
   } catch (e) {
-    if (draft.value.length == 0) draft.value = content;
+    if (draft.value.length == 0) setDraft(content);
     toast(message(e));
   }
 }
@@ -312,7 +338,7 @@ async function handleRecording(result: RecorderManagerOnStopResult): Promise<voi
   try {
     const data = await upload('/app/reminder/audio/transcriptions', result.tempFilePath, 125000);
     if (run == recordGeneration && !recordCancelled && recordOwner == session.userId)
-      draft.value = recordDraft + (recordDraft.length > 0 ? '\n' : '') + s(data, 'text');
+      setDraft(recordDraft + (recordDraft.length > 0 ? '\n' : '') + s(data, 'text'));
     if (run == recordGeneration && s(data, 'text').trim().length == 0)
       throw new Error('未识别到语音，请重试');
   } catch (e) {
@@ -440,7 +466,7 @@ async function send() {
       ids,
       retained.map((file: Attachment): string => file.name),
     );
-    draft.value = '';
+    setDraft('');
     files.value = [];
     scrollLatest();
     await task;
@@ -448,14 +474,15 @@ async function send() {
     void bootstrap().catch(() => {});
   } catch (e) {
     if (s(chat.pending, 'requestId').length == 0) {
-      if (draft.value.length == 0) draft.value = text;
+      if (draft.value.length == 0) setDraft(text);
       files.value = retained.concat(files.value);
     }
     toast(message(e));
   }
 }
-function confirmSend() {
+function confirmSend(event: UniInputConfirmEvent) {
   // #ifndef WEB
+  draft.value = event.detail.value;
   void send();
   // #endif
 }
@@ -517,7 +544,7 @@ async function clearContext() {
   try {
     await reminder('chat/context/clear');
     clearOpen.value = false;
-    draft.value = '';
+    setDraft('');
     files.value.forEach(releaseAttachment);
     files.value = [];
     chat.messages = [];
@@ -704,8 +731,7 @@ async function pollSpeech(run: number): Promise<void> {
     if (run != recordGeneration || recordOwner != session.userId) return;
     voiceLevel.value = (data['level'] as number) ?? 0;
     const text = s(data, 'text');
-    if (text.length > 0)
-      draft.value = recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text;
+    if (text.length > 0) setDraft(recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text);
     recording.value = b(data, 'recording');
     transcribing.value = !recording.value && !b(data, 'finished');
     if (b(data, 'finished')) {
@@ -776,7 +802,7 @@ function startRecording() {
           if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
           const text = s(data, 'text').trim();
           if (text.length == 0) throw new Error('未识别到语音，请重试');
-          draft.value = recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text;
+          setDraft(recordDraft + (recordDraft.trim().length > 0 ? '\n' : '') + text);
         })
         .catch((e) => {
           if (run == recordGeneration) toast(message(e));
@@ -822,7 +848,7 @@ function finishRecording() {
 }
 function cancelRecording() {
   const restoreDraft = (recording.value || transcribing.value) && recordOwner == session.userId;
-  if (restoreDraft) draft.value = recordDraft;
+  if (restoreDraft) setDraft(recordDraft);
   voiceLevel.value = 0;
   // #ifdef APP-IOS
   clearTimeout(speechTimer);
