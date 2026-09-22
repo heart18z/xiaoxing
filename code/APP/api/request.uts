@@ -3,6 +3,10 @@ import { session, saveSession, clearSession, applyBootstrap } from '@/store/sess
 import { sm2Encrypt } from '@/core/sm2.uts';
 import { randomHex } from '@/uni_modules/xiaoxing-native';
 import { s, n, parseObject } from '@/core/json.uts';
+import { credentialRejected } from '@/core/auth.uts';
+// #ifdef APP-ANDROID
+import { UTSAndroid } from 'io.dcloud.uts';
+// #endif
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -43,8 +47,20 @@ function raw(
       data: data == null ? '' : JSON.stringify(data),
       timeout: timeout,
       success: (res) => {
-        const body = res.data as UTSJSONObject;
+        const body =
+          typeof res.data == 'string'
+            ? parseObject(res.data as string)
+            : (res.data as UTSJSONObject);
         const code = n(body, 'code');
+        if (credentialRejected(res.statusCode, body)) {
+          reject(
+            new ApiError(
+              401,
+              s(body, 'error_description', s(body, 'msg', '登录已失效，请重新登录')),
+            ),
+          );
+          return;
+        }
         if (res.statusCode >= 400 || (code != 0 && code != 200) || body['success'] == false) {
           reject(
             new ApiError(
@@ -61,6 +77,14 @@ function raw(
   });
 }
 let refreshing: Promise<void> | null = null;
+function expireSession(revision: number): void {
+  if (revision != session.revision) return;
+  try {
+    clearSession();
+  } finally {
+    uni.reLaunch({ url: '/pages/login/index' });
+  }
+}
 export function refreshToken(): Promise<void> {
   if (refreshing != null) return refreshing!;
   const owner = session.userId,
@@ -83,8 +107,7 @@ export function refreshToken(): Promise<void> {
         (error.status == 400 || error.status == 401 || error.status == 403) &&
         revision == session.revision
       ) {
-        clearSession();
-        uni.reLaunch({ url: '/pages/login/index' });
+        expireSession(revision);
       }
       throw error instanceof Error ? error : new Error('请求未完成，请重试');
     })
@@ -103,17 +126,31 @@ export async function post(
 ): Promise<UTSJSONObject> {
   const owner = session.userId,
     revision = session.revision;
-  if (auth && session.token.length == 0) throw new ApiError(401, '请先登录');
+  if (auth && session.token.length == 0) {
+    uni.reLaunch({ url: '/pages/login/index' });
+    throw new ApiError(401, '请先登录');
+  }
   let body: UTSJSONObject;
   try {
     body = await raw(path, data, params, timeout);
   } catch (error) {
     if (!auth || !(error instanceof ApiError) || error.status != 401)
       throw error instanceof Error ? error : new Error('请求未完成，请重试');
+    if (owner != session.userId || revision != session.revision)
+      throw new ApiError(401, '账号已变化');
+    if (session.refresh.length == 0) {
+      expireSession(revision);
+      throw new ApiError(401, '登录已失效，请重新登录');
+    }
     await refreshToken();
     if (owner != session.userId || revision != session.revision)
       throw new ApiError(401, '账号已变化');
-    body = await raw(path, data, params, timeout);
+    try {
+      body = await raw(path, data, params, timeout);
+    } catch (retryError) {
+      if (retryError instanceof ApiError && retryError.status == 401) expireSession(revision);
+      throw retryError instanceof Error ? retryError : new Error('请求未完成，请重试');
+    }
   }
   if (auth && !allowStaleResult && (owner != session.userId || revision != session.revision))
     throw new ApiError(401, '账号已变化');
@@ -132,6 +169,28 @@ export async function bootstrap(): Promise<void> {
   const result = await reminder('bootstrap');
   applyBootstrap((result['value'] as UTSJSONObject) ?? {});
 }
+function encryptPassword(password: string): Promise<string> {
+  // Native UTS runs on the UI thread. Keep expensive curve arithmetic off it.
+  // #ifdef APP-ANDROID
+  return new Promise<string>((resolve, reject) => {
+    UTSAndroid.getDispatcher('io').async((_: any | null) => {
+      try {
+        const encrypted = sm2Encrypt(password, SM2_PUBLIC_KEY, randomHex(32));
+        UTSAndroid.getDispatcher('main').async((_: any | null) => {
+          resolve(encrypted);
+        }, null);
+      } catch (_) {
+        UTSAndroid.getDispatcher('main').async((_: any | null) => {
+          reject(new Error('登录加密失败，请重试'));
+        }, null);
+      }
+    }, null);
+  });
+  // #endif
+  // #ifndef APP-ANDROID
+  return Promise.resolve(sm2Encrypt(password, SM2_PUBLIC_KEY, randomHex(32)));
+  // #endif
+}
 export async function login(
   account: string,
   password: string,
@@ -139,7 +198,7 @@ export async function login(
   captchaCode: string = '',
   confirmLogin: boolean = false,
 ): Promise<void> {
-  const encrypted = sm2Encrypt(password, SM2_PUBLIC_KEY, randomHex(32));
+  const encrypted = await encryptPassword(password);
   const params: UTSJSONObject = {
     tenantId: TENANT,
     username: account,
@@ -234,10 +293,18 @@ export async function upload(
         success: (res) => {
           try {
             const body = parseObject(res.data);
-            if (res.statusCode >= 400 || n(body, 'code') != 200) {
+            if (
+              credentialRejected(res.statusCode, body) ||
+              res.statusCode >= 400 ||
+              n(body, 'code') != 200
+            ) {
               reject(
                 new ApiError(
-                  res.statusCode >= 400 ? res.statusCode : n(body, 'code'),
+                  credentialRejected(res.statusCode, body)
+                    ? 401
+                    : res.statusCode >= 400
+                      ? res.statusCode
+                      : n(body, 'code'),
                   s(body, 'msg', '上传失败'),
                 ),
               );
@@ -257,10 +324,17 @@ export async function upload(
   } catch (error) {
     if (!(error instanceof ApiError) || error.status != 401)
       throw error instanceof Error ? error : new Error('请求未完成，请重试');
+    if (owner != session.userId || revision != session.revision)
+      throw new ApiError(401, '账号已变化');
     await refreshToken();
     if (owner != session.userId || revision != session.revision)
       throw new ApiError(401, '账号已变化');
-    result = await once();
+    try {
+      result = await once();
+    } catch (retryError) {
+      if (retryError instanceof ApiError && retryError.status == 401) expireSession(revision);
+      throw retryError instanceof Error ? retryError : new Error('上传失败，请重试');
+    }
   }
   if (owner != session.userId || revision != session.revision)
     throw new ApiError(401, '账号已变化');

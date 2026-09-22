@@ -1,0 +1,9 @@
+import { s, n } from './json.uts';
+
+export function credentialRejected(status: number, body: UTSJSONObject): boolean {
+  if (status == 401 || n(body, 'code') == 401) return true;
+  const error = s(body, 'error');
+  if (error == 'invalid_grant' || error == 'invalid_token') return true;
+  const description = s(body, 'error_description', s(body, 'msg', s(body, 'message'))).trim();
+  return ['令牌刷新错误或无效', '令牌无效', '无效的令牌', '令牌已过期'].includes(description);
+}

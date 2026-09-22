@@ -25,6 +25,7 @@
       @click.stop="noop"
       :style="{
         maxHeight: maxHeight + 'px',
+        height: fixedFooter ? Math.min(maxHeight, 640) + 'px' : 'auto',
         transform: visible ? 'translateY(0px)' : 'translateY(16px)',
       }"
     >
@@ -37,6 +38,7 @@
       <scroll-view scroll-y class="popup-scroll">
         <view class="popup-body"><slot /></view>
       </scroll-view>
+      <view v-if="fixedFooter" class="popup-footer"><slot name="footer" /></view>
     </view>
   </view>
 </template>
@@ -49,6 +51,7 @@ const props = defineProps({
   busy: { type: Boolean, default: false },
   sheet: { type: Boolean, default: false },
   variant: { type: String, default: '' },
+  fixedFooter: { type: Boolean, default: false },
 });
 const emit = defineEmits(['close']);
 const rendered = ref(false),
@@ -114,6 +117,7 @@ function noop() {}
   overflow: hidden;
 }
 .popup-head {
+  flex-shrink: 0;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -144,7 +148,18 @@ function noop() {}
   min-height: 0;
 }
 .popup-body {
+  flex-shrink: 0;
   padding: 0 18px 18px;
+}
+.account-panel .popup-scroll {
+  flex: 1;
+  height: 0;
+}
+.popup-footer {
+  flex-shrink: 0;
+  padding: 12px 18px 20px;
+  border-top: 1px solid #edf1f7;
+  background-color: #ffffff;
 }
 .sheet-mask {
   padding: 0;

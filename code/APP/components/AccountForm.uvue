@@ -1,6 +1,7 @@
 <template>
   <Popup
     variant="account"
+    :fixed-footer="true"
     :open="open"
     :title="register ? t('创建小醒账号') : t('重置密码')"
     :busy="busy"
@@ -88,9 +89,11 @@
       />
     </view>
     <text class="app-font error" v-if="error.length > 0">{{ error }}</text>
-    <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
-      {{ register ? t('注册') : t('修改密码') }}
-    </button>
+    <template #footer>
+      <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
+        {{ register ? t('注册') : t('修改密码') }}
+      </button>
+    </template>
   </Popup>
 </template>
 <script setup lang="uts">
@@ -256,6 +259,9 @@ watch(
   margin-top: 3px;
 }
 .primary {
+  flex-shrink: 0;
+  height: 44px;
+  min-height: 44px;
   margin-top: 4px;
 }
 .label {

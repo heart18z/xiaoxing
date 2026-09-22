@@ -1002,7 +1002,7 @@ function openSettings() {
 }
 .edit-profile {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: #4b67df;
   padding: 8px 12px;
   border: 1px solid #ffffff;
@@ -1193,8 +1193,21 @@ function openSettings() {
   font-weight: 700;
 }
 .friend-row .label {
-  font-weight: 600;
+  font-weight: 700;
 }
+.assistant-card .link {
+  font-weight: 700;
+}
+/* Native PingFang's explicit weight face keeps these small labels legible. */
+/* #ifdef APP-IOS */
+.edit-profile,
+.assistant-card .link,
+.friend-row .label,
+.permission-tag,
+.manage {
+  font-family: 'PingFangSC-Semibold';
+}
+/* #endif */
 .permission-note {
   margin-bottom: 6px;
 }

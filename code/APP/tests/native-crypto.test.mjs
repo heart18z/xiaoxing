@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { dependency, root } from './loader.mjs';
+import { dependency, root, portableCryptoPlugin } from './loader.mjs';
 
 // UTS treats Array(16) as [16], and indexed writes cannot grow an array.
 // Model that difference explicitly: ordinary Node tests otherwise hide the crash.
@@ -23,6 +23,7 @@ async function nativeCrypto() {
     platform: 'node',
     format: 'cjs',
     loader: { '.uts': 'ts' },
+    plugins: [portableCryptoPlugin],
   });
   const context = { module: { exports: {} }, Array: NativeArray };
   vm.runInNewContext(outputFiles[0].text, context);

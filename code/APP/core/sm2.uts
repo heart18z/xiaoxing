@@ -1,5 +1,12 @@
 // SM2 C1C2C3 (mode 0), compatible with front's sm-crypto. No BigInt/JS dependency.
 // Field elements use 16 little-endian base-65536 limbs (exact Number arithmetic).
+// #ifdef APP-ANDROID
+import BigInteger from 'java.math.BigInteger';
+const nativePrime = new BigInteger(
+  'fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff',
+  16,
+);
+// #endif
 type Point = { x: number[]; y: number[]; z: number[] };
 const P = fromHex('fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff');
 const N = fromHex('fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123');
@@ -55,6 +62,13 @@ function sub(a: number[], b: number[]): number[] {
   return compare(a, b) >= 0 ? rawSubtract(a, b) : rawSubtract(P, rawSubtract(b, a));
 }
 function mul(a: number[], b: number[]): number[] {
+  // #ifdef APP-ANDROID
+  const product = new BigInteger(hexOf(a), 16)
+    .multiply(new BigInteger(hexOf(b), 16))
+    .mod(nativePrime);
+  return fromHex(product.toString(16).padStart(64, '0'));
+  // #endif
+  // #ifndef APP-ANDROID
   let result = zero(),
     current = a;
   for (let i = 0; i < 256; i++) {
@@ -62,6 +76,7 @@ function mul(a: number[], b: number[]): number[] {
     current = add(current, current);
   }
   return result;
+  // #endif
 }
 function sq(a: number[]): number[] {
   return mul(a, a);
@@ -72,6 +87,12 @@ function scale(a: number[], count: number): number[] {
   return r;
 }
 function inverse(a: number[]): number[] {
+  // #ifdef APP-ANDROID
+  return fromHex(
+    new BigInteger(hexOf(a), 16).modInverse(nativePrime).toString(16).padStart(64, '0'),
+  );
+  // #endif
+  // #ifndef APP-ANDROID
   const exponent = rawSubtract(P, scale(one(), 2));
   let r = one();
   for (let i = 255; i >= 0; i--) {
@@ -79,6 +100,7 @@ function inverse(a: number[]): number[] {
     if ((exponent[Math.floor(i / 16)] & (1 << (i % 16))) != 0) r = mul(r, a);
   }
   return r;
+  // #endif
 }
 function infinity(): Point {
   return { x: zero(), y: one(), z: zero() };
