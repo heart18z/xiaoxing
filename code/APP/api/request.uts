@@ -4,9 +4,7 @@ import { sm2Encrypt } from '@/core/sm2.uts';
 import { randomHex } from '@/uni_modules/xiaoxing-native';
 import { s, n, parseObject } from '@/core/json.uts';
 import { credentialRejected } from '@/core/auth.uts';
-// #ifdef APP-ANDROID
-import { UTSAndroid } from 'io.dcloud.uts';
-// #endif
+// UTSAndroid is built in. Explicit imports can hide the name used by generated typeof calls.
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {

@@ -6,9 +6,9 @@ let serial=0;
 async function fixture(reply){
  const session={token:'old',refresh:'refresh',userId:'1',revision:0};let refreshed=0,cleared=0;
  const env={session,saveSession:data=>{session.token=data.access_token;refreshed++},clearSession:()=>{session.token='';session.revision++;cleared++},applyBootstrap:()=>{},sm2Encrypt:()=>'',randomHex:()=>'',BASE_URL:'https://fixture.invalid',BASIC_AUTH:'fixture',TENANT:'000000',SM2_PUBLIC_KEY:'',UTSAndroid:{getDispatcher:()=>({async:fn=>queueMicrotask(()=>fn(null))})}};
- globalThis.__requestFixture=env;JSON.parseObject=JSON.parse;
+ globalThis.__requestFixture=env;globalThis.UTSAndroid=env.UTSAndroid;JSON.parseObject=JSON.parse;
  globalThis.uni={request:options=>{queueMicrotask(()=>reply(options,session));return{}},reLaunch:()=>{}};
- const imports=['@/store/session.uts','@/core/sm2.uts','@/uni_modules/xiaoxing-native','@/config/environment.uts','io.dcloud.uts'];
+ const imports=['@/store/session.uts','@/core/sm2.uts','@/uni_modules/xiaoxing-native','@/config/environment.uts'];
  const bundle=await dependency('esbuild').build({entryPoints:[root+'api/request.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__requestFixture;',loader:'js'}))}}]});
  const module=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text+`\n// ${serial++}`).toString('base64'));
  return {module,session,refreshed:()=>refreshed,cleared:()=>cleared};
