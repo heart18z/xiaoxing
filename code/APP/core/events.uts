@@ -1,0 +1,7 @@
+import { s } from './json.uts';
+
+// Match the Web event list's fallback for missing or empty latestFact.
+export function latestProgress(event: UTSJSONObject): string {
+  const fact = s(event, 'latestFact');
+  return fact.trim().length > 0 ? fact : '暂无反馈，等待下一次评估';
+}

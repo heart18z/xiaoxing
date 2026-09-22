@@ -139,7 +139,7 @@
             <UiIcon name="note" tone="blue" :size="19" />
             <text class="app-font progress-label">{{ t('最新进展') }}</text>
             <text class="app-font progress-text">
-              {{ s(item, 'latestFact', t('暂无反馈，等待下一次评估')) }}
+              {{ progressText(item) }}
             </text>
           </view>
           <view class="event-dates">
@@ -163,6 +163,7 @@
 </template>
 <script setup lang="uts">
 import UiIcon from '@/components/UiIcon.uvue';
+import { latestProgress } from '@/core/events.uts';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
@@ -174,6 +175,9 @@ import { statusText as _statusText, displayTime as _displayTime } from '@/core/t
 const session: SessionState = _session;
 function t(value: string): string {
   return _t(value);
+}
+function progressText(item: UTSJSONObject): string {
+  return _t(latestProgress(item));
 }
 function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
   return _s(row, key, fallback);
@@ -323,7 +327,7 @@ onUnload(stop);
 }
 .tab-text {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   color: #7a8396;
 }
 .tab-blue {
@@ -448,6 +452,7 @@ onUnload(stop);
   border-radius: 12px;
 }
 .progress-label {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
   color: #2856e4;
@@ -456,6 +461,11 @@ onUnload(stop);
 }
 .progress-text {
   flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  lines: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-left: 1px solid #ccd5e7;
   padding-left: 9px;
   font-size: 12px;

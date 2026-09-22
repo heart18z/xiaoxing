@@ -9,8 +9,11 @@
       </view>
       <text class="app-font thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
       <text class="app-font thinking-action">{{ open ? t('收起') : t('查看') }}</text>
-      <view :style="{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }">
-        <UiIcon name="chevron" :size="14" />
+      <view
+        class="thinking-chevron"
+        :style="{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }"
+      >
+        <UiIcon name="chevron" :size="20" />
       </view>
     </view>
     <scroll-view v-if="open" scroll-y class="thinking-content" :scroll-into-view="anchor">
@@ -95,6 +98,13 @@ watch(
 .thinking-open {
   border-bottom: 1px solid #edf0f6;
   padding-bottom: 9px;
+}
+.thinking-chevron {
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .thinking-mark {
   width: 22px;

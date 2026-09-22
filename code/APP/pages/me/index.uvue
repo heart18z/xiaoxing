@@ -1094,8 +1094,11 @@ function openSettings() {
   line-height: 14px;
 }
 .manage {
+  background-color: #e0e6ff;
+  color: #3d53c5;
+  font-weight: 700;
   border-radius: 23px;
-  border: 1px solid #e0e5ff;
+  border: 1px solid #cbd5ff;
   min-width: 52px;
   font-size: 12px;
   line-height: 35px;
@@ -1389,12 +1392,12 @@ function openSettings() {
   margin-bottom: 4px;
 }
 .permission-tag {
-  color: #5264d7;
-  background-color: #edf0ff;
+  color: #3d53c5;
+  background-color: #e0e6ff;
   border-radius: 7px;
   padding: 3px 7px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 16px;
   margin-right: 6px;
 }

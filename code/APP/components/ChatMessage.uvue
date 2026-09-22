@@ -66,7 +66,12 @@
             @toggle="expanded = !expanded"
           />
         </view>
-        <text class="app-font" :class="['notice-label', noticeClass]">{{ t(label) }}</text>
+        <view :class="['notice-label', noticeClass]">
+          <UiIcon :name="noticeIcon" :tone="noticeTone" :size="16" />
+          <text class="app-font notice-label-text" :class="['related-' + noticeClass]">
+            {{ t(label) }}
+          </text>
+        </view>
         <view
           :class="[
             'notification-focus',
@@ -86,12 +91,12 @@
           >
             {{ t('反馈人：') }}{{ s(payload(item), 'actor') }}
           </text>
-          <text v-if="s(payload(item), 'eventSummary').length > 0" class="app-font related">
+          <view v-if="s(payload(item), 'eventSummary').length > 0" class="related">
             <text class="app-font" :class="['related-label', 'related-' + noticeClass]">
               {{ t('关联事件') }}
             </text>
-            　{{ s(payload(item), 'eventSummary') }}
-          </text>
+            <text class="app-font related-summary">{{ s(payload(item), 'eventSummary') }}</text>
+          </view>
         </view>
         <view class="card-footer">
           <text v-if="s(item, 'eventId').length > 0" class="app-font event-link">
@@ -227,13 +232,27 @@ const notification = computed(
 const label = computed(() => {
   const type = s(props.item, 'messageType');
   return type == 'FEEDBACK'
-    ? '✓ 进展反馈'
+    ? '进展反馈'
     : type == 'REMINDER'
-      ? '◷ 提醒消息'
+      ? '提醒消息'
       : type == 'QUESTION'
-        ? '! 异常提醒'
-        : '! 冲突处理';
+        ? '异常提醒'
+        : '冲突处理';
 });
+const noticeIcon = computed((): string =>
+  s(props.item, 'messageType') == 'REMINDER'
+    ? 'clock'
+    : s(props.item, 'messageType') == 'FEEDBACK'
+      ? 'check'
+      : 'tipError',
+);
+const noticeTone = computed((): string =>
+  s(props.item, 'messageType') == 'REMINDER'
+    ? 'amber'
+    : s(props.item, 'messageType') == 'FEEDBACK'
+      ? 'green'
+      : 'red',
+);
 function replyText(item: UTSJSONObject): string {
   const text = s(item, 'content');
   return text == '该事件已结束，不能再提交反馈。'
@@ -419,13 +438,34 @@ const isStreaming = computed(() => b(props.item, 'streaming'));
   color: #29856d;
 }
 .related {
+  flex-direction: row;
+  align-items: center;
   font-size: 12px;
   color: #8692a8;
   border-top: 1px dashed #dfe6ef;
   padding-top: 10px;
   margin-top: 10px;
 }
+.related-summary {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #8692a8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  lines: 1;
+}
+.notice-label-text {
+  margin-left: 5px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+}
 .related-label {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
   color: #4968d5;
@@ -571,15 +611,21 @@ const isStreaming = computed(() => b(props.item, 'streaming'));
   border-color: #f4dfdd;
 }
 .notice-label.feedback-card {
+  flex-direction: row;
+  align-items: center;
   color: #15966c;
   background-color: #e7f8f2;
 }
 .notice-label.reminder-card {
+  flex-direction: row;
+  align-items: center;
   color: #d98300;
   background-color: #fff3dc;
 }
 .notice-label.conflict-card,
 .notice-label.exception-card {
+  flex-direction: row;
+  align-items: center;
   color: #dc4f49;
   background-color: #fff0ef;
 }

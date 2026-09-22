@@ -4,10 +4,7 @@
     <text class="app-font startup-title">AI小醒</text>
     <text class="app-font startup-subtitle">让提醒更贴心</text>
     <view class="startup-track">
-      <view
-        class="startup-progress"
-        :style="{ transform: moving ? 'translateX(65px)' : 'translateX(0px)' }"
-      />
+      <view class="startup-progress" :style="{ transform: 'translateX(' + position + 'px)' }" />
     </view>
     <text class="app-font startup-subtitle">正在准备你的智能助手…</text>
   </view>
@@ -16,18 +13,25 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { startup, StartupState } from '@/store/startup.uts';
 const state: StartupState = startup;
-const moving = ref(false);
+const position = ref(0);
 let timer: number = 0;
-onMounted(() => {
+function startMotion() {
+  clearInterval(timer);
+  if (!state.visible) return;
+  const started = Date.now();
+  position.value = 0;
   timer = setInterval(() => {
-    moving.value = !moving.value;
-  }, 700);
-});
+    const phase = ((Date.now() - started) % 1200) / 600;
+    position.value = 65 * (phase <= 1 ? phase : 2 - phase);
+  }, 32);
+}
+onMounted(startMotion);
 onUnmounted(() => clearInterval(timer));
 watch(
   (): boolean => state.visible,
   (value: boolean) => {
-    if (!value) clearInterval(timer);
+    if (value) startMotion();
+    else clearInterval(timer);
   },
 );
 </script>
@@ -80,8 +84,5 @@ watch(
   height: 4px;
   border-radius: 4px;
   background-color: #6784ff;
-  transition-property: transform;
-  transition-duration: 700ms;
-  transition-timing-function: ease-in-out;
 }
 </style>

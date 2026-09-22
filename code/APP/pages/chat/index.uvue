@@ -340,6 +340,7 @@ let keyboardLayoutTimer: number = 0;
 let scrollLockedUntil: number = 0,
   scrollTimer: number = 0,
   scrollHeight: number = 0;
+let initialScrollPending = false;
 function scrollLatest() {
   if (!follow.value) return;
   scrollLockedUntil = Date.now() + 450;
@@ -352,6 +353,25 @@ function scrollLatest() {
 function jumpLatest() {
   follow.value = true;
   scrollLatest();
+}
+function settleInitialScroll() {
+  if (!initialScrollPending) return;
+  clearInterval(scrollTimer);
+  jumpLatest();
+  const started = Date.now();
+  // Rich text and the native viewport can finish layout after history is rendered.
+  // Keep following through that layout; a user touch always cancels this settling.
+  scrollTimer = setInterval(() => {
+    if (!initialScrollPending) {
+      clearInterval(scrollTimer);
+      return;
+    }
+    scrollLatest();
+    if (Date.now() - started >= 1800) {
+      clearInterval(scrollTimer);
+      initialScrollPending = false;
+    }
+  }, 120);
 }
 function updateKeyboard(height: number) {
   keyboard.value = height;
@@ -367,6 +387,8 @@ function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) {
   updateKeyboard(event.detail.height);
 }
 function stopScrollLock() {
+  initialScrollPending = false;
+  clearInterval(scrollTimer);
   scrollLockedUntil = 0;
 }
 function measureScroll() {
@@ -380,7 +402,7 @@ function measureScroll() {
   // #endif
 }
 function scrolling(event: UniScrollEvent) {
-  if (Date.now() < scrollLockedUntil) return;
+  if (initialScrollPending || Date.now() < scrollLockedUntil) return;
   measureScroll();
   const detail = event.detail;
   follow.value = detail.scrollHeight - detail.scrollTop - scrollHeight < 80;
@@ -820,6 +842,8 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
+  initialScrollPending = false;
+  clearInterval(scrollTimer);
   clearTimeout(keyboardLayoutTimer);
   keyboard.value = 0;
   active = false;
@@ -890,18 +914,14 @@ onShow(() => {
   if (!requireSession()) return;
   active = true;
   setChatVisible(true);
+  initialScrollPending = true;
   follow.value = true;
   nextTick(() => {
     measureScroll();
     scrollLatest();
   });
   void loadHistory().then(() => {
-    jumpLatest();
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      measureScroll();
-      scrollLatest();
-    }, 180);
+    nextTick(settleInitialScroll);
   });
   void resume();
   void bootstrap();
@@ -917,7 +937,7 @@ onUnload(() => {
   // #ifdef WEB
   browserFiles.clear();
   // #endif
-  clearTimeout(scrollTimer);
+  clearInterval(scrollTimer);
   // #ifdef APP-ANDROID
   recorder.offStop();
   recorder.offError();
