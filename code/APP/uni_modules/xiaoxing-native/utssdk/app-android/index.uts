@@ -1,4 +1,4 @@
-import { UTSAndroid } from 'io.dcloud.uts'
+import { XiaoxingNotifications } from 'uts.sdk.modules.xiaoxingNative'
 import { XiaoxingAndroid } from 'uts.sdk.modules.xiaoxingNative'
 import { NativeResult } from '../interface.uts'
 export function secureRead(key:string):string{return XiaoxingAndroid.read(UTSAndroid.getAppContext()!,key)}
@@ -10,5 +10,7 @@ export function nativeCall(action:string,input:string,callback:NativeResult):voi
     if(activity==null){callback('{"error":"无法打开文件选择器"}');return}
     XiaoxingAndroid.pick(activity,(result:string)=>callback(result));return
   }
-  callback('{"supported":false,"error":"当前 Android 版本使用站内提醒；APNs 和 AlarmKit 为 iOS 能力"}')
+  const activity=UTSAndroid.getUniActivity()
+  if(activity==null){callback('{"supported":false,"error":"应用尚未就绪"}');return}
+  XiaoxingNotifications.call(activity,action,input,(result:string)=>callback(result))
 }

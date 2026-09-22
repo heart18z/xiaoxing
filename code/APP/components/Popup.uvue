@@ -35,7 +35,7 @@
           <UiIcon name="close" tone="muted" :size="20" />
         </view>
       </view>
-      <scroll-view scroll-y class="popup-scroll">
+      <scroll-view :scroll-y="true" class="popup-scroll">
         <view class="popup-body"><slot /></view>
       </scroll-view>
       <view v-if="fixedFooter" class="popup-footer"><slot name="footer" /></view>

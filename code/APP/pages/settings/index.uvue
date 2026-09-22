@@ -5,7 +5,7 @@
     :subtitle="t('账号、通知与偏好')"
     :back-button="true"
   >
-    <scroll-view scroll-y class="scroll">
+    <scroll-view :scroll-y="true" class="scroll">
       <view class="padded">
         <view class="card">
           <text class="app-font heading">{{ t('账号安全') }}</text>
@@ -20,13 +20,7 @@
         <view class="card">
           <text class="app-font heading">{{ t('手机通知') }}</text>
           <text class="app-font notification-copy">
-            {{
-              pushState.registered
-                ? t('设备已绑定。实际提醒还受网络、专注模式等系统设置影响。')
-                : pushState.supported
-                  ? t('设备尚未完成推送绑定，请点击下方按钮开启或检查通知。')
-                  : t('请在手机 App 中开启通知。')
-            }}
+            {{ notificationStatus() }}
           </text>
           <text class="app-font notification-copy">
             {{ t('通知将显示你的提醒内容，可在系统设置中控制锁屏预览。点击通知查看对应事件。') }}
@@ -214,6 +208,20 @@ async function openSettings() {
   } catch (e) {
     toast(message(e));
   }
+}
+function notificationStatus(): string {
+  // #ifdef APP-ANDROID
+  return pushState.registered
+    ? t('后台接收已开启。请保留应用在后台运行，系统限制后台运行时可能延迟接收。')
+    : t('后台接收尚未开启，请点击下方按钮检查通知。');
+  // #endif
+  // #ifndef APP-ANDROID
+  return pushState.registered
+    ? t('设备已绑定。实际提醒还受网络、专注模式等系统设置影响。')
+    : pushState.supported
+      ? t('设备尚未完成推送绑定，请点击下方按钮开启或检查通知。')
+      : t('请在手机 App 中开启通知。');
+  // #endif
 }
 function checkNotification() {
   if (pushState.permission == 'denied') {

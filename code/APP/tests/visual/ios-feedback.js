@@ -29,7 +29,7 @@ async page => {
   await page.screenshot({path:'output/playwright/ios109-friends.png'});
 
   const messages=Array.from({length:30},(_,i)=>({id:String(100+i),messageRole:i%2?'assistant':'user',messageType:'TEXT',content:'第'+i+'条对话：请帮我确认今天的工作安排，并在合适时间提醒我。',payload:{},createTime:'2026-09-22 09:00:00'}));
-  messages.push({id:'140',messageRole:'assistant',messageType:'REMINDER',eventId:'201',content:'11点，记得点外卖。',payload:{eventSummary:'提醒我今天上午十一点订外卖并确认会议室、投影仪以及其他明天会议所需的全部资料'},createTime:'2026-09-22 09:00:00'});
+  messages.push({id:'140',messageRole:'assistant',messageType:'REMINDER',eventId:'201',content:'11点，记得点外卖。',payload:{eventSummary:'提醒我今天上午十一点订外卖并确认会议室、投影仪以及其他明天会议所需的全部资料'.repeat(4)},createTime:'2026-09-22 09:00:00'});
   messages.push({id:'141',messageRole:'assistant',messageType:'TEXT',content:'这是最新一条回复。',payload:{reasoningContent:'已经确认你的安排。'},createTime:'2026-09-22 09:01:00'});
   await page.route('**/api/**/chat/messages?*', async route=>{
     await page.waitForTimeout(650);
@@ -43,9 +43,9 @@ async page => {
   if(bottomGap>30)throw Error('Chat did not settle at latest: '+bottomGap);
   const related=await page.locator('.related').evaluate(el=>{
     const label=el.querySelector('.related-label'),summary=el.querySelector('.related-summary');
-    return {labelX:label.getBoundingClientRect().x,summaryX:summary.getBoundingClientRect().x,client:summary.clientWidth,scroll:summary.scrollWidth,ellipsis:getComputedStyle(summary).textOverflow};
+    return {labelX:label.getBoundingClientRect().x,summaryX:summary.getBoundingClientRect().x,client:summary.clientHeight,scroll:summary.scrollHeight,clamp:getComputedStyle(summary).webkitLineClamp,ellipsis:getComputedStyle(summary).textOverflow};
   });
-  if(related.labelX>=related.summaryX||related.scroll<=related.client||related.ellipsis!=='ellipsis')throw Error('Related event must have a left label and truncated summary');
+  if(related.labelX>=related.summaryX||related.scroll<=related.client||related.ellipsis!=='ellipsis'||related.clamp!=='3')throw Error('Related event must have a left label and truncated summary');
   const icon=await page.locator('.notice-label .ui-icon').boundingBox();
   if(icon.width!==16||icon.height!==16)throw Error('Reminder icon size incorrect');
   await page.screenshot({path:'output/playwright/ios109-chat.png'});

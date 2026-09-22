@@ -233,6 +233,9 @@ export function sm2Encrypt(text: string, publicKey: string, randomHex: string): 
   };
   const c1 = multiply(k, { x: GX, y: GY, z: one() }),
     shared = multiply(k, q);
+  return encryptPayload(text, c1, shared);
+}
+function encryptPayload(text: string, c1: Point, shared: Point): string {
   const x = hexBytes(hexOf(shared.x)),
     y = hexBytes(hexOf(shared.y)),
     input = utf8(text),
@@ -254,4 +257,48 @@ export function sm2Encrypt(text: string, publicKey: string, randomHex: string): 
     throw new Error('请重新尝试登录');
   const encrypted = input.map((v: number, i: number): number => v ^ mask[i]);
   return hexOf(c1.x) + hexOf(c1.y) + bytesHex(encrypted) + bytesHex(sm3(x.concat(input).concat(y)));
+}
+
+// Yield between curve-operation batches so iOS can paint login feedback.
+// Arithmetic, nonce validation and ciphertext layout are identical to the sync path.
+function yieldEncryption(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => resolve(), 0);
+  });
+}
+async function multiplyResponsive(k: number[], p: Point): Promise<Point> {
+  let r = infinity();
+  for (let i = 255; i >= 0; i--) {
+    r = doublePoint(r);
+    if ((k[Math.floor(i / 16)] & (1 << (i % 16))) != 0) r = addAffine(r, p);
+    if (i % 2 == 0) await yieldEncryption();
+  }
+  const exponent = rawSubtract(P, scale(one(), 2));
+  let inv = one();
+  for (let i = 255; i >= 0; i--) {
+    inv = sq(inv);
+    if ((exponent[Math.floor(i / 16)] & (1 << (i % 16))) != 0) inv = mul(inv, r.z);
+    if (i % 8 == 0) await yieldEncryption();
+  }
+  const inv2 = sq(inv);
+  return { x: mul(r.x, inv2), y: mul(r.y, mul(inv2, inv)), z: one() };
+}
+export async function sm2EncryptResponsive(
+  text: string,
+  publicKey: string,
+  randomHex: string,
+): Promise<string> {
+  if (!/^[a-fA-F0-9]{64}$/.test(randomHex) || !/^04[a-fA-F0-9]{128}$/.test(publicKey))
+    throw new Error('登录加密参数无效');
+  const k = fromHex(randomHex);
+  if (compare(k, zero()) == 0 || compare(k, N) >= 0) throw new Error('请重新尝试登录');
+  const q: Point = {
+    x: fromHex(publicKey.slice(2, 66)),
+    y: fromHex(publicKey.slice(66)),
+    z: one(),
+  };
+  await yieldEncryption();
+  const c1 = await multiplyResponsive(k, { x: GX, y: GY, z: one() });
+  const shared = await multiplyResponsive(k, q);
+  return encryptPayload(text, c1, shared);
 }

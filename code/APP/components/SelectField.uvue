@@ -10,7 +10,7 @@
     <view v-if="rendered" class="select-dismiss" @click="close()" />
     <!-- #endif -->
     <view v-if="rendered" class="options" :style="optionsStyle">
-      <scroll-view scroll-y :style="{ height: listHeight + 'px' }" :bounces="false">
+      <scroll-view :scroll-y="true" :style="{ height: listHeight + 'px' }" :bounces="false">
         <view
           v-for="(option, index) in options"
           :key="index"

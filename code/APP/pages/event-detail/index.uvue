@@ -14,7 +14,7 @@
         {{ t('停止') }}
       </text>
     </template>
-    <scroll-view scroll-y class="scroll">
+    <scroll-view :scroll-y="true" class="scroll">
       <view class="padded">
         <text class="app-font muted" v-if="loading">{{ t('正在读取…') }}</text>
         <view v-if="error.length > 0" class="card">
@@ -158,7 +158,7 @@
               />
             </view>
           </view>
-          <scroll-view scroll-x style="height: 40px">
+          <scroll-view :scroll-x="true" style="height: 40px">
             <view class="row">
               <text
                 class="app-font"
@@ -221,7 +221,11 @@
     :title="conversationName + ' · ' + t('事件对话')"
     @close="closeConversation"
   >
-    <scroll-view scroll-y class="conversation" :style="{ height: conversationHeight + 'px' }">
+    <scroll-view
+      :scroll-y="true"
+      class="conversation"
+      :style="{ height: conversationHeight + 'px' }"
+    >
       <text class="app-font muted" v-if="conversationLoading">{{ t('正在读取对话…') }}</text>
       <text class="app-font muted" v-else-if="conversationRows.length == 0">
         {{ t('该事件暂时没有对话记录') }}

@@ -89,7 +89,7 @@
         <view class="friend-card">
           <scroll-view
             :key="'friends-' + friendKeyword + '-' + filteredFriends.length"
-            scroll-y
+            :scroll-y="true"
             class="friend-scroll"
             :bounces="false"
           >
@@ -132,7 +132,7 @@
               {{ arr(requests, 'incoming').length }}
             </text>
           </view>
-          <scroll-view scroll-y class="request-section-scroll">
+          <scroll-view :scroll-y="true" class="request-section-scroll">
             <view v-if="arr(requests, 'incoming').length == 0" class="request-empty">
               <text class="app-font request-empty-title">{{ t('暂时没有待处理申请') }}</text>
               <text class="app-font muted">{{ t('新的好友和权限申请会显示在这里') }}</text>
@@ -193,7 +193,7 @@
               {{ arr(requests, 'outgoing').length }}
             </text>
           </view>
-          <scroll-view scroll-y class="request-section-scroll">
+          <scroll-view :scroll-y="true" class="request-section-scroll">
             <view v-if="arr(requests, 'outgoing').length == 0" class="request-empty">
               <text class="app-font request-empty-title">{{ t('暂无发出的申请') }}</text>
               <text class="app-font muted">{{ t('添加好友后，可在这里查看申请状态') }}</text>
@@ -1116,7 +1116,7 @@ function openSettings() {
 .logout-label {
   color: #f0525b;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   margin-left: 10px;
 }
 .friend-info {
@@ -1441,4 +1441,9 @@ function openSettings() {
   min-height: 44px;
   line-height: 44px;
 }
+/* #ifdef APP-IOS */
+.logout-label {
+  font-family: 'PingFangSC-Semibold';
+}
+/* #endif */
 </style>

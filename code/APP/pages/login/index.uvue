@@ -1,5 +1,5 @@
 <template>
-  <scroll-view scroll-y class="login">
+  <scroll-view :scroll-y="true" class="login">
     <view class="canvas">
       <image class="login-bg" src="/static/images/login-background.png" mode="widthFix" />
       <view class="brand" :style="{ marginTop: top + 'px' }">
@@ -178,6 +178,9 @@ async function submit(confirmed: boolean = false) {
   error.value = '';
   try {
     await nextTick();
+    await new Promise<void>((resolve) => {
+      setTimeout(() => resolve(), 32);
+    });
     await login(
       account.value.trim(),
       password.value,

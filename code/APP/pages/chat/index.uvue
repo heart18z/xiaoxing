@@ -25,7 +25,7 @@
       </view>
     </view>
     <scroll-view
-      scroll-y
+      :scroll-y="true"
       id="chat-scroll"
       class="scroll"
       :scroll-top="scrollTop"
@@ -77,7 +77,7 @@
       <text class="app-font latest-text">{{ t('回到最新') }}</text>
     </view>
     <view class="composer" :style="{ marginBottom: keyboard > 0 ? '0px' : '10px' }">
-      <scroll-view v-if="files.length > 0" scroll-x class="file-strip">
+      <scroll-view v-if="files.length > 0" :scroll-x="true" class="file-strip">
         <view class="row">
           <view v-for="file in files" :key="file.key" class="file">
             <image v-if="file.image" :src="file.path" class="file-image" />
@@ -112,7 +112,7 @@
             @confirm="confirmSend"
             :value="inputValue"
             @input="composerInput"
-            auto-height
+            :auto-height="true"
             :maxlength="20000"
             :disabled="recording || transcribing"
             :placeholder="t('说说你想提醒的事…')"
@@ -330,7 +330,13 @@ let timer: number = 0,
   syncFailures = 0;
 // #ifdef APP-ANDROID
 const recorder = uni.getRecorderManager();
+let recordStartTimer: number = 0;
+recorder.onStart(() => {
+  clearTimeout(recordStartTimer);
+  if (!recording.value || recordCancelled) recorder.stop();
+});
 async function handleRecording(result: RecorderManagerOnStopResult): Promise<void> {
+  clearTimeout(recordStartTimer);
   recording.value = false;
   if (recordCancelled) return;
   transcribing.value = true;
@@ -350,10 +356,12 @@ async function handleRecording(result: RecorderManagerOnStopResult): Promise<voi
 recorder.onStop((result) => {
   void handleRecording(result);
 });
-recorder.onError(() => {
+recorder.onError((error) => {
+  clearTimeout(recordStartTimer);
+  if (recordCancelled) return;
   recording.value = false;
   transcribing.value = false;
-  toast('录音失败，请检查麦克风权限');
+  toast(error.errMsg.length > 0 ? error.errMsg : '录音失败，请检查麦克风权限');
 });
 // #endif
 const voiceLevel = ref(0);
@@ -778,13 +786,30 @@ function startRecording() {
   void beginSpeech();
   // #endif
   // #ifdef APP-ANDROID
-  if (chat.busy || transcribing.value || recording.value) return;
+  if (chat.busy || transcribing.value || recording.value) {
+    toast('请等待当前回复或语音处理完成');
+    return;
+  }
   recordCancelled = false;
   recordGeneration++;
   recordDraft = draft.value;
   recordOwner = session.userId;
   recording.value = true;
-  recorder.start({ format: 'mp3', duration: 60000, numberOfChannels: 1, sampleRate: 16000 });
+  clearTimeout(recordStartTimer);
+  recordStartTimer = setTimeout(() => {
+    if (!recording.value) return;
+    recordCancelled = true;
+    recording.value = false;
+    recorder.stop();
+    toast('录音未能启动，请检查麦克风是否被其他应用占用');
+  }, 12000);
+  recorder.start({
+    format: 'aac',
+    duration: 60000,
+    numberOfChannels: 1,
+    sampleRate: 16000,
+    encodeBitRate: 48000,
+  });
   // #endif
   // #ifdef WEB
   if (chat.busy || recording.value || transcribing.value || clearing.value) return;
@@ -863,6 +888,7 @@ function cancelRecording() {
   cancelBrowserRecording();
   // #endif
   // #ifdef APP-ANDROID
+  clearTimeout(recordStartTimer);
   if (recording.value) recorder.stop();
   // #endif
   recording.value = false;
@@ -1069,6 +1095,7 @@ watch((): string => chat.reply, scrollLatest);
   flex: 1;
   font-size: 14px;
   color: #344967;
+  height: 25px;
   min-height: 25px;
   max-height: 144px;
   padding: 0;

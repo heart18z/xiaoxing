@@ -5,7 +5,7 @@ import {dependency,root} from './loader.mjs';
 let serial=0;
 async function fixture(reply){
  const session={token:'old',refresh:'refresh',userId:'1',revision:0};let refreshed=0,cleared=0;
- const env={session,saveSession:data=>{session.token=data.access_token;refreshed++},clearSession:()=>{session.token='';session.revision++;cleared++},applyBootstrap:()=>{},sm2Encrypt:()=>'',randomHex:()=>'',BASE_URL:'https://fixture.invalid',BASIC_AUTH:'fixture',TENANT:'000000',SM2_PUBLIC_KEY:'',UTSAndroid:{getDispatcher:()=>({async:fn=>queueMicrotask(()=>fn(null))})}};
+ const env={session,saveSession:data=>{session.token=data.access_token;refreshed++},clearSession:()=>{session.token='';session.revision++;cleared++},applyBootstrap:()=>{},sm2Encrypt:()=>'',sm2EncryptResponsive:async()=>'',randomHex:()=>'',BASE_URL:'https://fixture.invalid',BASIC_AUTH:'fixture',TENANT:'000000',SM2_PUBLIC_KEY:'',UTSAndroid:{getDispatcher:()=>({async:fn=>queueMicrotask(()=>fn(null))})}};
  globalThis.__requestFixture=env;globalThis.UTSAndroid=env.UTSAndroid;JSON.parseObject=JSON.parse;
  globalThis.uni={request:options=>{queueMicrotask(()=>reply(options,session));return{}},reLaunch:()=>{}};
  const imports=['@/store/session.uts','@/core/sm2.uts','@/uni_modules/xiaoxing-native','@/config/environment.uts'];

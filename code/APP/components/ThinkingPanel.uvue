@@ -16,7 +16,7 @@
         <UiIcon name="chevron" :size="20" />
       </view>
     </view>
-    <scroll-view v-if="open" scroll-y class="thinking-content" :scroll-into-view="anchor">
+    <scroll-view v-if="open" :scroll-y="true" class="thinking-content" :scroll-into-view="anchor">
       <text class="app-font thinking-text" selectable>{{ displayed }}</text>
       <view id="reasoning-end" style="height: 1px" />
     </scroll-view>

@@ -1,6 +1,6 @@
 import { BASE_URL, BASIC_AUTH, TENANT, SM2_PUBLIC_KEY } from '@/config/environment.uts';
 import { session, saveSession, clearSession, applyBootstrap } from '@/store/session.uts';
-import { sm2Encrypt } from '@/core/sm2.uts';
+import { sm2Encrypt, sm2EncryptResponsive } from '@/core/sm2.uts';
 import { randomHex } from '@/uni_modules/xiaoxing-native';
 import { s, n, parseObject } from '@/core/json.uts';
 import { credentialRejected } from '@/core/auth.uts';
@@ -185,8 +185,13 @@ function encryptPassword(password: string): Promise<string> {
     }, null);
   });
   // #endif
+  // #ifdef APP-IOS
+  return sm2EncryptResponsive(password, SM2_PUBLIC_KEY, randomHex(32));
+  // #endif
   // #ifndef APP-ANDROID
+  // #ifndef APP-IOS
   return Promise.resolve(sm2Encrypt(password, SM2_PUBLIC_KEY, randomHex(32)));
+  // #endif
   // #endif
 }
 export async function login(

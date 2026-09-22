@@ -5,7 +5,13 @@ import { post, reminder } from '@/api/request.uts';
 import { s, b, obj, arr, parseObject, message } from '@/core/json.uts';
 import { openEvent } from '@/core/ui.uts';
 import { alarmPlan } from '@/core/alarms.uts';
-import { BUNDLE_ID, PUSH_ENVIRONMENT } from '@/config/environment.uts';
+import {
+  BUNDLE_ID,
+  PUSH_ENVIRONMENT,
+  BASE_URL,
+  BASIC_AUTH,
+  TENANT,
+} from '@/config/environment.uts';
 import { resetChat } from './chat.uts';
 export type PushState = {
   supported: boolean;
@@ -95,6 +101,24 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
   if (pushState.busy) return;
   pushState.busy = true;
   try {
+    // #ifdef APP-ANDROID
+    if (session.userId.length == 0) {
+      await callNative('push.clear');
+      pushState.registered = false;
+      return;
+    }
+    if (!session.visible) return;
+    const androidState = await callNative(requestPermission ? 'push.request' : 'push.status', {
+      baseUrl: BASE_URL,
+      basicAuth: BASIC_AUTH,
+      tenant: TENANT,
+    });
+    pushState.supported = b(androidState, 'supported');
+    pushState.permission = s(androidState, 'permission');
+    pushState.registered = b(androidState, 'registered');
+    pushState.error = s(androidState, 'message');
+    return;
+    // #endif
     await enqueue(async () => {
       const owner = session.userId,
         revision = session.revision,
