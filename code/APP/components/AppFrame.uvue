@@ -178,9 +178,7 @@ function go(tab: string) {
   right: 0;
   height: auto;
   flex: none;
-  transition-property: bottom;
-  transition-duration: 250ms;
-  transition-timing-function: ease-out;
+  /* Keyboard owns its animation; avoid a second layout animation on every child. */
 }
 /* #endif */
 .background {
@@ -271,9 +269,7 @@ function go(tab: string) {
 }
 /* #ifdef APP-IOS */
 .dock {
-  transition-property: height, padding-bottom;
-  transition-duration: 250ms;
-  transition-timing-function: ease-out;
+
 }
 /* #endif */
 .tab {

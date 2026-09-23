@@ -25,6 +25,10 @@ public class AppReleaseController {
     public R<Object> publish(@RequestParam long id, @RequestParam boolean published) {
         AppRoleGuard.requireAdmin(); releases.publish(id, published); return R.success("操作成功");
     }
+    @PostMapping("blade-smart/admin/releases/delete")
+    public R<Object> delete(@RequestParam long id) {
+        AppRoleGuard.requireAdmin(); releases.delete(id); return R.success("版本已删除");
+    }
     @PostMapping("app/reminder/releases/latest")
     public R<Object> latest() { AppRoleGuard.requireAppUser(); return R.data(releases.latest()); }
     @GetMapping("app/reminder/releases/{id}/apk")

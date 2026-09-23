@@ -18,6 +18,7 @@
         <ThinkingPanel
           v-if="reason.length > 0 && !user"
           :content="reason"
+          :panel-id="'thinking-' + s(item, 'id')"
           :open="expanded"
           :streaming="thinkingActive"
           @toggle="toggleThinking()"
@@ -62,6 +63,7 @@
         <view v-if="reason.length > 0" class="notice-thinking" @click.stop>
           <ThinkingPanel
             :content="reason"
+          :panel-id="'thinking-' + s(item, 'id')"
             :open="expanded"
             :streaming="thinkingActive"
             @toggle="toggleThinking()"
@@ -210,7 +212,7 @@ function openEvent(id: string): void {
 }
 const messageWidth = Math.max(180, (uni.getWindowInfo().windowWidth - 70) * 0.94);
 const props = defineProps<{ item: UTSJSONObject; busy: boolean }>();
-const emit = defineEmits(['confirm', 'layout']);
+const emit = defineEmits(['confirm', 'layout', 'reveal']);
 let manuallyToggled = false;
 const expanded = ref(b(props.item, 'streaming')),
   alarms = ref<number[]>([]);
@@ -360,6 +362,7 @@ const thinkingActive = computed((): boolean => isStreaming.value && s(props.item
 function toggleThinking() {
   manuallyToggled = true;
   expanded.value = !expanded.value;
+  if (expanded.value) emit('reveal', 'thinking-' + s(props.item, 'id'));
 }
 watch((): boolean => thinkingActive.value, (active: boolean) => {
   if (!manuallyToggled) expanded.value = active;

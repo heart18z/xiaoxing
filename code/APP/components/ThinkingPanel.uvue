@@ -1,5 +1,5 @@
 <template>
-  <view class="thinking-panel">
+  <view :id="panelId" class="thinking-panel">
     <view class="thinking-toggle" @click.stop="emit('toggle')">
       <view
         :class="['thinking-mark', streaming ? 'thinking-active' : '']"
@@ -31,11 +31,14 @@
 import UiIcon from './UiIcon.uvue';
 import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue';
 import { t as _t } from '@/core/locale.uts';
-const props = defineProps<{ content: string; open: boolean; streaming: boolean }>();
+const props = defineProps<{ content: string; open: boolean; streaming: boolean; panelId: string }>();
 const emit = defineEmits(['toggle', 'layout']);
 const shine = ref(-90);
 const windowOpen = ref(false);
-onMounted(() => { nextTick(() => { windowOpen.value = props.open; emit('layout'); }); });
+let settleTimer: number = 0;
+function settledLayout() { clearTimeout(settleTimer); settleTimer = setTimeout(() => { emit('layout'); }, 200); }
+onUnmounted(() => clearTimeout(settleTimer));
+onMounted(() => { nextTick(() => { windowOpen.value = props.open; emit('layout'); settledLayout(); }); });
 watch((): boolean => props.open, (open: boolean) => { windowOpen.value = open; });
 const anchor = ref('');
 const displayed = ref('');
@@ -94,7 +97,7 @@ watch(
     });
   },
 );
-watch((): boolean => props.open, () => { nextTick(() => { emit('layout'); }); });
+watch((): boolean => props.open, () => { nextTick(() => { emit('layout'); settledLayout(); }); });
 </script>
 <style scoped>
 .thinking-panel {

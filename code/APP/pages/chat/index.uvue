@@ -29,9 +29,12 @@
       id="chat-scroll"
       class="scroll"
       :scroll-top="scrollTop"
-      :scroll-with-animation="false"
+      :scroll-with-animation="scrollAnimated"
       @scroll="scrolling"
-      @touchstart="stopScrollLock()"
+      @touchstart="touchStarted()"
+      @touchmove="touchMoved()"
+      @touchend="touchEnded()"
+      @touchcancel="touchEnded()"
     >
       <view id="chat-messages" class="messages">
         <view v-if="chat.loading" class="card">
@@ -61,6 +64,7 @@
           :item="item"
           :busy="confirming == s(payload(item), 'candidateId')"
           @layout="scrollLatest"
+          @reveal="revealThinking"
           @confirm="confirmCandidate"
         />
         <view id="latest" style="height: 12px" />
@@ -276,7 +280,7 @@ const drawer = ref(false),
   draft = ref(''),
   inputValue = ref(''),
   files = ref<Attachment[]>([]),
-  anchor = ref(''),
+  scrollAnimated = ref(false),
   scrollTop = ref(0),
   follow = ref(true),
   showThinking = ref(false),
@@ -426,7 +430,10 @@ let scrollLockedUntil: number = 0,
   scrollHeight: number = 0;
 let initialScrollPending = false;
 let layoutTimer: number = 0;
-let layoutUntil: number = 0;
+let revealTimer: number = 0;
+let actualScrollTop: number = 0;
+let touching = false;
+let userScrolling = false;
 function measureScroll() {
   // #ifdef WEB
   const element = document.getElementById('chat-scroll');
@@ -437,8 +444,21 @@ function measureScroll() {
   if (nativeElement != null) scrollHeight = nativeElement.getBoundingClientRect().height;
   // #endif
 }
+function moveScroll(target: number, animated: boolean) {
+  const value = Math.max(0, Math.ceil(target));
+  if (Math.abs(value - actualScrollTop) < 2) return;
+  userScrolling = false;
+  scrollAnimated.value = animated;
+  scrollLockedUntil = Date.now() + (animated ? 400 : 80);
+  // Only commands update the binding. Scroll notifications never write back to native scroll.
+  if (scrollTop.value == value) {
+    scrollTop.value = actualScrollTop;
+    nextTick(() => { if (!touching) scrollTop.value = value; });
+  } else scrollTop.value = value;
+}
 function scrollAfterLayout() {
-  if (!follow.value) { clearInterval(layoutTimer); layoutTimer = 0; return; }
+  layoutTimer = 0;
+  if (!follow.value || touching) return;
   measureScroll();
   let contentHeight = 0;
   // #ifdef WEB
@@ -449,22 +469,39 @@ function scrollAfterLayout() {
   const nativeContent = uni.getElementById('chat-messages');
   if (nativeContent != null) contentHeight = nativeContent.getBoundingClientRect().height;
   // #endif
-  if (scrollHeight > 0 && contentHeight > 0) {
-    const target = Math.max(0, Math.ceil(contentHeight - scrollHeight));
-    scrollLockedUntil = Date.now() + 80;
-    scrollTop.value = target;
-  }
-  if (Date.now() >= layoutUntil) { clearInterval(layoutTimer); layoutTimer = 0; }
+  if (scrollHeight > 0 && contentHeight > 0)
+    moveScroll(contentHeight - scrollHeight, !chat.busy && !initialScrollPending);
 }
 function scrollLatest() {
-  if (!follow.value) return;
-  // Coalesce deltas, then follow the measured content through native layout/height transitions.
-  layoutUntil = Date.now() + 260;
-  if (layoutTimer != 0) return;
-  layoutTimer = setInterval(() => { scrollAfterLayout(); }, 32);
-  nextTick(() => { scrollAfterLayout(); });
+  if (!follow.value || touching || layoutTimer != 0) return;
+  scrollLockedUntil = Date.now() + 100;
+  // One coalesced measurement per content update, not a continuous native layout loop.
+  layoutTimer = setTimeout(() => { scrollAfterLayout(); }, 40);
 }
-
+function revealThinking(id: string) {
+  clearTimeout(layoutTimer); layoutTimer = 0;
+  clearTimeout(revealTimer);
+  follow.value = false;
+  // Finish the small expansion, then reveal this panel (never jump to the latest message).
+  revealTimer = setTimeout(() => {
+    if (touching) return;
+    let top = 0, bottom = 0, viewTop = 0, viewBottom = 0;
+    // #ifdef WEB
+    const panel = document.getElementById(id), viewport = document.getElementById('chat-scroll');
+    if (panel == null || viewport == null) return;
+    const rect = panel.getBoundingClientRect(), bounds = viewport.getBoundingClientRect();
+    top = rect.top; bottom = rect.bottom; viewTop = bounds.top; viewBottom = bounds.bottom;
+    // #endif
+    // #ifdef APP
+    const nativePanel = uni.getElementById(id), nativeViewport = uni.getElementById('chat-scroll');
+    if (nativePanel == null || nativeViewport == null) return;
+    const nativeRect = nativePanel.getBoundingClientRect(), nativeBounds = nativeViewport.getBoundingClientRect();
+    top = nativeRect.top; bottom = nativeRect.bottom; viewTop = nativeBounds.top; viewBottom = nativeBounds.bottom;
+    // #endif
+    if (bottom > viewBottom - 12) moveScroll(actualScrollTop + Math.min(bottom - viewBottom + 12, top - viewTop - 8), true);
+    else if (top < viewTop + 8) moveScroll(actualScrollTop + top - viewTop - 8, true);
+  }, 200);
+}
 function jumpLatest() {
   follow.value = true;
   scrollLatest();
@@ -474,48 +511,38 @@ function settleInitialScroll() {
   clearInterval(scrollTimer);
   jumpLatest();
   const started = Date.now();
-  // Rich text and the native viewport can finish layout after history is rendered.
-  // Keep following through that layout; a user touch always cancels this settling.
   scrollTimer = setInterval(() => {
-    if (!initialScrollPending) {
-      clearInterval(scrollTimer);
-      return;
-    }
+    if (!initialScrollPending) { clearInterval(scrollTimer); return; }
     scrollLatest();
-    if (Date.now() - started >= 1800) {
-      clearInterval(scrollTimer);
-      initialScrollPending = false;
-    }
-  }, 120);
+    if (Date.now() - started >= 1200) { clearInterval(scrollTimer); initialScrollPending = false; }
+  }, 240);
 }
 function updateKeyboard(height: number) {
+  if (keyboard.value == height) return;
   keyboard.value = height;
   clearTimeout(keyboardLayoutTimer);
-  scrollLatest();
-  // The scroll viewport changes throughout the frame/dock animation.
-  keyboardLayoutTimer = setTimeout(() => scrollLatest(), 280);
+  // Both keyboard callbacks can report the same change. Apply one layout and one native scroll.
+  keyboardLayoutTimer = setTimeout(() => { scrollLatest(); }, 30);
 }
-const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
-  updateKeyboard(event.height);
-};
-function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) {
-  updateKeyboard(event.detail.height);
-}
+const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => { updateKeyboard(event.height); };
+function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) { updateKeyboard(event.detail.height); }
 function stopScrollLock() {
-  clearInterval(layoutTimer);
-  layoutTimer = 0;
-  follow.value = false;
+  clearTimeout(layoutTimer); layoutTimer = 0;
+  clearTimeout(revealTimer);
   initialScrollPending = false;
   clearInterval(scrollTimer);
   scrollLockedUntil = 0;
 }
-
+function touchStarted() { touching = true; userScrolling = true; stopScrollLock(); measureScroll(); }
+function touchMoved() { follow.value = false; }
+function touchEnded() { touching = false; }
 function scrolling(event: UniScrollEvent) {
-  if (initialScrollPending || Date.now() < scrollLockedUntil) return;
-  measureScroll();
   const detail = event.detail;
-  scrollTop.value = detail.scrollTop;
-  follow.value = detail.scrollHeight - detail.scrollTop - scrollHeight < 80;
+  actualScrollTop = detail.scrollTop;
+  if (!userScrolling || initialScrollPending || Date.now() < scrollLockedUntil) return;
+  // Cache viewport geometry; inertial scrolling does not trigger native layout reads.
+  if (scrollHeight == 0) measureScroll();
+  follow.value = detail.scrollHeight - actualScrollTop - scrollHeight < 80;
 }
 let inputConfirmType = 'send';
 // #ifdef WEB
@@ -955,7 +982,9 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
-  clearInterval(layoutTimer);
+  touching = false; userScrolling = false;
+  clearTimeout(revealTimer);
+  clearTimeout(layoutTimer);
   layoutTimer = 0;
   initialScrollPending = false;
   clearInterval(scrollTimer);

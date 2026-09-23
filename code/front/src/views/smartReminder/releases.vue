@@ -13,10 +13,11 @@
     <el-table v-loading="loading" :data="rows" style="margin-top:20px">
       <el-table-column prop="versionCode" label="版本代码" width="100" />
       <el-table-column prop="versionName" label="版本名称" width="140" />
+      <el-table-column prop="fileName" label="APK文件名" min-width="220" show-overflow-tooltip />
       <el-table-column prop="notes" label="更新说明" show-overflow-tooltip />
       <el-table-column label="大小" width="110"><template #default="{row}">{{ (row.fileSize/1048576).toFixed(1) }} MB</template></el-table-column>
       <el-table-column label="状态" width="100"><template #default="{row}"><el-tag :type="row.published ? 'success':'info'">{{ row.published ? '已发布':'草稿/已下架' }}</el-tag></template></el-table-column>
-      <el-table-column label="操作" width="130"><template #default="{row}"><el-button :disabled="busy" :type="row.published ? 'warning':'primary'" @click="publish(row)">{{ row.published ? '下架':'发布' }}</el-button></template></el-table-column>
+      <el-table-column label="操作" width="210"><template #default="{row}"><el-button :disabled="busy" :type="row.published ? 'warning':'primary'" @click="publish(row)">{{ row.published ? '下架':'发布' }}</el-button><el-button v-if="!row.published" :disabled="busy" type="danger" plain @click="remove(row)">删除</el-button></template></el-table-column>
     </el-table>
   </basic-container>
 </template>
@@ -33,6 +34,7 @@ async function load(){loading.value=true;try{rows.value=(await request({url:endp
 async function upload(){
  if(busy.value)return;
  if(!file||!file.name.toLowerCase().endsWith('.apk')||file.size>300*1048576||!form.versionName.trim()||!form.notes.trim()){ElMessage.warning('请填写版本信息并选择不超过300MB的APK');return;}
+ if(rows.value.some(row=>Number(row.versionCode)===Number(form.versionCode))){ElMessage.warning('版本代码已存在，请先删除草稿/已下架版本，或使用新的版本代码');return;}
  busy.value=true;progress.value=0;
  try{const data=new FormData();data.append('file',file);Object.entries(form).forEach(([k,v])=>data.append(k,String(v)));
  await request({url:endpoint+'/upload',method:'post',data,timeout:600000,onUploadProgress:e=>{progress.value=e.total?Math.floor(e.loaded/e.total*100):0;}});
@@ -42,6 +44,11 @@ async function upload(){
 async function publish(row){
  try{await ElMessageBox.confirm(row.published?'下架后将不再向用户提供此版本。':'发布版本 '+row.versionName+'？请确认已完成安装和功能测试。','确认版本操作');}catch{return;}
  busy.value=true;try{await request({url:endpoint+'/publish',method:'post',params:{id:row.id,published:!row.published}});await load();ElMessage.success('已更新发布状态');}finally{busy.value=false;}
+}
+async function remove(row){
+ if(busy.value||row.published)return;
+ try{await ElMessageBox.confirm('删除版本 '+row.versionCode+'（'+(row.fileName||'APK')+'）及其安装包？删除后可重新上传此版本代码。','删除下架版本',{type:'warning',confirmButtonText:'删除',cancelButtonText:'取消'});}catch{return;}
+ busy.value=true;try{await request({url:endpoint+'/delete',method:'post',params:{id:row.id}});await load();ElMessage.success('版本已删除');}finally{busy.value=false;}
 }
 onMounted(load);
 </script>
