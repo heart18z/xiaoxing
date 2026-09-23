@@ -9,7 +9,7 @@
       </view>
       <view class="thinking-label-wrap">
         <text class="app-font thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
-        <view v-if="streaming" class="thinking-shimmer" :style="{ transform: 'translateX(' + shine + 'px)' }" />
+        <view v-if="streaming && visible != false" class="thinking-shimmer" :style="{ transform: 'translateX(' + shine + 'px)' }" />
       </view>
       <text class="app-font thinking-action">{{ open ? t('收起') : t('查看') }}</text>
       <view
@@ -20,7 +20,7 @@
       </view>
     </view>
     <view class="thinking-window" :style="{ height: windowOpen ? '146px' : '0px' }">
-    <scroll-view :scroll-y="true" :id="panelId + '-scroll'" class="thinking-content" @touchstart="following = false">
+    <scroll-view v-if="windowOpen && visible != false" :scroll-y="true" :id="panelId + '-scroll'" class="thinking-content" @touchstart="following = false">
       <view :id="panelId + '-text'"><text class="app-font thinking-text" selectable>{{ displayed }}</text></view>
     </scroll-view>
     </view>
@@ -128,7 +128,7 @@ function t(value: string): string { return _t(value); }
   background-color: #dce5ff;
 }
 .thinking-label-wrap { flex: 1; flex-direction: row; }
-.thinking-shimmer { position: absolute; top: 0; bottom: 0; left: 0; width: 40px; background-image: linear-gradient(to right, #ffffff00, #ffffffbb, #ffffff00); transition-property: transform; transition-duration: 40ms; transition-timing-function: linear; }
+.thinking-shimmer { position: absolute; top: 0; left: 0; width: 40px; height: 20px; background-image: linear-gradient(to right, #ffffff00, #ffffffbb, #ffffff00); transition-property: transform; transition-duration: 40ms; transition-timing-function: linear; }
 .thinking-label-wrap { position: relative; overflow: hidden; }
 .thinking-label {
   color: #596780;

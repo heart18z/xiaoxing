@@ -34,11 +34,11 @@
       <slot />
     </view>
     <view
-      v-if="tab.length > 0"
+      v-if="tab.length > 0 && keyboardHeight <= 0"
       class="dock"
       :style="{
-        paddingBottom: keyboardHeight > 0 ? '0px' : bottom + 'px',
-        height: keyboardHeight > 0 ? '0px' : 68 + bottom + 'px',
+        paddingBottom: bottom + 'px',
+        height: 68 + bottom + 'px',
       }"
     >
       <view class="tab" @click="go('events')">
