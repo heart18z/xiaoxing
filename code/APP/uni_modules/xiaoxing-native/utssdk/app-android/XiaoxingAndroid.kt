@@ -20,6 +20,18 @@ import javax.crypto.spec.GCMParameterSpec
 
 class XiaoxingAndroid {
     companion object {
+        private var navigationBottom: Double? = null
+        @JvmStatic fun navigationInset(activity: Activity): Double {
+            navigationBottom?.let { return it }
+            val insets = activity.window.decorView.rootWindowInsets ?: return 0.0
+            val pixels = if (android.os.Build.VERSION.SDK_INT >= 30)
+                insets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.navigationBars()).bottom
+            else insets.stableInsetBottom
+            val value = pixels / activity.resources.displayMetrics.density.toDouble()
+            navigationBottom = value
+            return value
+        }
+
         private const val ALIAS="xiaoxing.uniappx.secure.v1"
         private fun key():SecretKey {
             val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}

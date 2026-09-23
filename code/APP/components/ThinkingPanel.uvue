@@ -44,16 +44,19 @@ const anchor = ref('');
 const displayed = ref('');
 let revealTimer: number = 0;
 function revealContent() {
-  clearInterval(revealTimer);
   if (!props.streaming || !props.content.startsWith(displayed.value)) {
+    clearInterval(revealTimer);
+    revealTimer = 0;
     displayed.value = props.content;
     return;
   }
+  if (revealTimer != 0) return;
   // Reveal only text already received from the server; snapshots can arrive in bursts.
   revealTimer = setInterval(() => {
     const remaining = props.content.length - displayed.value.length;
     if (remaining <= 0) {
       clearInterval(revealTimer);
+      revealTimer = 0;
       return;
     }
     displayed.value = props.content.slice(

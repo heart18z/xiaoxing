@@ -105,6 +105,9 @@ import TopTip from '@/components/TopTip.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { computed, onMounted } from 'vue';
+// #ifdef APP-ANDROID
+import { XiaoxingAndroid } from 'uts.sdk.modules.xiaoxingNative';
+// #endif
 import { SessionState, session as _session } from '@/store/session.uts';
 import { n as _n } from '@/core/json.uts';
 import { back as _back } from '@/core/ui.uts';
@@ -128,8 +131,11 @@ const props = defineProps({
   backButton: { type: Boolean, default: false },
 });
 const info = uni.getWindowInfo(),
-  top = info.statusBarHeight,
-  bottom = info.safeAreaInsets.bottom;
+  top = info.statusBarHeight;
+let bottom = info.safeAreaInsets.bottom;
+// #ifdef APP-ANDROID
+bottom = XiaoxingAndroid.navigationInset(UTSAndroid.getUniActivity()!);
+// #endif
 // Avoid applying the same keyboard displacement twice when the OS resizes the window.
 const keyboardInset = computed((): number => {
   const resized = Math.max(0, info.windowHeight - uni.getWindowInfo().windowHeight);
@@ -142,7 +148,7 @@ const frameStyle = computed((): UTSJSONObject => {
   return { bottom: props.keyboardHeight + 'px' };
   // #endif
   // #ifndef APP-IOS
-  return { paddingBottom: keyboardInset.value + 'px' };
+  return { bottom: '0px', paddingBottom: keyboardInset.value + 'px' };
   // #endif
 });
 const background = computed(
@@ -170,7 +176,7 @@ function go(tab: string) {
   overflow: hidden;
   background-color: #edf4ff;
 }
-/* #ifdef APP-IOS */
+/* #ifdef APP */
 .frame {
   position: fixed;
   top: 0;

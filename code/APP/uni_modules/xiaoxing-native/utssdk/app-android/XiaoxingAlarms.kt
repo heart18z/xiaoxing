@@ -128,7 +128,14 @@ class XiaoxingAlarmService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == "STOP") { stopSelf(); return START_NOT_STICKY }
+        if (intent?.action == "STOP") {
+            if (intent.getStringExtra("id") == currentId && currentId.isNotEmpty()) {
+                ringtone?.stop()
+                android.widget.Toast.makeText(this, "闹铃已关闭", android.widget.Toast.LENGTH_SHORT).show()
+                stopSelf()
+            }
+            return START_NOT_STICKY
+        }
         try {
             val item = JSONObject(intent?.getStringExtra("alarm") ?: "{}")
             if (item.optString("owner") != XiaoxingAlarms.sessionOwner(this)) { stopSelf(); return START_NOT_STICKY }
@@ -138,12 +145,13 @@ class XiaoxingAlarmService : Service() {
                 val channel = NotificationChannel(XiaoxingAlarms.CHANNEL, "本机闹铃", NotificationManager.IMPORTANCE_HIGH)
                 channel.setSound(null, null); manager.createNotificationChannel(channel)
             }
-            val stop = PendingIntent.getService(this, 7201, Intent(this, XiaoxingAlarmService::class.java).setAction("STOP"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val open = PendingIntent.getActivity(this, 7201, Intent(this, XiaoxingNotificationOpenActivity::class.java)
-                .putExtra("xiaoxing.event", item.optString("eventId")).putExtra("xiaoxing.owner", item.optString("owner")), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val stop = PendingIntent.getService(this, 7201, Intent(this, XiaoxingAlarmService::class.java).setAction("STOP").putExtra("id", currentId).setData(Uri.parse("xiaoxing-alarm-stop:" + Uri.encode(currentId))), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val open = PendingIntent.getActivity(this, 7201, Intent(this, XiaoxingAlarmActivity::class.java)
+                .putExtra("alarm", item.toString()).setData(Uri.parse("xiaoxing-alarm-ring:" + Uri.encode(currentId))), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, XiaoxingAlarms.CHANNEL) else Notification.Builder(this)
+            if (Build.VERSION.SDK_INT < 34 || manager.canUseFullScreenIntent()) builder.setFullScreenIntent(open, true)
             val notification = builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("小醒闹铃")
-                .setContentText(item.optString("title", "时间到了")).setCategory(Notification.CATEGORY_ALARM)
+                .setContentText(item.optString("title", "时间到了") + " · 点击打开闹铃，或选择停止响铃").setCategory(Notification.CATEGORY_ALARM)
                 .setPriority(Notification.PRIORITY_MAX).setOngoing(true).setContentIntent(open)
                 .addAction(android.R.drawable.ic_media_pause, "停止响铃", stop).build()
             startForeground(7201, notification)

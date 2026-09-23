@@ -54,7 +54,7 @@ let nativeObserveCancel: (() => void) | null = null;
 function cancelNativeObserve(): void {
   const cancel = nativeObserveCancel;
   nativeObserveCancel = null;
-  // #ifdef APP-ANDROID
+  // #ifdef APP-ANDROID || APP-IOS
   if (nativeObserveId.length > 0) nativeCall('stream.cancel', JSON.stringify({ id: nativeObserveId }), (_) => {});
   // #endif
   nativeObserveId = '';
@@ -215,7 +215,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     };
     const h = headers();
     h['Accept'] = 'text/event-stream';
-    // #ifdef APP-ANDROID
+    // #ifdef APP-ANDROID || APP-IOS
     nativeObserveId = id + '-' + current;
     nativeObserveCancel = () => fail(new Error('观察已暂停'));
     nativeCall('stream.watch', JSON.stringify({ id: nativeObserveId,
@@ -229,7 +229,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     });
     armIdleTimeout();
     // #endif
-    // #ifndef APP-ANDROID
+    // #ifndef APP
     let task: RequestTask | null = null;
     task = uni.request({
       url: BASE_URL + '/app/reminder/chat/jobs/watch',

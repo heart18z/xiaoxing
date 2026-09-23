@@ -21,7 +21,7 @@ async function fixture(handler,stream=[],history=null,native=false){
   globalThis.uni={request:options=>{let stopped=false;return{abort(){if(stopped)return;stopped=true;aborted++;options.fail?.();options.complete?.()},onChunkReceived(callback){queueMicrotask(()=>{const batch=streams.shift();if(batch===null)return;for(const frame of batch||[]){if(stopped)break;const bytes=Buffer.from(`data: ${JSON.stringify(frame)}\n\n`);for(const byte of bytes){if(stopped)break;callback({data:Uint8Array.of(byte).buffer})}}if(!stopped){options.success?.({statusCode:200});options.complete?.()}})}}}};
   globalThis.__chatFixture=env;JSON.parseObject=JSON.parse;
   const imports=['vue','@/store/session.uts','@/uni_modules/xiaoxing-native','@/api/request.uts','@/config/environment.uts'];
-  const bundle=await dependency('esbuild').build({entryPoints:[root+'services/chat.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onLoad({filter:/services[\\/]chat\.uts$/},args=>({contents:fs.readFileSync(args.path,'utf8').replace(native?/\/\/ #ifndef APP-ANDROID[\s\S]*?\/\/ #endif/g:/\/\/ #ifdef APP-ANDROID[\s\S]*?\/\/ #endif/g,''),loader:'ts'}));build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__chatFixture;',loader:'js'}))}}]});
+  const bundle=await dependency('esbuild').build({entryPoints:[root+'services/chat.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onLoad({filter:/services[\\/]chat\.uts$/},args=>({contents:fs.readFileSync(args.path,'utf8').replace(native?/\/\/ #ifndef APP[\r\n][\s\S]*?\/\/ #endif/g:/\/\/ #ifdef APP-ANDROID[\s\S]*?\/\/ #endif/g,''),loader:'ts'}));build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__chatFixture;',loader:'js'}))}}]});
   const module=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text+`\n// fixture ${serial++}`).toString('base64'));
   return{module,session,calls,storage,ApiError,aborted:()=>aborted};
 }
@@ -126,7 +126,7 @@ test('committed reply is revealed progressively and survives hiding without resu
 });
 
 
-test('Android native snapshots stream immediately and hiding releases observation for resume',async()=>{
+test('Android and iOS native snapshots stream immediately and hiding releases observation for resume',async()=>{
  let status=0;
  const f=await fixture(action=>{
   if(action==='chat/jobs/status')return ++status===1?{status:'NOT_FOUND'}:{status:'SUCCEEDED',result:{reply:'已完成'}};

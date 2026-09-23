@@ -24,7 +24,7 @@
       ]"
       @click.stop="noop"
       :style="{
-        maxHeight: maxHeight + 'px',
+        maxHeight: (fixedFooter ? info.windowHeight - info.safeAreaInsets.top - info.safeAreaInsets.bottom - 48 : maxHeight) + 'px',
         height: fixedFooter ? Math.min(maxHeight, panelHeight) + 'px' : 'auto',
         transform: visible ? 'translateY(0px)' : 'translateY(16px)',
       }"
@@ -213,4 +213,11 @@ function noop() {}
   border: 1px solid #ffffff;
   border-radius: 26px;
 }
+/* #ifdef APP-IOS */
+.account-panel {
+  transition-property: height, transform;
+  transition-duration: 220ms;
+  transition-timing-function: ease-out;
+}
+/* #endif */
 </style>
