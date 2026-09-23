@@ -19,7 +19,9 @@ const jsonOptions = data =>
 const post = (url, data, params) =>
   request({ url, method: 'post', data, params, meta: { noProgress: true }, ...jsonOptions(data) });
 
-const accountPost = (action, data) => request({ url:'/api/app/account/'+action, method:'post', data, meta:{noProgress:true,silent:true,isToken:action!=='register'} });
+const accountPost = (action, data) => request({ url:'/api/app/account/'+action, method:'post', data, timeout:action==='email-code'?45000:15000, meta:{noProgress:true,silent:true,isToken:action==='password'} });
+export const checkRegistrationContact = data => accountPost('check-contact', data);
+export const sendRegistrationCode = email => accountPost('email-code', {email});
 export const registerAccount = data => accountPost('register', data);
 export const suggestAccount = () => request({url:'/api/app/account/suggest-account',method:'post',meta:{noProgress:true,silent:true,isToken:false}});
 export const changeOwnPassword = data => accountPost('password', data);

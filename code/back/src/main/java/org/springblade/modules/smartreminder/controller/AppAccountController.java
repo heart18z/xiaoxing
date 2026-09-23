@@ -20,6 +20,26 @@ import jakarta.validation.constraints.*;
 @RequestMapping("app/account")
 public class AppAccountController {
     private final AppAccountService accounts;
+    private final org.springblade.modules.smartreminder.service.EmailVerificationService verification;
+
+    @PostMapping("check-contact")
+    public R<Object> checkContact(@Valid @RequestBody ContactCheck input, HttpServletRequest request) {
+        accounts.limit("contact:"+request.getRemoteAddr(),300);
+        return R.data(verification.availability(input.getField(),input.getValue()));
+    }
+    @PostMapping("email-code")
+    public R<Object> emailCode(@Valid @RequestBody EmailCodeRequest input,HttpServletRequest request) {
+        accounts.limit("email-code:"+request.getRemoteAddr(),60);
+        verification.send(input.getEmail(),request.getRemoteAddr());
+        return R.data(java.util.Map.of("retryAfter",60,"expiresIn",600));
+    }
+    @Data public static class ContactCheck {
+        @NotBlank @Pattern(regexp="email|phone") private String field;
+        @NotNull @Size(max=45) private String value;
+    }
+    @Data public static class EmailCodeRequest {
+        @NotBlank(message="请填写邮箱") @Size(max=45) private String email;
+    }
 
     // Never pass a validation exception containing rejected password values to generic logs.
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -60,6 +80,7 @@ public class AppAccountController {
         @ToString.Exclude @NotBlank @Size(min=8,max=64, message="密码须为8–64个字符") private String password;
         @Pattern(regexp="^$|^1[3-9][0-9]{9}$", message="请输入正确的11位手机号") private String phone;
         @NotBlank(message="请填写邮箱") @Email(message="请输入正确的邮箱") @Size(max=45, message="邮箱最多45个字符") private String email;
+        @ToString.Exclude @NotBlank(message="请输入邮箱验证码") @Pattern(regexp="[0-9]{6}",message="请输入6位邮箱验证码") private String emailCode;
         @AssertTrue(message="请填写邮箱")
         public boolean isContactProvided() {
             return email != null && !email.isBlank();

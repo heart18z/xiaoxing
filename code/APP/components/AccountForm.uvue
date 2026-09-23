@@ -60,19 +60,35 @@
             <input
               class="app-font input"
               v-model="phone"
+              :disabled="busy || sending"
               type="number"
               maxlength="11"
               :placeholder="t('11位手机号')"
+              @blur="checkContact('phone')"
             />
+            <text v-if="phoneHint.length > 0" class="app-font contact-hint">{{ phoneHint }}</text>
           </view>
           <view class="contact-field">
             <text class="app-font form-label">{{ t('邮箱 *') }}</text>
             <input
               class="app-font input"
               v-model="email"
+              :disabled="busy || sending"
               maxlength="45"
               :placeholder="t('常用邮箱')"
+              @blur="checkContact('email')"
             />
+            <text v-if="emailHint.length > 0" class="app-font contact-hint">{{ emailHint }}</text>
+          </view>
+          <view class="contact-field">
+            <text class="app-font form-label">{{ t('邮箱验证码 *') }}</text>
+            <view class="code-row">
+              <input class="app-font input code-input" v-model="emailCode" type="number" maxlength="6" :disabled="busy" :placeholder="t('6位验证码')" />
+              <view class="code-send" :class="{ 'code-disabled': sending || cooldown > 0 || busy }" @click="sendCode()">
+                <text class="app-font code-label">{{ sending ? t('发送中…') : cooldown > 0 ? cooldown + 's' : t('获取验证码') }}</text>
+              </view>
+            </view>
+            <text class="app-font form-help">{{ t('验证码10分钟内有效，验证通过后才能注册') }}</text>
           </view>
         </view>
         <text class="app-font form-help">
@@ -99,11 +115,11 @@
 <script setup lang="uts">
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import Popup from './Popup.uvue';
 import LoginButton from './LoginButton.uvue';
 import { post } from '@/api/request.uts';
-import { s, message } from '@/core/json.uts';
+import { s, b, obj, message } from '@/core/json.uts';
 function t(value: string): string {
   return _t(value);
 }
@@ -124,8 +140,61 @@ const account = ref(''),
   show = ref(false),
   suggesting = ref(false);
 let ticket = 0;
+const emailCode = ref(''), emailHint = ref(''), phoneHint = ref(''), sending = ref(false), cooldown = ref(0);
+let emailTimer: number = 0, phoneTimer: number = 0, codeTimer: number = 0, emailCheck = 0, phoneCheck = 0;
+function stopContactChecks(): void {
+  clearTimeout(emailTimer); clearTimeout(phoneTimer); clearInterval(codeTimer);
+  emailCheck++; phoneCheck++; cooldown.value = 0;
+}
+async function checkContact(field: string): Promise<boolean> {
+  const isEmail = field == 'email';
+  if (isEmail) clearTimeout(emailTimer); else clearTimeout(phoneTimer);
+  const value = isEmail ? email.value.trim().toLowerCase() : phone.value.trim();
+  const serial = isEmail ? ++emailCheck : ++phoneCheck, owner = ticket;
+  if (!props.open || !props.register || value.length == 0) return !isEmail;
+  const valid = isEmail ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) : /^1[3-9]\d{9}$/.test(value);
+  const hint = isEmail ? emailHint : phoneHint;
+  if (!valid) { hint.value = isEmail ? '请输入正确的邮箱' : '请输入正确的11位手机号'; return false; }
+  hint.value = '正在检查…';
+  try {
+    const response = await post('/app/account/check-contact', { field: field, value: value }, {}, 10000, false);
+    if (owner != ticket || serial != (isEmail ? emailCheck : phoneCheck)) return false;
+    const available = b(obj(response, 'data'), 'available');
+    hint.value = available ? (isEmail ? '邮箱可以使用' : '手机号可以使用') : (isEmail ? '邮箱已被使用，请更换邮箱' : '手机号已被使用，请更换手机号');
+    return available;
+  } catch (e) {
+    if (owner == ticket && serial == (isEmail ? emailCheck : phoneCheck)) hint.value = message(e);
+    return false;
+  }
+}
+async function sendCode(): Promise<void> {
+  if (sending.value || busy.value || cooldown.value > 0) return;
+  sending.value = true; error.value = '';
+  const owner = ticket;
+  try {
+    if (!await checkContact('email')) return;
+    const target = email.value.trim().toLowerCase();
+    await post('/app/account/email-code', { email: target }, {}, 45000, false);
+    if (owner != ticket) return;
+    cooldown.value = 60;
+    clearInterval(codeTimer);
+    codeTimer = setInterval(() => { cooldown.value--; if (cooldown.value <= 0) clearInterval(codeTimer); }, 1000);
+    if (target == email.value.trim().toLowerCase()) emailHint.value = '验证码已发送，请检查邮箱或垃圾邮件';
+  } catch (e) { if (owner == ticket) error.value = message(e); }
+  finally { if (owner == ticket) sending.value = false; }
+}
+watch((): string => email.value, () => {
+  clearTimeout(emailTimer); emailCheck++; emailCode.value = ''; emailHint.value = '';
+  if (props.open && props.register) emailTimer = setTimeout(() => { void checkContact('email'); }, 500);
+});
+watch((): string => phone.value, () => {
+  clearTimeout(phoneTimer); phoneCheck++; phoneHint.value = '';
+  if (props.open && props.register) phoneTimer = setTimeout(() => { void checkContact('phone'); }, 500);
+});
+onUnmounted(() => { ticket++; stopContactChecks(); });
 async function opened(value: boolean): Promise<void> {
   const current = ++ticket;
+  stopContactChecks(); sending.value = false; emailCode.value = ''; emailHint.value = ''; phoneHint.value = '';
   if (!value) return;
   account.value = '';
   name.value = '';
@@ -148,7 +217,7 @@ async function opened(value: boolean): Promise<void> {
   }
 }
 async function submit() {
-  if (busy.value) return;
+  if (busy.value || sending.value) return;
   error.value = '';
   if (
     password.value.trim().length == 0 ||
@@ -175,12 +244,17 @@ async function submit() {
       error.value = '请输入正确的邮箱';
       return;
     }
+    if (!/^\d{6}$/.test(emailCode.value)) { error.value = '请输入6位邮箱验证码'; return; }
   } else if (oldPassword.value.length == 0 || password.value != confirmation.value) {
     error.value = '请填写原密码，并确认两次新密码一致';
     return;
   }
   busy.value = true;
   try {
+    if (props.register) {
+      clearTimeout(emailTimer); clearTimeout(phoneTimer);
+      if (!await checkContact('email') || !await checkContact('phone')) { error.value = '请检查邮箱和手机号的提示'; return; }
+    }
     await post(
       '/app/account/' + (props.register ? 'register' : 'password'),
       props.register
@@ -190,6 +264,7 @@ async function submit() {
             password: password.value,
             phone: phone.value,
             email: email.value.trim(),
+            emailCode: emailCode.value,
           }
         : {
             oldPassword: oldPassword.value,
@@ -221,6 +296,12 @@ watch(
 </script>
 
 <style scoped>
+.contact-hint { font-size: 12px; line-height: 19px; color: #66708a; margin-top: 4px; }
+.code-row { flex-direction: row; align-items: center; margin-bottom: 6px; }
+.code-input { flex: 1; min-width: 0; }
+.code-send { flex-shrink: 0; height: 45px; padding: 0 12px; margin-left: 8px; border-radius: 13px; background-color: #eef0ff; align-items: center; justify-content: center; }
+.code-label { font-size: 13px; font-weight: 600; color: #4c5cff; }
+.code-disabled { opacity: 0.55; }
 .contact-field {
   margin-bottom: 10px;
 }

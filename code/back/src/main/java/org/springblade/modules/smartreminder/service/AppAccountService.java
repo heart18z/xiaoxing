@@ -18,6 +18,7 @@ import java.util.*;
 public class AppAccountService {
     private final JdbcTemplate jdbc;
     private final IUserService users;
+    private final EmailVerificationService verification;
     private static final String TENANT = "000000";
     private final Map<String, long[]> attempts = new HashMap<>();
 
@@ -49,11 +50,13 @@ public class AppAccountService {
         if (++counter[1] > maximum) throw new ServiceException("操作过于频繁，请10分钟后再试");
     }
 
-    @Transactional(rollbackFor=Exception.class)
+    @Transactional(rollbackFor=Exception.class, noRollbackFor=EmailVerificationService.InvalidCode.class)
     public void register(Registration input) {
         input.setPhone(Objects.toString(input.getPhone(),"").trim());
         input.setEmail(Objects.toString(input.getEmail(),"").trim().toLowerCase(Locale.ROOT));
         if (!input.isContactProvided()) throw new ServiceException("请填写邮箱");
+        input.setPhone(ContactIdentity.phone(input.getPhone()));
+        input.setEmail(ContactIdentity.email(input.getEmail()));
         // Fail closed until the additive migration is installed. The database constraint
         // arbitrates concurrent signups AND administrative account creation.
         Integer indexes = jdbc.queryForObject("select count(*) from information_schema.statistics where table_schema=database() and table_name='blade_user' and index_name='uk_app_account_tenant' and non_unique=0", Integer.class);
@@ -68,6 +71,7 @@ public class AppAccountService {
             throw new ServiceException("邮箱已被使用，请更换邮箱");
         List<Long> roles = jdbc.queryForList("select id from blade_role where tenant_id=? and role_alias='app_user' and is_deleted=0", Long.class, TENANT);
         if (roles.size() != 1) throw new ServiceException("APP使用人员角色尚未配置，请联系管理员");
+        verification.consume(input.getEmail(),input.getEmailCode());
         User user = new User();
         user.setTenantId(TENANT); user.setAccount(input.getAccount());
         user.setAvatar("/avatars/user/B" + java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 14) + ".png");

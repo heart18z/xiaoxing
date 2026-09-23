@@ -239,6 +239,7 @@ blade:
         - /blade-desk/notice/list
         - /blade-chat/weixin/**
         - /blade-smart/ai-config/**
+        - /blade-smart/registration-mail/**
         - /app/reminder/audio/**
         - /app/reminder/settings/**
         - /app/push/**
@@ -256,8 +257,11 @@ blade:
       - /app/reminder/**
       - /app/account/register
       - /app/account/suggest-account
+      - /app/account/check-contact
+      - /app/account/email-code
       - /app/account/password
       - /blade-smart/ai-config/**
+      - /blade-smart/registration-mail/**
   #安全框架配置
   secure:
     #接口放行
@@ -267,6 +271,8 @@ blade:
       - /blade-system/param/favicon
       - /app/account/register
       - /app/account/suggest-account
+      - /app/account/check-contact
+      - /app/account/email-code
       - /open/**
       - /unified-oauth/get-login-url
     #授权认证配置

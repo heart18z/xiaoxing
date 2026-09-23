@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Offline H2 + actual service/Bean Validation. Never contacts production. */
 public class AccountRegression {
   static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);System.out.println("PASS "+message);}
-  static Registration valid(String account){var r=new Registration();r.setAccount(account);r.setName("测试用户");r.setPassword("FixturePassword9");r.setEmail("fixture@example.com");r.setPhone("");return r;}
+  static Registration valid(String account){var r=new Registration();r.setAccount(account);r.setName("测试用户");r.setPassword("FixturePassword9");r.setEmail("fixture@example.com");r.setPhone("");r.setEmailCode("123456");return r;}
   public static void main(String[] args)throws Exception {
     Validator validator=Validation.buildDefaultValidatorFactory().getValidator();
     for(String account:new String[]{"abc","x".repeat(33),"_abcd","人员号123","a b c"})check(!validator.validate(valid(account)).isEmpty(),"invalid account rejected");
@@ -45,7 +45,7 @@ public class AccountRegression {
       User u=(User)values[0];check(u.getAvatar()!=null && u.getAvatar().matches("/avatars/user/B([1-9]|1[0-3])[.]png"),"new user receives library avatar");check("10".equals(u.getRoleId())&&"000000".equals(u.getTenantId()),"server controls role and tenant");
       return db.update("insert into blade_user(id,tenant_id,account,password,role_id,phone,email,status,is_deleted) values(?,?,?,?,?,?,?,1,0)",ids.incrementAndGet(),u.getTenantId(),u.getAccount(),DigestUtil.encrypt(u.getPassword()),u.getRoleId(),u.getPhone(),u.getEmail())==1;
     });
-    var service=new AppAccountService(db,users);
+    var service=new AppAccountService(db,users,new org.springblade.modules.smartreminder.service.EmailVerificationService(db,null,new DataSourceTransactionManager(source),"fixture-key"){ @Override public void consume(String email,String code){} });
     contactIndexCount[0]=0;
     try{service.register(valid("before_migration"));throw new AssertionError("signup without unique contact protection");}catch(org.springblade.core.log.exception.ServiceException expected){check(expected.getMessage().contains("唯一性保护"),"registration fails closed until contact indexes installed");}
     contactIndexCount[0]=2;
