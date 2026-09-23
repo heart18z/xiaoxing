@@ -52,6 +52,37 @@ function read(key: string): UTSJSONObject {
 }
 let serial: Promise<void> = Promise.resolve(),
   pushTimer: number = 0;
+export type AlarmState = { ringing: boolean; id: string; eventId: string; title: string; fullScreenAllowed: boolean };
+export const alarmState = reactive<AlarmState>({ ringing: false, id: '', eventId: '', title: '', fullScreenAllowed: true });
+let alarmTimer: number = 0;
+let checkingAlarm = false;
+export async function refreshRingingAlarm(): Promise<void> {
+  // #ifdef APP-ANDROID
+  if (checkingAlarm) return;
+  if (!session.visible || session.userId.length == 0) { alarmState.ringing = false; return; }
+  checkingAlarm = true;
+  const owner = session.userId, revision = session.revision;
+  try {
+    const result = await callNative('alarm.status', { owner: owner });
+    if (owner != session.userId || revision != session.revision) return;
+    const item = obj(result, 'alarm');
+    alarmState.ringing = b(result, 'ringing');
+    alarmState.id = s(item, 'id'); alarmState.eventId = s(item, 'eventId'); alarmState.title = s(item, 'title');
+    alarmState.fullScreenAllowed = b(result, 'fullScreenAllowed');
+  } finally { checkingAlarm = false; }
+  // #endif
+}
+export async function stopRingingAlarm(): Promise<void> {
+  const id = alarmState.id;
+  await callNative('alarm.stop', { owner: session.userId, id: id });
+  if (id == alarmState.id) alarmState.ringing = false;
+}
+export async function openRingingAlarm(): Promise<void> {
+  await callNative('alarm.open', { owner: session.userId, id: alarmState.id });
+}
+export async function openAlarmScreenPermission(): Promise<void> {
+  await callNative('alarm.screenPermission', { owner: session.userId });
+}
 function enqueue(task: () => Promise<void>): Promise<void> {
   const result = serial.catch(() => {}).then(task);
   serial = result;
@@ -182,6 +213,10 @@ export async function checkNotificationTap(): Promise<void> {
 }
 export async function startNative(): Promise<void> {
   await callNative('initialize');
+  // #ifdef APP-ANDROID
+  if (alarmTimer > 0) clearInterval(alarmTimer);
+  alarmTimer = setInterval(() => { void refreshRingingAlarm().catch(() => {}); }, 1000);
+  // #endif
   if (pushTimer > 0) clearInterval(pushTimer);
   pushTimer = setInterval(() => {
     if (session.visible) {
@@ -236,6 +271,7 @@ export async function reconcileAlarms(): Promise<void> {
   }
 }
 export async function logout(): Promise<void> {
+  alarmState.ringing = false;
   queueRevoke(read('pushBinding'));
   persist('pushBinding', '');
   clearSession();

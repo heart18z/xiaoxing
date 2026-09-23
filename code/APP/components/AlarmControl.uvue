@@ -13,6 +13,8 @@
               ? t('读取中…')
               : busy
                 ? t('处理中…')
+                : ringing
+                  ? t('正在响铃 · 可在上方停止响铃')
                 : active
                   ? scheduledTime.length > 0
                     ? scheduledTime + ' ' + t('响铃 · 北京时间')
@@ -33,6 +35,9 @@
       </view>
     </view>
     <text v-if="error.length > 0" class="app-font alarm-error">{{ error }}</text>
+    <!-- #ifdef APP-ANDROID -->
+    <text v-if="active && !alarmState.fullScreenAllowed" class="app-font alarm-permission" @click="screenPermission()">开启全屏闹铃提示 › 未开启时可在通知栏或 App 内停止响铃</text>
+    <!-- #endif -->
   </view>
   <Popup :open="helpOpen" :title="t('闹铃说明')" @close="helpOpen = false">
     <text class="app-font body-text">
@@ -48,8 +53,8 @@ import { t as _t } from '@/core/locale.uts';
 import Popup from './Popup.uvue';
 import UiIcon from './UiIcon.uvue';
 import { alarmTime } from '@/core/alarms.uts';
-import { ref, computed, onMounted } from 'vue';
-import { alarmList, setAlarm, cancelAlarm } from '@/services/native.uts';
+import { ref, computed, onMounted, watch } from 'vue';
+import { alarmList, setAlarm, cancelAlarm, alarmState, refreshRingingAlarm, openAlarmScreenPermission } from '@/services/native.uts';
 import { s as _s, b, obj, arr, message } from '@/core/json.uts';
 import { toast } from '@/core/ui.uts';
 function t(value: string): string {
@@ -78,7 +83,11 @@ const activeItem = computed(
     ) ?? ({} as UTSJSONObject),
 );
 const active = computed(() => s(activeItem.value, 'id').length > 0);
+const ringing = computed((): boolean => alarmState.ringing && alarmState.eventId == s(obj(props.detail, 'event'), 'id'));
 const scheduledTime = computed(() => alarmTime(activeItem.value));
+async function screenPermission() {
+  try { await openAlarmScreenPermission(); } catch(e) { toast(message(e)); }
+}
 async function refresh() {
   const data = await alarmList();
   supported.value = b(data, 'supported');
@@ -97,15 +106,18 @@ async function toggle() {
     if (active.value) await cancelAlarm(s(obj(props.detail, 'event'), 'id'));
     else await setAlarm(props.detail);
     await refresh();
+    await refreshRingingAlarm();
     toast(active.value ? '闹铃已设置 · ' + scheduledTime.value : '本机闹铃已取消');
   } catch (e) {
     error.value = message(e);
+    toast(error.value);
   } finally {
     busy.value = false;
     switchRevision.value++;
   }
 }
 onMounted(() => {
+  void refreshRingingAlarm().catch(() => {});
   refresh()
     .catch((e) => {
       error.value = message(e);
@@ -113,6 +125,9 @@ onMounted(() => {
     .finally(() => {
       ready.value = true;
     });
+});
+watch((): boolean => ringing.value, (value: boolean) => {
+  if (!value) void refresh().catch(() => {});
 });
 </script>
 
@@ -169,4 +184,5 @@ onMounted(() => {
   line-height: 18px;
   color: #be515e;
 }
+.alarm-permission { margin-top: 8px; font-size: 11px; line-height: 18px; font-weight: 600; color: #6659ba; }
 </style>

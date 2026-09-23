@@ -7,7 +7,7 @@ import { onStreamEvent } from '@/uni_modules/xiaoxing-native';
 // #endif
 import { reminder, headers, ApiError } from '@/api/request.uts';
 import { BASE_URL } from '@/config/environment.uts';
-import { Utf8Stream, SseFrames } from '@/core/stream.uts';
+import { Utf8Stream, SseFrames, mergeReasoningSnapshot } from '@/core/stream.uts';
 import { s, n, b, obj, parseObject, message } from '@/core/json.uts';
 export type ChatState = {
   messages: UTSJSONObject[];
@@ -232,7 +232,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
           if (settled || current != version) return;
           const event = parseObject(frame),
             type = s(event, 'type');
-          if (type == 'snapshot') chat.reasoning = s(event, 'reasoning');
+          if (type == 'snapshot') chat.reasoning = mergeReasoningSnapshot(chat.reasoning, s(event, 'reasoning'));
           if (type == 'result') finish(obj(event, 'data'));
           if (type == 'error') fail(new Error(s(event, 'message', '观察连接已结束')));
         });
@@ -249,7 +249,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
         try {
           const state = obj(await reminder('chat/jobs/status', { requestId: id }), 'value');
           if (settled || current != version) return;
-          if (revision == streamRevision && s(state, 'reasoning').length > 0) chat.reasoning = s(state, 'reasoning');
+          if (revision == streamRevision && s(state, 'reasoning').length > 0) chat.reasoning = mergeReasoningSnapshot(chat.reasoning, s(state, 'reasoning'));
           if (!['QUEUED', 'RUNNING'].includes(s(state, 'status'))) { finish(state); return; }
         } catch (_) { /* The ordinary reconnect/status loop handles persistent failures. */ }
       }
@@ -406,7 +406,7 @@ export async function resume(): Promise<void> {
         return;
       }
       known = status != 'NOT_FOUND';
-      if (s(state, 'reasoning').length > 0) chat.reasoning = s(state, 'reasoning');
+      if (s(state, 'reasoning').length > 0) chat.reasoning = mergeReasoningSnapshot(chat.reasoning, s(state, 'reasoning'));
       if (status == 'SUCCEEDED') {
         // Show the committed candidate immediately; history refresh is only reconciliation.
         const result = obj(state, 'result'),

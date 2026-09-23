@@ -1,4 +1,8 @@
 // Incremental UTF-8 decoder; a network chunk may end inside a Chinese character.
+// Job snapshots are cumulative. A reconnect or a slower status response must not erase progress.
+export function mergeReasoningSnapshot(current: string, incoming: string): string {
+  return incoming.length > current.length ? incoming : current;
+}
 export class Utf8Stream {
   pending: number[] = [];
   decode(chunk: ArrayBuffer): string {

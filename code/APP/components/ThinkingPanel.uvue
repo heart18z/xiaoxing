@@ -20,9 +20,8 @@
       </view>
     </view>
     <view class="thinking-window" :style="{ height: windowOpen ? '146px' : '0px' }">
-    <scroll-view :scroll-y="true" class="thinking-content" :scroll-into-view="anchor">
-      <text class="app-font thinking-text" selectable>{{ displayed }}</text>
-      <view id="reasoning-end" style="height: 1px" />
+    <scroll-view :scroll-y="true" :id="panelId + '-scroll'" class="thinking-content" @touchstart="following = false">
+      <view :id="panelId + '-text'"><text class="app-font thinking-text" selectable>{{ displayed }}</text></view>
     </scroll-view>
     </view>
   </view>
@@ -31,76 +30,73 @@
 import UiIcon from './UiIcon.uvue';
 import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue';
 import { t as _t } from '@/core/locale.uts';
-const props = defineProps<{ content: string; open: boolean; streaming: boolean; panelId: string }>();
+const props = defineProps<{ content: string; open: boolean; streaming: boolean; panelId: string; visible?: boolean }>();
 const emit = defineEmits(['toggle', 'layout']);
-const shine = ref(-90);
-const windowOpen = ref(false);
-let settleTimer: number = 0;
-function settledLayout() { clearTimeout(settleTimer); settleTimer = setTimeout(() => { emit('layout'); }, 200); }
-onUnmounted(() => clearTimeout(settleTimer));
-onMounted(() => { nextTick(() => { windowOpen.value = props.open; emit('layout'); settledLayout(); }); });
-watch((): boolean => props.open, (open: boolean) => { windowOpen.value = open; });
-const anchor = ref('');
-const displayed = ref('');
-let revealTimer: number = 0;
+const shine = ref(-90), pulse = ref(false), windowOpen = ref(props.open);
+// Keep received text when a cached page becomes visible; never replay from an empty label.
+const displayed = ref(props.content);
+let settleTimer: number = 0, revealTimer: number = 0, pulseTimer: number = 0, scrollTimer: number = 0;
+let following = true;
+function settledLayout() { clearTimeout(settleTimer); settleTimer = setTimeout(() => { if (props.visible != false) emit('layout'); }, 200); }
+function followText() {
+  if (scrollTimer != 0 || props.visible == false || !props.open || !props.streaming || !following) return;
+  scrollTimer = setTimeout(() => {
+    scrollTimer = 0;
+    nextTick(() => {
+      if (props.visible == false || !props.open || !following) return;
+      // Do not toggle scroll-into-view to an empty ID for every text fragment on iOS.
+      // #ifdef APP
+      const viewport = uni.getElementById(props.panelId + '-scroll');
+      const content = uni.getElementById(props.panelId + '-text');
+      if (viewport != null && content != null) {
+        const target = Math.max(0, content.getBoundingClientRect().height - viewport.getBoundingClientRect().height);
+        if (Math.abs(viewport.scrollTop - target) > 1) viewport.scrollTop = target;
+      }
+      // #endif
+      // #ifdef WEB
+      const browserViewport = document.getElementById(props.panelId + '-scroll');
+      if (browserViewport != null) browserViewport.scrollTop = browserViewport.scrollHeight;
+      // #endif
+    });
+  }, 100);
+}
+function stopReveal() { clearInterval(revealTimer); revealTimer = 0; }
 function revealContent() {
+  if (props.visible == false) { stopReveal(); return; }
   if (!props.streaming || !props.content.startsWith(displayed.value)) {
-    clearInterval(revealTimer);
-    revealTimer = 0;
-    displayed.value = props.content;
-    return;
+    stopReveal(); displayed.value = props.content; return;
   }
-  if (revealTimer != 0) return;
-  // Reveal only text already received from the server; snapshots can arrive in bursts.
+  if (revealTimer != 0 || props.content == displayed.value) return;
   revealTimer = setInterval(() => {
     const remaining = props.content.length - displayed.value.length;
-    if (remaining <= 0) {
-      clearInterval(revealTimer);
-      revealTimer = 0;
-      return;
-    }
-    displayed.value = props.content.slice(
-      0,
-      displayed.value.length + Math.max(2, Math.ceil(remaining / 12)),
-    );
-  }, 32);
+    if (remaining <= 0 || props.visible == false) { stopReveal(); return; }
+    let end = Math.min(props.content.length, displayed.value.length + Math.max(2, Math.ceil(remaining / 8)));
+    const last = props.content.charCodeAt(end - 1) ?? 0;
+    if (end < props.content.length && last >= 0xd800 && last <= 0xdbff) end++;
+    displayed.value = props.content.slice(0, end);
+  }, 50);
 }
-watch((): string => props.content, revealContent, { immediate: true });
-watch((): boolean => props.streaming, revealContent);
-onUnmounted(() => clearInterval(revealTimer));
-const pulse = ref(false);
-let pulseTimer: number = 0;
-function stopPulse() {
-  if (pulseTimer > 0) clearInterval(pulseTimer);
-  pulseTimer = 0;
-  pulse.value = false;
+function updatePulse() {
+  clearInterval(pulseTimer); pulseTimer = 0;
+  if (props.streaming && props.visible != false) pulseTimer = setInterval(() => {
+    shine.value = ((Date.now() % 1800) / 1800) * 220 - 90;
+  }, 80);
 }
-watch(
-  (): boolean => props.streaming,
-  (streaming: boolean) => {
-    stopPulse();
-    if (streaming)
-      pulseTimer = setInterval(() => {
-        shine.value = ((Date.now() % 1800) / 1800) * 220 - 90;
-      }, 40);
-  },
-  { immediate: true },
-);
-onUnmounted(stopPulse);
-function t(value: string): string {
-  return _t(value);
-}
-watch(
-  (): string => displayed.value,
-  () => {
-    if (!props.open || !props.streaming) return;
-    anchor.value = '';
-    nextTick(() => {
-      anchor.value = 'reasoning-end';
-    });
-  },
-);
-watch((): boolean => props.open, () => { nextTick(() => { emit('layout'); settledLayout(); }); });
+watch((): string => props.content, revealContent);
+watch((): boolean => props.streaming, () => { revealContent(); updatePulse(); });
+watch((): boolean => props.visible != false, (visible: boolean) => {
+  stopReveal(); clearTimeout(scrollTimer); scrollTimer = 0;
+  if (visible) { displayed.value = props.content; nextTick(followText); }
+  updatePulse();
+});
+watch((): string => displayed.value, followText);
+watch((): boolean => props.open, (open: boolean) => {
+  windowOpen.value = open; following = true;
+  nextTick(() => { if (props.visible != false) emit('layout'); settledLayout(); followText(); });
+});
+onMounted(() => { updatePulse(); nextTick(followText); });
+onUnmounted(() => { stopReveal(); clearInterval(pulseTimer); clearTimeout(scrollTimer); clearTimeout(settleTimer); });
+function t(value: string): string { return _t(value); }
 </script>
 <style scoped>
 .thinking-panel {

@@ -7,10 +7,12 @@ import {
   syncPush,
   reconcileAlarms,
   checkNotificationTap,
+  refreshRingingAlarm,
+  alarmState,
 } from '@/services/native.uts';
 watch(
   (): string => session.userId,
-  () => resetChat(),
+  () => { resetChat(); alarmState.ringing = false; },
   { flush: 'sync' },
 );
 onLaunch(() => {
@@ -24,6 +26,7 @@ onShow(() => {
     void syncPush();
     void reconcileAlarms().catch(() => {});
     void checkNotificationTap().catch(() => {});
+    void refreshRingingAlarm().catch(() => {});
   }
 });
 onHide(() => {

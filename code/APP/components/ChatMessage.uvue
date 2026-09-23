@@ -18,6 +18,7 @@
         <ThinkingPanel
           v-if="reason.length > 0 && !user"
           :content="reason"
+          :visible="visible"
           :panel-id="'thinking-' + s(item, 'id')"
           :open="expanded"
           :streaming="thinkingActive"
@@ -70,6 +71,7 @@
         <view v-if="reason.length > 0" class="notice-thinking" @click.stop>
           <ThinkingPanel
             :content="reason"
+          :visible="visible"
           :panel-id="'thinking-' + s(item, 'id')"
             :open="expanded"
             :streaming="thinkingActive"
@@ -219,7 +221,7 @@ function openEvent(id: string): void {
   return _openEvent(id);
 }
 const messageWidth = Math.max(180, (uni.getWindowInfo().windowWidth - 70) * 0.94);
-const props = defineProps<{ item: UTSJSONObject; busy: boolean }>();
+const props = defineProps<{ item: UTSJSONObject; busy: boolean; visible?: boolean }>();
 const emit = defineEmits(['confirm', 'layout', 'reveal']);
 let manuallyToggled = false;
 const expanded = ref(b(props.item, 'streaming')),
@@ -375,7 +377,7 @@ function toggleThinking() {
 watch((): boolean => thinkingActive.value, (active: boolean) => {
   if (!manuallyToggled) expanded.value = active;
 });
-watch((): string => reason.value + s(props.item, 'content'), () => { nextTick(() => { emit('layout'); }); });
+watch((): string => (reason.value.length > 0 ? 'reason:' : '') + s(props.item, 'content'), () => { nextTick(() => { emit('layout'); }); });
 watch((): boolean => expanded.value, () => { nextTick(() => { emit('layout'); }); });
 </script>
 <style scoped>

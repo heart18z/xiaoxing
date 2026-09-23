@@ -62,6 +62,7 @@
           v-for="item in displayedMessages"
           :key="rowKey(item)"
           :item="item"
+          :visible="pageShown"
           :busy="confirming == s(payload(item), 'candidateId')"
           @layout="scrollLatest"
           @reveal="revealThinking"
@@ -209,7 +210,6 @@ import {
   loadHistory as _loadHistory,
   resume as _resume,
   submit,
-  pauseChat,
   stopGeneration as _stopGeneration,
   dismissPending,
 } from '@/services/chat.uts';
@@ -276,6 +276,7 @@ type Attachment = {
   state: string;
   id: string;
 };
+const pageShown = ref(false);
 const drawer = ref(false),
   draft = ref(''),
   inputValue = ref(''),
@@ -997,9 +998,9 @@ function stopPage() {
   keyboard.value = 0;
   active = false;
   setChatVisible(false);
+  pageShown.value = false;
   clearTimeout(timer);
   drawer.value = false;
-  pauseChat();
   cancelRecording();
   // #ifdef APP
   if (keyboardId >= 0) uni.offKeyboardHeightChange(keyboardId);
@@ -1063,6 +1064,7 @@ onShow(() => {
   if (!requireSession()) return;
   active = true;
   setChatVisible(true);
+  pageShown.value = true;
   initialScrollPending = true;
   follow.value = true;
   nextTick(() => {
@@ -1094,7 +1096,7 @@ onUnload(() => {
 
 watch((): number => chat.messages.length, scrollLatest);
 watch((): UTSJSONObject[] => chat.messages, scrollLatest);
-watch((): string => chat.reasoning, scrollLatest);
+watch((): boolean => chat.reasoning.length > 0, scrollLatest);
 watch((): string => chat.reply, scrollLatest);
 watch((): string => s(chat.pending, 'requestId'), scrollLatest);
 </script>

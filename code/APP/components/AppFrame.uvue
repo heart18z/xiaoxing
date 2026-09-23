@@ -29,6 +29,7 @@
       </view>
       <view :class="['right', theme == 'chat' ? 'chat-side' : '']"><slot name="right" /></view>
     </view>
+    <RingingAlarm />
     <view class="content">
       <slot />
     </view>
@@ -102,6 +103,7 @@
 import { startupReady } from '@/store/startup.uts';
 import PageLoading from './PageLoading.uvue';
 import TopTip from '@/components/TopTip.uvue';
+import RingingAlarm from '@/components/RingingAlarm.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { computed, onMounted } from 'vue';
