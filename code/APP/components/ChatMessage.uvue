@@ -106,9 +106,10 @@
         </view>
       </view>
       <view v-if="candidate" :class="['candidate', macro ? 'macro-card' : '']">
-        <text class="app-font" :class="['notice-label', macro ? 'macro-label' : '']">
-          {{ macro ? '◎' : '◷' }} {{ t(candidateHeading) }}
-        </text>
+        <view :class="['notice-label', 'candidate-label', macro ? 'macro-label' : '']">
+          <UiIcon :name="macro ? 'spark' : 'clock'" :tone="macro ? 'purple' : 'blue'" :size="17" />
+          <text class="app-font candidate-label-text">{{ t(candidateHeading) }}</text>
+        </view>
         <text
           v-if="conflict && s(item, 'messageType') == 'CANDIDATE'"
           class="app-font schedule-warning"
@@ -774,4 +775,9 @@ const isStreaming = computed(() => b(props.item, 'streaming'));
   color: #ffffff;
   font-size: 12px;
 }
+.candidate-label { flex-direction: row; align-items: center; }
+.candidate-label-text { margin-left: 5px; font-size: 12px; line-height: 18px; color: #5269ed; font-weight: 600; }
+/* #ifdef APP-IOS */
+.candidate-label-text { font-family: 'PingFangSC-Semibold'; }
+/* #endif */
 </style>

@@ -758,4 +758,8 @@ function closeConversation() {
 .node-content {
   padding-bottom: 8px;
 }
+/* #ifdef APP-IOS */
+.heading, .creator-title, .node-title, .conversation-button, .branch-conversation, .timeline-tab { font-family: 'PingFangSC-Semibold'; }
+.body-text, .muted, .node-copy, .node-time, .creator-subtitle { font-family: 'PingFangSC-Medium'; }
+/* #endif */
 </style>

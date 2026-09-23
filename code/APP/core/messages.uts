@@ -1,0 +1,7 @@
+import { s, obj } from './json.uts';
+export function messageKey(row: UTSJSONObject): string {
+  const candidateId = s(obj(row, 'payload'), 'candidateId');
+  if (s(row, 'messageType').startsWith('CANDIDATE') && candidateId.length > 0)
+    return 'candidate:' + candidateId;
+  return s(row, 'id');
+}

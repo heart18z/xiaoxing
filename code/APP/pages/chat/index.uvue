@@ -58,7 +58,7 @@
         </view>
         <ChatMessage
           v-for="item in chat.messages"
-          :key="s(item, 'id')"
+          :key="rowKey(item)"
           :item="item"
           :busy="confirming == s(payload(item), 'candidateId')"
           @confirm="confirmCandidate"
@@ -129,6 +129,7 @@
           :recording="recording"
           :level="voiceLevel"
           :live="liveSpeech"
+          :stage="voiceStage"
           @confirm="finishRecording()"
           @cancel="cancelRecording()"
         />
@@ -188,6 +189,7 @@
   </Popup>
 </template>
 <script setup lang="uts">
+import { messageKey } from '@/core/messages.uts';
 import { pickImages } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import VoiceInputStatus from '@/components/VoiceInputStatus.uvue';
@@ -328,9 +330,12 @@ let timer: number = 0,
   recordOwner = '',
   recordGeneration = 0,
   syncFailures = 0;
+const voiceStage = ref('');
+function rowKey(item: UTSJSONObject): string { return messageKey(item); }
 // #ifdef APP-ANDROID
 const recorder = uni.getRecorderManager();
 let recordStartTimer: number = 0;
+let recordStopRequestedAt: number = 0;
 recorder.onStart(() => {
   clearTimeout(recordStartTimer);
   if (!recording.value || recordCancelled) recorder.stop();
@@ -340,15 +345,27 @@ async function handleRecording(result: RecorderManagerOnStopResult): Promise<voi
   recording.value = false;
   if (recordCancelled) return;
   transcribing.value = true;
+  voiceStage.value = '正在上传录音…';
   const run = recordGeneration;
+  const started = Date.now();
+  let uploadedAt: number = 0;
+  console.info('[speech] recording stopped, stopWaitMs=' + (recordStopRequestedAt > 0 ? started - recordStopRequestedAt : 0));
   try {
-    const data = await upload('/app/reminder/audio/transcriptions', result.tempFilePath, 125000);
+    const data = await upload('/app/reminder/audio/transcriptions', result.tempFilePath, 125000, (progress: number) => {
+      if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
+      voiceStage.value = progress >= 100 ? '正在识别语音…' : '正在上传录音… ' + Math.floor(progress) + '%';
+      if (progress >= 100 && uploadedAt == 0) {
+        uploadedAt = Date.now();
+        console.info('[speech] upload completed, uploadMs=' + (uploadedAt - started));
+      }
+    });
+    console.info('[speech] response received, totalMs=' + (Date.now() - started) + ', responseWaitMs=' + (uploadedAt > 0 ? Date.now() - uploadedAt : -1));
     if (run == recordGeneration && !recordCancelled && recordOwner == session.userId)
       setDraft(recordDraft + (recordDraft.length > 0 ? '\n' : '') + s(data, 'text'));
     if (run == recordGeneration && s(data, 'text').trim().length == 0)
       throw new Error('未识别到语音，请重试');
   } catch (e) {
-    toast(message(e));
+    if (run == recordGeneration && !recordCancelled && recordOwner == session.userId) toast(message(e));
   } finally {
     if (run == recordGeneration) transcribing.value = false;
   }
@@ -792,6 +809,7 @@ function startRecording() {
   }
   recordCancelled = false;
   recordGeneration++;
+  recordStopRequestedAt = 0;
   recordDraft = draft.value;
   recordOwner = session.userId;
   recording.value = true;
@@ -804,11 +822,11 @@ function startRecording() {
     toast('录音未能启动，请检查麦克风是否被其他应用占用');
   }, 12000);
   recorder.start({
-    format: 'aac',
+    // Record genuine PCM WAV; changing the extension of AAC is not conversion.
+    format: 'wav',
     duration: 60000,
     numberOfChannels: 1,
     sampleRate: 16000,
-    encodeBitRate: 48000,
   });
   // #endif
   // #ifdef WEB
@@ -868,7 +886,10 @@ function finishRecording() {
   finishBrowserRecording();
   // #endif
   // #ifdef APP-ANDROID
-  if (recording.value) recorder.stop();
+  if (recording.value) {
+    recordStopRequestedAt = Date.now();
+    recorder.stop();
+  }
   // #endif
 }
 function cancelRecording() {

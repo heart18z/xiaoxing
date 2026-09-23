@@ -391,7 +391,7 @@
     :busy="saving"
     @close="permissionOpen = false"
   >
-    <text class="app-font body-text">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
+    <text class="app-font body-text permission-intro">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
     <view
       v-for="mode in modes"
       :key="mode"
@@ -415,7 +415,7 @@
 
     <text v-if="formError.length > 0" class="app-font error">{{ formError }}</text>
     <button
-      class="app-font primary"
+      class="app-font primary permission-submit"
       :disabled="saving"
       :loading="saving"
       @click="requestPermission()"
@@ -1445,5 +1445,11 @@ function openSettings() {
 .logout-label {
   font-family: 'PingFangSC-Semibold';
 }
+/* #endif */
+.permission-intro, .permission-title, .permission-submit { font-weight: 600; }
+.permission-option .muted, .permission-note { font-weight: 500; }
+/* #ifdef APP-IOS */
+.permission-intro, .permission-title, .permission-submit { font-family: 'PingFangSC-Semibold'; }
+.permission-option .muted, .permission-note { font-family: 'PingFangSC-Medium'; }
 /* #endif */
 </style>

@@ -84,11 +84,23 @@ object XiaoxingNotifications {
                         if (!base.startsWith("https://")) { callback("{\"error\":\"通知服务地址无效\"}"); return@runOnUiThread }
                         if (!XiaoxingAndroid.write(activity, "android-push-config", json)) { callback("{\"error\":\"无法保存通知配置\"}"); return@runOnUiThread }
                         channels(activity)
-                        if (action == "push.request" && Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                        val preferences = activity.getSharedPreferences("xiaoxing-permissions", Context.MODE_PRIVATE)
+                        val asked = preferences.getBoolean("notificationsAsked", false)
+                        val missingPermission = Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
+                        if (!missingPermission) preferences.edit().putBoolean("notificationsAsked", true).apply()
+                        if (missingPermission && (!asked || action == "push.request")) {
+                            if (asked && !activity.shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
+                                activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+                                callback(state(activity)); return@runOnUiThread
+                            }
+                            preferences.edit().putBoolean("notificationsAsked", true).apply()
                             if (activity.fragmentManager.findFragmentByTag("xiaoxing.notifications") != null) { callback(state(activity)); return@runOnUiThread }
                             val fragment = XiaoxingNotificationPermission(); fragment.callback = callback
                             activity.fragmentManager.beginTransaction().add(fragment, "xiaoxing.notifications").commitAllowingStateLoss()
-                        } else { start(activity); callback(state(activity)) }
+                        } else {
+                            if (action == "push.request" && !allowed(activity)) activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+                            start(activity); callback(state(activity))
+                        }
                     }
                     "push.tap" -> callback(tap())
                     "push.clear" -> { stop(activity); callback("{}") }

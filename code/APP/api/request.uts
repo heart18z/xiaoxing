@@ -281,13 +281,15 @@ export async function upload(
   path: string,
   filePath: string,
   timeout: number = 300000,
+  onProgress: ((progress: number) => void) | null = null,
 ): Promise<UTSJSONObject> {
   const owner = session.userId,
     revision = session.revision;
   const once = (): Promise<UTSJSONObject> =>
     new Promise<UTSJSONObject>((resolve, reject) => {
       const h = headers(false);
-      uni.uploadFile({
+      if (onProgress != null) onProgress(0);
+      const task = uni.uploadFile({
         url: BASE_URL + path,
         filePath: filePath,
         name: 'file',
@@ -319,6 +321,9 @@ export async function upload(
           }
         },
         fail: () => reject(new ApiError(0, '上传失败，请重试')),
+      });
+      if (onProgress != null) task.onProgressUpdate((result) => {
+        onProgress(result.progress);
       });
     });
   let result: UTSJSONObject;

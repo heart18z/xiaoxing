@@ -10,19 +10,19 @@
     </view>
     <view class="voice-status">
       <text class="app-font voice-caption">
-        {{ recording ? (live ? '正在识别…' : '正在录音…') : '正在整理识别结果…' }} {{ clock }}
+        {{ recording ? (live ? '正在识别…' : '正在录音…') : (stage.length > 0 ? stage : '正在整理识别结果…') }} {{ clock }}
       </text>
-      <button v-if="recording" class="app-font voice-control" @click="emit('confirm')">确认</button>
+      <button v-if="recording" class="app-font voice-control" @click="emit('confirm')">{{ live ? '确认' : '结束录音' }}</button>
       <button class="app-font voice-control" @click="emit('cancel')">取消</button>
     </view>
     <text class="app-font voice-hint">
-      {{ live ? '文字实时填入草稿，确认后停止采音' : '说完点确认后转文字，不会自动发送' }}
+      {{ live ? '文字实时填入草稿，确认后停止采音' : (recording ? '说完点结束录音后转文字，不会自动发送' : '识别后填入草稿，不会自动发送') }}
     </text>
   </view>
 </template>
 <script setup lang="uts">
 import { ref, computed, watch, onUnmounted } from 'vue';
-const props = defineProps<{ recording: boolean; level: number; live: boolean }>();
+const props = withDefaults(defineProps<{ recording: boolean; level: number; live: boolean; stage?: string }>(), { stage: '' });
 const emit = defineEmits(['confirm', 'cancel']);
 const elapsed = ref(0);
 const initialLevels: number[] = [];

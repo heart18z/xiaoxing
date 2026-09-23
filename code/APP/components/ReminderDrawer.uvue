@@ -471,4 +471,10 @@ watch(
   flex: 1;
   min-height: 0;
 }
+.date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-weight: 600; }
+.drawer-event-meta { font-weight: 500; }
+/* #ifdef APP-IOS */
+.date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-family: 'PingFangSC-Semibold'; }
+.drawer-event-meta { font-family: 'PingFangSC-Medium'; }
+/* #endif */
 </style>
