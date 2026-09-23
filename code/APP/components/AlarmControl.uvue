@@ -39,7 +39,7 @@
       {{ t('仅为自己接收的任务设置；好友需在自己的手机上操作。') }}
     </text>
     <text class="app-font muted">
-      {{ t('需要 iOS 26 及支持 AlarmKit 的安装包，普通提醒继续生效。') }}
+      {{ t(alarmHelp) }}
     </text>
   </Popup>
 </template>
@@ -59,6 +59,10 @@ function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
   return _s(row, key, fallback);
 }
 const props = defineProps<{ detail: UTSJSONObject }>();
+let alarmHelp = '需要 iOS 26 及支持 AlarmKit 的安装包，普通提醒继续生效。';
+// #ifdef APP-ANDROID
+alarmHelp = '安卓需允许通知及“闹钟和提醒”权限。开启后显示具体响铃时间；到点使用系统闹铃音，可在通知栏停止，最长响铃一分钟。请检查手机闹钟音量。';
+// #endif
 const helpOpen = ref(false);
 const ready = ref(false);
 const switchRevision = ref(0);

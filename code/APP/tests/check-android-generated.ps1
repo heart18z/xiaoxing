@@ -18,6 +18,7 @@ fun nativeCall(action: String, input: String, callback: (String) -> Unit) {
  val activity = UTSAndroid.getUniActivity()
  if (activity == null) { callback("{}"); return }
  if (action == "files.pick") XiaoxingAndroid.pick(activity, callback)
+ else if (action.startsWith("stream.")) XiaoxingStream.call(activity, action, input, callback)
  else XiaoxingNotifications.call(activity, action, input, callback)
 }
 '@

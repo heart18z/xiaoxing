@@ -90,9 +90,8 @@
     </view>
     <text class="app-font error" v-if="error.length > 0">{{ error }}</text>
     <template #footer>
-      <button class="app-font primary" :loading="busy" :disabled="busy" @click="submit()">
-        {{ register ? t('注册') : t('修改密码') }}
-      </button>
+      <LoginButton :busy="busy" :label="register ? t('注册') : t('修改密码')"
+        :busy-label="register ? t('正在注册…') : t('正在修改…')" @click="submit()" />
     </template>
   </Popup>
 </template>
@@ -101,6 +100,7 @@ import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, watch } from 'vue';
 import Popup from './Popup.uvue';
+import LoginButton from './LoginButton.uvue';
 import { post } from '@/api/request.uts';
 import { s, message } from '@/core/json.uts';
 function t(value: string): string {

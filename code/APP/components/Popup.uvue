@@ -156,6 +156,7 @@ function noop() {}
   height: 0;
 }
 .popup-footer {
+  min-height: 80px;
   flex-shrink: 0;
   padding: 12px 18px 20px;
   border-top: 1px solid #edf1f7;

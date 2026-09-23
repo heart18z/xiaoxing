@@ -71,6 +71,11 @@ object XiaoxingNotifications {
     @JvmStatic fun call(activity: Activity, action: String, json: String, callback: (String) -> Unit) {
         activity.runOnUiThread {
             try {
+                if (action.startsWith("alarm.")) {
+                    try { callback(XiaoxingAlarms.handle(activity, action, json)) }
+                    catch (error: Exception) { callback(JSONObject().put("error", error.message ?: "闹铃设置失败").toString()) }
+                    return@runOnUiThread
+                }
                 when(action) {
                     "initialize" -> { channels(activity); callback("{\"supported\":true}") }
                     "push.status", "push.request" -> {

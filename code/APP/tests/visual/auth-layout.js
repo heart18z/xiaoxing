@@ -14,7 +14,7 @@ async page => {
     await page.reload();
     await page.locator('#xiaoxing-startup').waitFor({state:'hidden'});
     await page.getByText('没有账号？注册账号',{exact:true}).click();
-    const button=page.locator('.popup-footer .primary');
+    const button=page.locator('.popup-footer .login-submit');
     await button.waitFor();await page.waitForTimeout(250);
     const before=await button.boundingBox();
     if(before.height<44||before.y+before.height>height-8)throw Error('Registration button is clipped');
@@ -26,7 +26,7 @@ async page => {
     await button.click();
     await page.getByText('账号须为4–32位字母、数字、下划线或短横线，首位为字母或数字，并填写姓名',{exact:true}).waitFor({state:'attached'});
     results.push({height,buttonHeight:after.height,bottom:after.y+after.height});
-    await page.screenshot({path:'output/playwright/android110-register-'+height+'.png'});
+    await page.screenshot({path:'output/playwright/android114-register-'+height+'.png'});
   }
   if(errors.length)throw Error(errors.join('\n'));
   return {expiredTokenRedirect:true,results};

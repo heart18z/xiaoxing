@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 import { session, persist, requestId } from '@/store/session.uts';
-import { secureRead } from '@/uni_modules/xiaoxing-native';
+import { secureRead, nativeCall } from '@/uni_modules/xiaoxing-native';
 import { reminder, headers, ApiError } from '@/api/request.uts';
 import { BASE_URL } from '@/config/environment.uts';
 import { Utf8Stream, SseFrames } from '@/core/stream.uts';
@@ -48,7 +48,19 @@ export function savedPending(): UTSJSONObject {
     return {};
   }
 }
+let nativeObserveId = '';
+let nativeObserveCancel: (() => void) | null = null;
+function cancelNativeObserve(): void {
+  const cancel = nativeObserveCancel;
+  nativeObserveCancel = null;
+  // #ifdef APP-ANDROID
+  if (nativeObserveId.length > 0) nativeCall('stream.cancel', JSON.stringify({ id: nativeObserveId }), (_) => {});
+  // #endif
+  nativeObserveId = '';
+  cancel?.();
+}
 export function pauseChat(): void {
+  cancelNativeObserve();
   version++;
   observeTask?.abort();
   observeTask = null;
@@ -167,6 +179,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
       const task = observeTask;
       observeTask = null;
       task?.abort();
+      cancelNativeObserve();
     };
     const fail = (error: Error) => {
       if (settled) return;
@@ -176,11 +189,12 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
       const task = observeTask;
       observeTask = null;
       task?.abort();
+      cancelNativeObserve();
     };
     const armIdleTimeout = () => {
       if (settled) return;
       clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => fail(new Error('流式连接未返回增量，改用状态查询')), 4000);
+      idleTimer = setTimeout(() => fail(new Error('流式连接未返回增量，改用状态查询')), 35000);
     };
     const consume = (text: string) => {
       if (settled || current != version) return;
@@ -200,6 +214,21 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     };
     const h = headers();
     h['Accept'] = 'text/event-stream';
+    // #ifdef APP-ANDROID
+    nativeObserveId = id + '-' + current;
+    nativeObserveCancel = () => fail(new Error('观察已暂停'));
+    nativeCall('stream.watch', JSON.stringify({ id: nativeObserveId,
+      url: BASE_URL + '/app/reminder/chat/jobs/watch', headers: h,
+      body: JSON.stringify({ requestId: id }) }), (raw: string) => {
+      if (settled || current != version) return;
+      const response = parseObject(raw);
+      if (s(response, 'text').length > 0) consume(s(response, 'text'));
+      if (b(response, 'ended') || s(response, 'error').length > 0)
+        fail(new Error('观察连接已结束，请查询状态'));
+    });
+    armIdleTimeout();
+    // #endif
+    // #ifndef APP-ANDROID
     let task: RequestTask | null = null;
     task = uni.request({
       url: BASE_URL + '/app/reminder/chat/jobs/watch',
@@ -225,6 +254,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     observeTask = task;
     task!.onChunkReceived((chunk) => consume(decoder.decode(chunk.data)));
     armIdleTimeout();
+    // #endif
   });
 }
 export async function submit(
@@ -332,7 +362,16 @@ export async function resume(): Promise<void> {
         // Show the committed candidate immediately; history refresh is only reconciliation.
         const result = obj(state, 'result'),
           text = s(result, 'reply');
-        chat.reply = text;
+        chat.reasoning = s(result, 'reasoningContent', chat.reasoning);
+        for (let end = 0; end < text.length;) {
+          if (!active()) return;
+          end = Math.min(text.length, end + Math.max(2, Math.ceil(text.length / 80)));
+          const last = text.charCodeAt(end - 1) ?? 0;
+          if (end < text.length && last >= 0xd800 && last <= 0xdbff) end++;
+          chat.reply = text.slice(0, end);
+          await wait(24);
+        }
+        if (!active()) return;
         chat.messages.push({
           id: 'completed-user-' + id,
           messageRole: 'user',

@@ -200,7 +200,7 @@ export async function setAlarm(detail: UTSJSONObject): Promise<void> {
   const owner = session.userId,
     version = session.revision;
   const state = await alarmList();
-  if (!b(state, 'supported')) throw new Error('系统闹铃需要 iOS 26 及以上，当前设备仅支持普通提醒');
+  if (!b(state, 'supported')) throw new Error('当前安装包暂不支持系统闹铃，普通提醒仍可使用');
   const plan = alarmPlan(detail, owner);
   const result = await callNative('alarm.schedule', plan);
   if (version != session.revision || owner != session.userId)

@@ -6,13 +6,13 @@
     :back-button="true"
   >
     <template #right>
-      <text
+      <view
         v-if="b(detail, 'creator') && s(event, 'event_status') == 'ACTIVE'"
-        class="app-font stop-button"
+        class="stop-button" role="button" :aria-label="t('停止')"
         @click="stop()"
       >
-        {{ t('停止') }}
-      </text>
+        <text class="app-font stop-label">{{ t('停止') }}</text>
+      </view>
     </template>
     <scroll-view :scroll-y="true" class="scroll">
       <view class="padded">
@@ -489,13 +489,22 @@ function closeConversation() {
   margin-bottom: 8px;
 }
 .stop-button {
-  font-size: 16px;
-  color: #d94343;
+  height: 40px;
+  min-width: 64px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   background-color: #ffffffed;
-  padding: 11px 18px;
+  padding: 0 14px;
   border-radius: 14px;
   font-weight: 600;
   box-shadow: 0 4px 12px #205a9614;
+}
+.stop-label {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: #d94343;
 }
 .padded {
   padding-top: 16px;
