@@ -45,10 +45,25 @@ function raw(
       data: data == null ? '' : JSON.stringify(data),
       timeout: timeout,
       success: (res) => {
-        const body =
-          typeof res.data == 'string'
-            ? parseObject(res.data as string)
-            : (res.data as UTSJSONObject);
+        // Callback exceptions escape the Promise executor. Reject malformed responses
+        // here so a reconnect/proxy response cannot leave restoration pending forever.
+        let body: UTSJSONObject;
+        try {
+          if (res.data == null) throw new Error('empty response');
+          if (typeof res.data == 'string') {
+            const text = (res.data as string).trim();
+            if (!text.startsWith('{')) throw new Error('invalid response');
+            const parsed = JSON.parseObject(text);
+            if (parsed == null) throw new Error('invalid response');
+            body = parsed;
+          } else {
+            if (typeof res.data != 'object' || Array.isArray(res.data)) throw new Error('invalid response');
+            body = res.data as UTSJSONObject;
+          }
+        } catch (_) {
+          reject(new ApiError(res.statusCode >= 400 ? res.statusCode : 0, '服务器响应异常，请稍后重试'));
+          return;
+        }
         const code = n(body, 'code');
         if (credentialRejected(res.statusCode, body)) {
           reject(

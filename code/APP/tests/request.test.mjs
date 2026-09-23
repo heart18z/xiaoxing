@@ -13,6 +13,21 @@ async function fixture(reply){
  const module=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text+`\n// ${serial++}`).toString('base64'));
  return {module,session,refreshed:()=>refreshed,cleared:()=>cleared};
 }
+
+test('malformed reconnect responses reject normally without destroying the session',async()=>{
+ for(const data of [null, '<html>gateway unavailable</html>', '{broken', 'null', '', 42, []]) {
+  const f=await fixture(o=>o.success({statusCode:200,data}));
+  await assert.rejects(f.module.post('/resume'), /服务器响应异常/);
+  assert.equal(f.session.token,'old');assert.equal(f.cleared(),0);
+ }
+});
+
+test('HTML gateway errors preserve HTTP status and allow a later successful retry',async()=>{
+ let attempts=0;
+ const f=await fixture(o=>o.success(++attempts===1 ? {statusCode:502,data:'<html>Bad Gateway</html>'} : {statusCode:200,data:{code:200,data:'ready'}}));
+ await assert.rejects(f.module.post('/resume'),e=>e.status===502);
+ assert.equal((await f.module.post('/resume')).data,'ready');assert.equal(f.cleared(),0);
+});
 test('concurrent 401 responses share one token refresh and retry with fresh headers',async()=>{
  let refreshes=0;
  const f=await fixture(o=>{

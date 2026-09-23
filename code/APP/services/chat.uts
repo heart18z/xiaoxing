@@ -471,7 +471,7 @@ export async function resume(): Promise<void> {
     if (current == version) chat.busy = false;
     if (!active() && session.visible && session.userId.length > 0)
       setTimeout(() => {
-        void resume();
+        void resume().catch((error) => { chat.error = message(error); });
       }, 0);
   }
 }

@@ -436,6 +436,7 @@ let actualScrollTop: number = 0;
 let touching = false;
 let userScrolling = false;
 function measureScroll() {
+  if (!active || !session.visible) return;
   // #ifdef WEB
   const element = document.getElementById('chat-scroll');
   if (element != null) scrollHeight = element.clientHeight;
@@ -446,6 +447,7 @@ function measureScroll() {
   // #endif
 }
 function moveScroll(target: number, animated: boolean) {
+  if (!active || !session.visible) return;
   const value = Math.max(0, Math.ceil(target));
   if (Math.abs(value - actualScrollTop) < 2) return;
   userScrolling = false;
@@ -454,12 +456,12 @@ function moveScroll(target: number, animated: boolean) {
   // Only commands update the binding. Scroll notifications never write back to native scroll.
   if (scrollTop.value == value) {
     scrollTop.value = actualScrollTop;
-    nextTick(() => { if (!touching) scrollTop.value = value; });
+    nextTick(() => { if (active && session.visible && !touching) scrollTop.value = value; });
   } else scrollTop.value = value;
 }
 function scrollAfterLayout() {
   layoutTimer = 0;
-  if (!follow.value || touching) return;
+  if (!active || !session.visible || !follow.value || touching) return;
   measureScroll();
   let contentHeight = 0;
   // #ifdef WEB
@@ -474,18 +476,19 @@ function scrollAfterLayout() {
     moveScroll(contentHeight - scrollHeight, !chat.busy && !initialScrollPending);
 }
 function scrollLatest() {
-  if (!follow.value || touching || layoutTimer != 0) return;
+  if (!active || !session.visible || !follow.value || touching || layoutTimer != 0) return;
   scrollLockedUntil = Date.now() + 100;
   // One coalesced measurement per content update, not a continuous native layout loop.
   layoutTimer = setTimeout(() => { scrollAfterLayout(); }, 40);
 }
 function revealThinking(id: string) {
+  if (!active || !session.visible) return;
   clearTimeout(layoutTimer); layoutTimer = 0;
   clearTimeout(revealTimer);
   follow.value = false;
   // Finish the small expansion, then reveal this panel (never jump to the latest message).
   revealTimer = setTimeout(() => {
-    if (touching) return;
+    if (!active || !session.visible || touching) return;
     let top = 0, bottom = 0, viewTop = 0, viewBottom = 0;
     // #ifdef WEB
     const panel = document.getElementById(id), viewport = document.getElementById('chat-scroll');
@@ -508,17 +511,18 @@ function jumpLatest() {
   scrollLatest();
 }
 function settleInitialScroll() {
-  if (!initialScrollPending) return;
+  if (!active || !session.visible || !initialScrollPending) return;
   clearInterval(scrollTimer);
   jumpLatest();
   const started = Date.now();
   scrollTimer = setInterval(() => {
-    if (!initialScrollPending) { clearInterval(scrollTimer); return; }
+    if (!active || !session.visible || !initialScrollPending) { clearInterval(scrollTimer); return; }
     scrollLatest();
     if (Date.now() - started >= 1200) { clearInterval(scrollTimer); initialScrollPending = false; }
   }, 240);
 }
 function updateKeyboard(height: number) {
+  if (!active || !session.visible) return;
   if (keyboard.value == height) return;
   keyboard.value = height;
   clearTimeout(keyboardLayoutTimer);
@@ -1075,7 +1079,7 @@ onShow(() => {
     nextTick(settleInitialScroll);
   });
   void resume();
-  void bootstrap();
+  void bootstrap().catch(() => {});
   // #ifdef APP
   keyboardId = uni.onKeyboardHeightChange(keyboardChange);
   // #endif

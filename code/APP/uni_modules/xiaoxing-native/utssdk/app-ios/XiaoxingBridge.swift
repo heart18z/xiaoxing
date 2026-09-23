@@ -140,12 +140,18 @@ public final class XiaoxingBridge: NSObject, UNUserNotificationCenterDelegate, U
         if request {center.requestAuthorization(options:[.alert,.sound,.badge]){_,_ in report()}}else{report()}
     }
     public func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping(UNNotificationPresentationOptions)->Void){
-        if let old=previousNotificationDelegate,old.responds(to:#selector(userNotificationCenter(_:willPresent:withCompletionHandler:))) {old.userNotificationCenter?(center,willPresent:notification,withCompletionHandler:completionHandler)}else{completionHandler([.banner,.list,.sound])}
+        // Notification callbacks can arrive off-main. The runtime delegate and bridge
+        // state are also accessed by foreground restoration; serialize both on main.
+        DispatchQueue.main.async {
+            if let old=self.previousNotificationDelegate,old.responds(to:#selector(self.userNotificationCenter(_:willPresent:withCompletionHandler:))) {old.userNotificationCenter?(center,willPresent:notification,withCompletionHandler:completionHandler)}else{completionHandler([.banner,.list,.sound])}
+        }
     }
     public func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping()->Void){
-        let info=response.notification.request.content.userInfo
-        for key in ["eventId","messageId","recipientUserId"] { if let value=info[key] {tapped[key]="\(value)"} }
-        if let old=previousNotificationDelegate,old.responds(to:#selector(userNotificationCenter(_:didReceive:withCompletionHandler:))) {old.userNotificationCenter?(center,didReceive:response,withCompletionHandler:completionHandler)}else{completionHandler()}
+        DispatchQueue.main.async {
+            let info=response.notification.request.content.userInfo
+            for key in ["eventId","messageId","recipientUserId"] { if let value=info[key] {self.tapped[key]="\(value)"} }
+            if let old=self.previousNotificationDelegate,old.responds(to:#selector(self.userNotificationCenter(_:didReceive:withCompletionHandler:))) {old.userNotificationCenter?(center,didReceive:response,withCompletionHandler:completionHandler)}else{completionHandler()}
+        }
     }
     private func pick(_ call:XiaoxingCall){
         guard pickerCall==nil else{call.reject("文件选择正在进行");return}
