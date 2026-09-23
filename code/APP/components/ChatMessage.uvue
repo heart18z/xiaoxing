@@ -33,9 +33,16 @@
           <rich-text v-else :nodes="markdown(replyText(item))" />
         </view>
         <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
+        <ChatImage
+          v-for="(fileId, index) in strings(payload(item), 'fileIds')"
+          :key="fileId"
+          :file-id="fileId"
+          :name="strings(payload(item), 'fileNames')[index] ?? ''"
+          @layout="emit('layout')"
+        />
         <text
           class="app-font"
-          v-if="strings(payload(item), 'fileNames').length > 0"
+          v-if="strings(payload(item), 'fileNames').length > 0 && strings(payload(item), 'fileIds').length == 0"
           :class="['sent-files', user ? 'user-files' : '']"
         >
           {{ t('附件：') }}{{ strings(payload(item), 'fileNames').join('、') }}
@@ -175,6 +182,7 @@ import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import ThinkingPanel from './ThinkingPanel.uvue';
 import ReplyProgress from './ReplyProgress.uvue';
+import ChatImage from './ChatImage.uvue';
 import { timeOf, dayOf } from '@/core/time.uts';
 import { ref, computed, watch, nextTick } from 'vue';
 import { SessionState, session as _session } from '@/store/session.uts';

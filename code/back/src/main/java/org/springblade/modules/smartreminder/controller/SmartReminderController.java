@@ -212,6 +212,12 @@ public class SmartReminderController {
 		return R.data(fileService.upload(file));
 	}
 
+	@PostMapping("/files/preview")
+	public R<Object> filePreview(@RequestParam Long id, @RequestParam(defaultValue="false") boolean full) {
+		AppRoleGuard.requireAppUser();
+		return R.data(fileService.preview(id, AuthUtil.getUserId(),full));
+	}
+
     /** QR codes contain only a public account identifier, never a login credential. */
     @PostMapping("/friends/qr")
     public R<Object> friendQr() {

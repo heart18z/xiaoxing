@@ -11,7 +11,7 @@ export function pickImages(count: number, success: (result: ChooseImageSuccess) 
         count: source.tapIndex == 1 ? 1 : count,
         sourceType: source.tapIndex == 1 ? ['camera'] : ['album'],
         albumMode: 'system',
-        sizeType: ['original'],
+        sizeType: ['compressed'],
         success: (result) => {
           if (result.tempFilePaths.length > 0) success(result);
         },
@@ -23,4 +23,33 @@ export function pickImages(count: number, success: (result: ChooseImageSuccess) 
     },
     fail: (_) => {},
   });
+}
+
+// Keep readable text while bounding original camera photos before upload.
+export function prepareChatImage(path: string, size: number, success: (path: string, size: number) => void): void {
+  // #ifdef WEB
+  success(path, size);
+  // #endif
+  // #ifndef WEB
+  uni.getImageInfo({
+    src: path,
+    success: (info) => {
+      const edge = Math.max(info.width, info.height);
+      if (edge <= 3200 && size <= 8 * 1024 * 1024 && /\.(png|jpe?g|gif|webp)$/i.test(path)) {
+        success(path, size);
+        return;
+      }
+      const scale = Math.min(1, 3200 / edge);
+      uni.compressImage({
+        src: path,
+        quality: 85,
+        compressedWidth: Math.max(1, Math.round(info.width * scale)),
+        compressedHeight: Math.max(1, Math.round(info.height * scale)),
+        success: (result) => success(result.tempFilePath, 0),
+        fail: (_) => toast('图片压缩失败，请重新选择图片'),
+      });
+    },
+    fail: (_) => toast('无法读取图片，请重新选择 JPG 或 PNG 图片'),
+  });
+  // #endif
 }

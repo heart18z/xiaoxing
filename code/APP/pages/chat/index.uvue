@@ -190,7 +190,7 @@
 </template>
 <script setup lang="uts">
 import { messageKey } from '@/core/messages.uts';
-import { pickImages } from '@/services/images.uts';
+import { pickImages, prepareChatImage } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import VoiceInputStatus from '@/components/VoiceInputStatus.uvue';
 import { t as _t } from '@/core/locale.uts';
@@ -254,7 +254,7 @@ const pendingUser = computed((): UTSJSONObject => ({
   messageRole: 'user',
   messageType: 'TEXT',
   content: s(chat.pending, 'content'),
-  payload: { fileNames: chat.pending['fileNames'] ?? ([] as string[]) },
+  payload: { fileNames: chat.pending['fileNames'] ?? ([] as string[]), fileIds: chat.pending['fileIds'] ?? ([] as string[]) },
 }));
 const pendingAssistant = computed((): UTSJSONObject => ({
   id: 'pending-ai-' + s(chat.pending, 'requestId'),
@@ -767,8 +767,8 @@ function addFile(
     toast('仅支持 PNG、JPG、GIF、WEBP 图片');
     return;
   }
-  if (size > 8 * 1024 * 1024) {
-    toast('图片最大8MB');
+  if (size > 20 * 1024 * 1024) {
+    toast('图片最大20MB，请压缩后重试');
     return;
   }
   const file = reactive<Attachment>({
@@ -825,9 +825,14 @@ function chooseAttachment() {
   return;
   // #endif
   // #ifndef WEB
+  const imageOwner = session.userId;
+  const imageRevision = session.revision;
   pickImages(Math.max(1, 6 - files.value.length), (result) => {
     result.tempFiles.forEach((file) =>
-      addFile(file.path, file.path.split('/').pop()!, file.size, true),
+      prepareChatImage(file.path, file.size, (path: string, size: number) => {
+        if (imageOwner != session.userId || imageRevision != session.revision) return;
+        addFile(path, path.split('/').pop()!, size, true);
+      }),
     );
   });
   // #endif

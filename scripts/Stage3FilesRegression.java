@@ -38,7 +38,7 @@ public class Stage3FilesRegression {
     check(((String)extract.invoke(service,pdf,"pdf")).contains("Meeting 15:00"),"PDF text extracted");
     check(visions==0,"documents do not invoke image model");
     Path image=Path.of("code/front/public/avatars/assistant/A3.png");
-    check(((String)extract.invoke(service,image,"png")).contains("白色小狗")&&visions==1&&mime.equals("image/png"),"image invokes multimodal parsing");
+    check(((String)extract.invoke(service,image,"png")).contains("白色小狗")&&visions==1&&mime.equals("image/jpeg"),"image invokes multimodal parsing");
     boolean rejected=false;try{extract.invoke(service,txt,"png");}catch(InvocationTargetException ex){rejected=true;}
     check(rejected&&visions==1,"fake image rejected before model call");
     Path webp=folder.resolve("sample.webp");Files.write(webp,Base64.getDecoder().decode("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/vuUAAA="));

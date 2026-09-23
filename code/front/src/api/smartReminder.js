@@ -117,3 +117,5 @@ export const getAdminDashboard = () => post('/api/blade-smart/admin/dashboard');
 export const getAdminEvents = params => post('/api/blade-smart/admin/events', null, params);
 export const getAdminNotifications = params => post('/api/blade-smart/admin/notifications', null, params);
 export const getAdminEvaluations = params => post('/api/blade-smart/admin/evaluations', null, params);
+
+export const getFilePreview = id => post('/api/app/reminder/files/preview', null, { id });

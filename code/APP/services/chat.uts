@@ -379,7 +379,7 @@ export async function resume(): Promise<void> {
           messageRole: 'user',
           messageType: 'TEXT',
           content: s(pending, 'content'),
-          payload: { fileNames: pending['fileNames'] ?? ([] as string[]) },
+          payload: { fileNames: pending['fileNames'] ?? ([] as string[]), fileIds: pending['fileIds'] ?? ([] as string[]) },
         });
         const hasCandidate =
           s(result, 'candidateId').length > 0 &&

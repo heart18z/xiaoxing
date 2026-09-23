@@ -52,7 +52,7 @@ public class Stage1Regression {
   }
   static Map<?,?> call(String json) {
     return tx.execute(status -> {
-      try { return (Map<?,?>) complete.invoke(service, prepared.newInstance(1L,101L,"合并或停止所选事件",null,11L,""), json, ""); }
+      try { return (Map<?,?>) complete.invoke(service, prepared.newInstance(1L,101L,"合并或停止所选事件",null,11L,"",List.of()), json, ""); }
       catch (InvocationTargetException e) { throw new RuntimeException(e.getCause()); }
       catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
     });

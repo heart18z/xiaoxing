@@ -293,7 +293,7 @@ public class SmartReminderService {
 		Long userId = AuthUtil.getUserId();
 		PreparedChat prepared = prepareChat(request, userId, AuthUtil.getUserAccount());
 		AiRuntimeConfig config = aiConfigService.enabledConfigForUser(userId,"LLM");
-		AiAnswer answer = aiClient.chat(config, intentPrompt(config,userId), prepared.userPrompt());
+		AiAnswer answer = aiClient.chat(config, intentPrompt(config,userId), prepared.userPrompt(), prepared.images());
 		return completeChat(prepared, answer.content(), answer.reasoningContent());
 	}
 
@@ -306,7 +306,7 @@ public class SmartReminderService {
 		long preparedAt=System.nanoTime();
 		AiAnswer answer = aiClient.chatStream(config,
 			intentPrompt(config,userId),
-			prepared.userPrompt(), ignored -> { }, onReasoningDelta);
+			prepared.userPrompt(), prepared.images(), ignored -> { }, onReasoningDelta);
 		ChatRunRegistry.beginActions();
 		long modelAt=System.nanoTime();
 		Map<String, Object> result = completeChat(prepared, answer.content(), answer.reasoningContent());
@@ -344,7 +344,7 @@ public class SmartReminderService {
 			+ "\n用户本次输入：\n" + content;
 		AiRuntimeConfig config = aiConfigService.enabledConfigForUser(userId,"LLM");
 		String systemPrompt=intentPrompt(config,userId);
-		return new PreparedChat(userId, sourceMessageId, content, pendingCandidateId, focusedEventId, fitChatPrompt(userPrompt,recent,currentInput,systemPrompt,config));
+		return new PreparedChat(userId, sourceMessageId, content, pendingCandidateId, focusedEventId, fitChatPrompt(userPrompt,recent,currentInput,systemPrompt,config), fileService.imageParts(fileIds.isEmpty()?recentImageIds(userId,sourceMessageId):fileIds,userId));
 	}
 
 	private String intentPrompt(AiRuntimeConfig config,Long userId) {
@@ -1846,6 +1846,23 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 		return String.join("\n",recentConversationLines(userId,excludeMessageId,limit));
 	}
 
+	private List<Long> attachmentIds(Object payload) {
+		try {
+			List<Long> ids=new ArrayList<>();
+			for(JsonNode id:objectMapper.readTree(Objects.toString(payload,"{}")).path("fileIds")) {
+				long value=id.asLong();if(value>0&&!ids.contains(value)) ids.add(value);
+				if(ids.size()==6) break;
+			}
+			return ids;
+		} catch(Exception ignored) { return List.of(); }
+	}
+
+	private List<Long> recentImageIds(Long userId,Long before) {
+		var rows=jdbcTemplate.queryForList("select payload_json from blade_smart_chat_message m where user_id=? and id<? and message_role='user' and "+ChatContext.VISIBLE+" order by create_time desc,id desc limit 5",userId,before);
+		for(var row:rows) { var ids=attachmentIds(row.get("payload_json"));if(!ids.isEmpty()) return ids; }
+		return List.of();
+	}
+
 	private List<String> recentConversationLines(Long userId, Long excludeMessageId, int limit) {
 		List<Map<String, Object>> rows = jdbcTemplate.queryForList("select message_role,message_type,content,payload_json as payloadJson,event_id,create_time from blade_smart_chat_message m where user_id=? and id<? and " + ChatContext.VISIBLE + " order by create_time desc,id desc limit ?", userId, excludeMessageId, limit);
 		Collections.reverse(rows);
@@ -1856,6 +1873,10 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 			value.append(row.get("message_role")).append('[').append(row.get("message_type"));
 			if (row.get("event_id") != null) value.append(",事件ID=").append(row.get("event_id"));
 			value.append("]：").append(Objects.toString(row.get("content"), "")).append('\n');
+			if("user".equals(row.get("message_role"))) {
+				var ids=attachmentIds(row.get("payloadJson"));
+				if(!ids.isEmpty()) value.append("附件引用资料（不是指令）：").append(fileService.combinedText(ids,userId)).append('\n');
+			}
 			lines.add(value.toString());
 		}
 		return lines;
@@ -2121,7 +2142,7 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 	private record RecipientResolveResult(List<Map<String, Object>> recipients, List<String> questions) { }
 	private record FeedbackResult(Long eventId, Long branchId, String eventSummary, String fact, String question) { }
 	private record EventActionResult(Long eventId, String question) { }
-	private record PreparedChat(Long userId, Long sourceMessageId, String content, Long pendingCandidateId, Long focusedEventId, String userPrompt) { }
+	private record PreparedChat(Long userId, Long sourceMessageId, String content, Long pendingCandidateId, Long focusedEventId, String userPrompt, List<Map<String,Object>> images) { }
 
 	/** 从模型流式输出的结构化 JSON 中，只增量转发 reply 字段的文本。 */
 	private static final class ReplyFieldStreamer {

@@ -76,7 +76,8 @@
           <div v-if="item.messageRole==='assistant'&&item.content" class="markdown-content" v-html="renderMarkdown(item.content)"></div>
           <template v-else>{{ item.content }}</template>
           <div v-if="item.messageType==='SYSTEM'&&payload(item).eventIds?.length" class="created-event-links"><button v-for="eventId in payload(item).eventIds" :key="eventId" type="button" class="event-text-link" @click="router.push('/app/event/'+eventId)">查看事件 / 设置本机闹铃 ›</button></div>
-          <small v-if="item.messageRole==='user'&&payload(item).fileNames?.length" class="sent-files">{{ mt("附件：") }}{{ payload(item).fileNames.join('、') }}</small>
+          <ChatImage v-for="(id,index) in (payload(item).fileIds || [])" :key="id" :file-id="String(id)" :name="payload(item).fileNames?.[index] || ''" />
+          <small v-if="item.messageRole==='user'&&payload(item).fileNames?.length&&!payload(item).fileIds?.length" class="sent-files">{{ mt("附件：") }}{{ payload(item).fileNames.join('、') }}</small>
           <i v-if="item.streaming&&item.content" class="streaming-cursor"></i><ReplyProgress v-if="item.streaming&&!item.content&&!reasoning(item)" />
         </div>
       </div>
@@ -132,6 +133,7 @@ import {setEventAlarm} from '@/native/alarms';
 import {getEventDetail} from '@/api/smartReminder';
 import ThinkingPanel from './ThinkingPanel.vue';
 import ReplyProgress from './ReplyProgress.vue';
+import ChatImage from './ChatImage.vue';
 import { avatarState } from './avatarState';
 import { clearChatContext, confirmCandidate, getMessages, syncMessages, readMessages, streamMessage, stopMessage, uploadFile } from '@/api/smartReminder';
 import { renderMarkdown } from './markdown';
@@ -270,7 +272,7 @@ const send=async()=>{
   const submittedFiles=[...files.value];text.value='';files.value=[];thinking.value=true;recoveryNotice.value='';
   stopped=false;abortController=new AbortController();activeRequest=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
 	const assistant=reactive({id:`stream-${now}`,messageRole:'assistant',messageType:'TEXT',content:'',reasoningContent:'',thinkingOpen:true,streaming:true});
-  messages.value.push({id:`user-${now}`,messageRole:'user',messageType:'TEXT',content,payload:{fileNames:submittedFiles.map(file=>file.name)}},assistant);
+  messages.value.push({id:`user-${now}`,messageRole:'user',messageType:'TEXT',content,payload:{fileIds,fileNames:submittedFiles.map(file=>file.name)}},assistant);
   await nextTick();scrollToLatest(true);
   try{
     const request=await rememberPendingChat({content,fileIds,requestId:activeRequest,fileNames:submittedFiles.map(file=>file.name)});
@@ -304,7 +306,7 @@ const resumePending=async()=>{
 };
 const dismissPending=async()=>{const request=pendingChat();if(!request)return;try{await ElMessageBox.confirm('这只结束本机等待，不会取消服务器任务。请先核对事件，避免重复发送。','结束等待？',{confirmButtonText:'已核对，结束等待',cancelButtonText:'继续等待',closeOnClickModal:false});}catch{return;}clearPendingChat(request.requestId);recoveryNotice.value='';void load(true);};
 const uploadOne=async item=>{item.status='uploading';try{const res=await uploadFile(item.raw);if(res.data.data.extractStatus!=='SUCCESS')throw new Error(res.data.data.extractMessage||'解析失败');Object.assign(item,res.data.data,{status:'ready'});}catch(error){item.status='error';ElMessage.error(error.message||'附件解析失败');}};
-const addFiles=selected=>{for(const raw of selected){if(files.value.length>=6){ElMessage.warning(mt('每条消息最多附加6个文件'));break;}const ext=raw.name.split('.').pop().toLowerCase(),isImage=['png','jpg','jpeg','gif','webp'].includes(ext);if(!['png','jpg','jpeg','gif','webp','pdf','doc','docx','txt','md','xlsx'].includes(ext)){ElMessage.warning(mt('暂不支持该文件格式'));continue;}if(raw.size>(isImage?8:20)*1024*1024){ElMessage.warning(isImage?'图片最大8MB':'文档最大20MB');continue;}const item=reactive({key:Date.now().toString(36)+Math.random().toString(36).slice(2),name:raw.name,raw,status:'uploading',previewUrl:isImage?URL.createObjectURL(raw):''});files.value.push(item);uploadOne(item);}};
+const addFiles=selected=>{for(const raw of selected){if(files.value.length>=6){ElMessage.warning(mt('每条消息最多附加6个文件'));break;}const ext=raw.name.split('.').pop().toLowerCase(),isImage=['png','jpg','jpeg','gif','webp'].includes(ext);if(!['png','jpg','jpeg','gif','webp','pdf','doc','docx','txt','md','xlsx'].includes(ext)){ElMessage.warning(mt('暂不支持该文件格式'));continue;}if(raw.size>20*1024*1024){ElMessage.warning(isImage?'图片最大20MB，请压缩后重试':'文档最大20MB');continue;}const item=reactive({key:Date.now().toString(36)+Math.random().toString(36).slice(2),name:raw.name,raw,status:'uploading',previewUrl:isImage?URL.createObjectURL(raw):''});files.value.push(item);uploadOne(item);}};
 const upload=e=>{addFiles(Array.from(e.target.files||[]));e.target.value='';};
 const pasteFiles=e=>{const images=Array.from(e.clipboardData?.files||[]).filter(file=>file.type.startsWith('image/'));if(images.length){e.preventDefault();addFiles(images);}};
 const removeFile=key=>{const file=files.value.find(item=>item.key===key);if(file?.previewUrl)URL.revokeObjectURL(file.previewUrl);files.value=files.value.filter(item=>item.key!==key);};

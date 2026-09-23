@@ -1,0 +1,61 @@
+<template>
+  <view v-if="isImage" class="attachment-image" @click="preview()">
+    <image v-if="source.length > 0" class="thumbnail" :src="source" mode="aspectFit" />
+    <text v-else class="image-status app-font">{{ failed ? '图片加载失败，点击重试' : '图片加载中…' }}</text>
+  </view>
+  <text v-else class="app-font file-label">{{ name }}</text>
+</template>
+<script setup lang="uts">
+import { ref, computed, watch, onUnmounted } from 'vue';
+import { post } from '@/api/request.uts';
+import { s, obj } from '@/core/json.uts';
+import { toast } from '@/core/ui.uts';
+import { session } from '@/store/session.uts';
+const props = defineProps<{ fileId: string; name: string }>();
+const emit = defineEmits<{ layout: [] }>();
+const source = ref('');
+const failed = ref(false);
+const loading = ref(false);
+const isImage = computed((): boolean => /\.(png|jpe?g|gif|webp)$/i.test(props.name));
+let generation = 0;
+async function load(): Promise<void> {
+  const run = ++generation;
+  const owner = session.userId;
+  if (!isImage.value || props.fileId.length == 0 || owner.length == 0) return;
+  loading.value = true;
+  failed.value = false;
+  try {
+    const result = await post('/app/reminder/files/preview', null, { id: props.fileId });
+    if (run != generation || owner != session.userId) return;
+    source.value = s(obj(result, 'data'), 'image');
+    failed.value = source.value.length == 0;
+  } catch (_) {
+    if (run == generation && owner == session.userId) failed.value = true;
+  } finally {
+    if (run == generation) loading.value = false;
+  }
+}
+async function preview(): Promise<void> {
+  if (loading.value) return;
+  if (source.value.length == 0) { void load(); return; }
+  const owner = session.userId;
+  const run = generation;
+  loading.value = true;
+  try {
+    const result = await post('/app/reminder/files/preview', null, { id: props.fileId, full: true });
+    if (owner == session.userId && run == generation) uni.previewImage({ urls: [s(obj(result, 'data'), 'image')] });
+  } catch (_) { if (owner == session.userId && run == generation) toast('图片加载失败，请重试'); }
+  finally { if (run == generation) loading.value = false; }
+}
+onUnmounted(() => { generation++; });
+watch((): string => props.fileId + ':' + session.userId, () => {
+  source.value = '';
+  void load();
+}, { immediate: true });
+</script>
+<style scoped>
+.attachment-image { width: 210px; height: 156px; margin-top: 8px; border-radius: 12px; overflow: hidden; background-color: #eef1ff; justify-content: center; align-items: center; }
+.thumbnail { width: 210px; height: 156px; }
+.image-status { font-size: 12px; color: #526085; padding: 12px; }
+.file-label { font-size: 12px; margin-top: 6px; }
+</style>
