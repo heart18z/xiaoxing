@@ -15,7 +15,7 @@ public final class XiaoxingStream: NSObject, URLSessionDataDelegate, URLSessionT
             let input = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
             let id = input["id"] as? String ?? ""
             if action == "stream.cancel" { watches.removeValue(forKey: id)?.cancel(); callback("{}"); return }
-            guard !id.isEmpty(), let raw = input["url"] as? String, let url = URL(string: raw), url.scheme == "https" else {
+            guard !id.isEmpty, let raw = input["url"] as? String, let url = URL(string: raw), url.scheme == "https" else {
                 callback("{\"error\":\"流式地址无效\"}"); return
             }
             watches.removeValue(forKey: id)?.cancel()
