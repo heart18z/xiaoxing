@@ -44,7 +44,7 @@ watch(
     timer = setInterval(() => {
       elapsed.value = Math.floor((Date.now() - started) / 1000);
       if (!recording) return;
-      // iOS supplies microphone energy; silence stays quiet rather than faking speech.
+      // Native capture supplies microphone energy; silence stays quiet rather than faking speech.
       levels.value = levels.value
         .slice(1)
         .concat([3 + Math.max(0, Math.min(100, props.level)) * 0.29]);

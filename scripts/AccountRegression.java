@@ -22,11 +22,11 @@ public class AccountRegression {
     for(String account:new String[]{"abc","x".repeat(33),"_abcd","人员号123","a b c"})check(!validator.validate(valid(account)).isEmpty(),"invalid account rejected");
     check(validator.validate(valid("1234")).isEmpty(),"minimum account accepted");
     check(validator.validate(valid("x".repeat(32))).isEmpty(),"maximum account accepted");
-    var blank=valid("blank");blank.setEmail("");check(!validator.validate(blank).isEmpty(),"at least one contact required");
+    var blank=valid("blank");blank.setEmail("");check(!validator.validate(blank).isEmpty(),"email required");
     var input=valid("staff_123");input.setName(" ");check(!validator.validate(input).isEmpty(),"blank name rejected");
     input=valid("staff_123");input.setPassword("short");check(!validator.validate(input).isEmpty(),"short password rejected");
     input=valid("staff_123");input.setPhone("123");check(!validator.validate(input).isEmpty(),"invalid optional phone rejected");
-    input=valid("staff_123");input.setEmail("bad");check(!validator.validate(input).isEmpty(),"invalid optional email rejected");
+    input=valid("staff_123");input.setEmail("bad");check(!validator.validate(input).isEmpty(),"invalid email rejected");
     var source=new DriverManagerDataSource("jdbc:h2:mem:accounts;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;IGNORECASE=TRUE","sa","");
     int[] contactIndexCount={2};
     JdbcTemplate db=new JdbcTemplate(source){
@@ -59,7 +59,10 @@ public class AccountRegression {
     Long id=db.queryForObject("select id from blade_user",Long.class);
     var collision=valid("different");collision.setEmail(" FIXTURE@EXAMPLE.COM ");
     try{service.register(collision);throw new AssertionError("duplicate email accepted");}catch(org.springblade.core.log.exception.ServiceException expected){System.out.println("PASS normalized duplicate email rejected");}
-    var phoneOnly=valid("phone_only");phoneOnly.setEmail("");phoneOnly.setPhone("13800138000");service.register(phoneOnly);
+    var phoneOnly=valid("phone_only");phoneOnly.setEmail("");phoneOnly.setPhone("13800138000");
+    check(!validator.validate(phoneOnly).isEmpty(),"phone cannot replace required email");
+    try{service.register(phoneOnly);throw new AssertionError("service accepted phone-only registration");}catch(org.springblade.core.log.exception.ServiceException expected){check(expected.getMessage().contains("邮箱"),"service requires email too");}
+    phoneOnly.setEmail("phone@example.com");service.register(phoneOnly);
     var phoneDuplicate=valid("phone_other");phoneDuplicate.setEmail("other@example.com");phoneDuplicate.setPhone("13800138000");
     try{service.register(phoneDuplicate);throw new AssertionError("duplicate phone accepted");}catch(org.springblade.core.log.exception.ServiceException expected){System.out.println("PASS duplicate phone rejected even with distinct email");}
     var racers=Executors.newFixedThreadPool(2);var go=new CountDownLatch(1);

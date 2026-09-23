@@ -25,7 +25,7 @@
       @click.stop="noop"
       :style="{
         maxHeight: maxHeight + 'px',
-        height: fixedFooter ? Math.min(maxHeight, 640) + 'px' : 'auto',
+        height: fixedFooter ? Math.min(maxHeight, panelHeight) + 'px' : 'auto',
         transform: visible ? 'translateY(0px)' : 'translateY(16px)',
       }"
     >
@@ -52,6 +52,7 @@ const props = defineProps({
   sheet: { type: Boolean, default: false },
   variant: { type: String, default: '' },
   fixedFooter: { type: Boolean, default: false },
+  panelHeight: { type: Number, default: 640 },
 });
 const emit = defineEmits(['close']);
 const rendered = ref(false),

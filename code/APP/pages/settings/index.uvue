@@ -238,6 +238,7 @@ async function checkNotification(): Promise<void> {
   if (checkingNotification.value || pushState.busy) return;
   checkingNotification.value = true;
   notificationFeedback.value = t('正在检查通知权限和设备绑定…');
+  toast(notificationFeedback.value);
   try {
     if (pushState.permission == 'denied') {
       const result = await callNative('settings');
@@ -253,6 +254,7 @@ async function checkNotification(): Promise<void> {
     notificationFeedback.value = message(e);
   } finally {
     checkingNotification.value = false;
+    toast(notificationFeedback.value, notificationFeedback.value == t('检查完成，通知已开启，设备已绑定') ? 'success' : 'info');
   }
 }
 function updateNotes(): string { return s(updates.release, 'notes'); }

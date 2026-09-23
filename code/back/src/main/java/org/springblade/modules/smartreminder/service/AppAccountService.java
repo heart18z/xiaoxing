@@ -53,7 +53,7 @@ public class AppAccountService {
     public void register(Registration input) {
         input.setPhone(Objects.toString(input.getPhone(),"").trim());
         input.setEmail(Objects.toString(input.getEmail(),"").trim().toLowerCase(Locale.ROOT));
-        if (!input.isContactProvided()) throw new ServiceException("手机号和邮箱至少填写一项");
+        if (!input.isContactProvided()) throw new ServiceException("请填写邮箱");
         // Fail closed until the additive migration is installed. The database constraint
         // arbitrates concurrent signups AND administrative account creation.
         Integer indexes = jdbc.queryForObject("select count(*) from information_schema.statistics where table_schema=database() and table_name='blade_user' and index_name='uk_app_account_tenant' and non_unique=0", Integer.class);

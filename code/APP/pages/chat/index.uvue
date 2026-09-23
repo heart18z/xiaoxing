@@ -333,16 +333,12 @@ let timer: number = 0,
   syncFailures = 0;
 const voiceStage = ref('');
 function rowKey(item: UTSJSONObject): string { return messageKey(item); }
+const voiceLevel = ref(0);
 // #ifdef APP-ANDROID
-const recorder = uni.getRecorderManager();
-let recordStartTimer: number = 0;
+let androidAudioId = '';
+let androidAudioTimer: number = 0;
 let recordStopRequestedAt: number = 0;
-recorder.onStart(() => {
-  clearTimeout(recordStartTimer);
-  if (!recording.value || recordCancelled) recorder.stop();
-});
-async function handleRecording(result: RecorderManagerOnStopResult): Promise<void> {
-  clearTimeout(recordStartTimer);
+async function handleRecording(path: string): Promise<void> {
   recording.value = false;
   if (recordCancelled) return;
   transcribing.value = true;
@@ -352,7 +348,7 @@ async function handleRecording(result: RecorderManagerOnStopResult): Promise<voi
   let uploadedAt: number = 0;
   console.info('[speech] recording stopped, stopWaitMs=' + (recordStopRequestedAt > 0 ? started - recordStopRequestedAt : 0));
   try {
-    const data = await upload('/app/reminder/audio/transcriptions', result.tempFilePath, 125000, (progress: number) => {
+    const data = await upload('/app/reminder/audio/transcriptions', path, 125000, (progress: number) => {
       if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
       voiceStage.value = progress >= 100 ? '正在识别语音…' : '正在上传录音… ' + Math.floor(progress) + '%';
       if (progress >= 100 && uploadedAt == 0) {
@@ -371,18 +367,54 @@ async function handleRecording(result: RecorderManagerOnStopResult): Promise<voi
     if (run == recordGeneration) transcribing.value = false;
   }
 }
-recorder.onStop((result) => {
-  void handleRecording(result);
-});
-recorder.onError((error) => {
-  clearTimeout(recordStartTimer);
-  if (recordCancelled) return;
-  recording.value = false;
-  transcribing.value = false;
-  toast(error.errMsg.length > 0 ? error.errMsg : '录音失败，请检查麦克风权限');
-});
+async function pollAndroidAudio(run: number): Promise<void> {
+  if (run != recordGeneration || androidAudioId.length == 0) return;
+  try {
+    const data = await callNative('audio.status', { session: androidAudioId });
+    if (run != recordGeneration) return;
+    voiceLevel.value = (data['level'] as number) ?? 0;
+    if (b(data, 'finished')) {
+      androidAudioId = '';
+      voiceLevel.value = 0;
+      await handleRecording(s(data, 'path'));
+      return;
+    }
+    androidAudioTimer = setTimeout(() => { void pollAndroidAudio(run); }, 100);
+  } catch (e) {
+    if (run != recordGeneration) return;
+    recording.value = false;
+    transcribing.value = false;
+    voiceLevel.value = 0;
+    toast(message(e));
+  }
+}
+async function beginAndroidAudio(): Promise<void> {
+  if (chat.busy || transcribing.value || recording.value || clearing.value) return;
+  recordCancelled = false;
+  const run = ++recordGeneration;
+  recordStopRequestedAt = 0;
+  recordDraft = draft.value;
+  recordOwner = session.userId;
+  recording.value = true;
+  const id = requestId();
+  try {
+    await callNative('audio.permission');
+    if (run != recordGeneration || recordCancelled) return;
+    androidAudioId = id;
+    await callNative('audio.start', { session: id });
+    if (run != recordGeneration || recordCancelled) {
+      await callNative('audio.stop', { session: id, cancel: true });
+      return;
+    }
+    void pollAndroidAudio(run);
+  } catch (e) {
+    if (run != recordGeneration) return;
+    androidAudioId = '';
+    recording.value = false;
+    toast(message(e));
+  }
+}
 // #endif
-const voiceLevel = ref(0);
 let liveSpeech = false;
 // #ifdef APP-IOS
 liveSpeech = true;
@@ -830,31 +862,7 @@ function startRecording() {
   void beginSpeech();
   // #endif
   // #ifdef APP-ANDROID
-  if (chat.busy || transcribing.value || recording.value) {
-    toast('请等待当前回复或语音处理完成');
-    return;
-  }
-  recordCancelled = false;
-  recordGeneration++;
-  recordStopRequestedAt = 0;
-  recordDraft = draft.value;
-  recordOwner = session.userId;
-  recording.value = true;
-  clearTimeout(recordStartTimer);
-  recordStartTimer = setTimeout(() => {
-    if (!recording.value) return;
-    recordCancelled = true;
-    recording.value = false;
-    recorder.stop();
-    toast('录音未能启动，请检查麦克风是否被其他应用占用');
-  }, 12000);
-  recorder.start({
-    // Record genuine PCM WAV; changing the extension of AAC is not conversion.
-    format: 'wav',
-    duration: 60000,
-    numberOfChannels: 1,
-    sampleRate: 16000,
-  });
+  void beginAndroidAudio();
   // #endif
   // #ifdef WEB
   if (chat.busy || recording.value || transcribing.value || clearing.value) return;
@@ -914,8 +922,12 @@ function finishRecording() {
   // #endif
   // #ifdef APP-ANDROID
   if (recording.value) {
+    if (androidAudioId.length == 0) { recordCancelled = true; recordGeneration++; recording.value = false; return; }
     recordStopRequestedAt = Date.now();
-    recorder.stop();
+    recording.value = false;
+    transcribing.value = true;
+    voiceStage.value = '正在结束录音…';
+    void callNative('audio.stop', { session: androidAudioId, cancel: recordCancelled }).catch((e) => { toast(message(e)); });
   }
   // #endif
 }
@@ -936,8 +948,9 @@ function cancelRecording() {
   cancelBrowserRecording();
   // #endif
   // #ifdef APP-ANDROID
-  clearTimeout(recordStartTimer);
-  if (recording.value) recorder.stop();
+  clearTimeout(androidAudioTimer);
+  if (androidAudioId.length > 0) void callNative('audio.stop', { session: androidAudioId, cancel: true }).catch(() => {});
+  androidAudioId = '';
   // #endif
   recording.value = false;
 }
@@ -1041,8 +1054,7 @@ onUnload(() => {
   // #endif
   clearInterval(scrollTimer);
   // #ifdef APP-ANDROID
-  recorder.offStop();
-  recorder.offError();
+  clearTimeout(androidAudioTimer);
   // #endif
 });
 

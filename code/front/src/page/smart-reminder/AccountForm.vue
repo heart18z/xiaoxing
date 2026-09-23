@@ -11,9 +11,9 @@
       <small class="full-row">{{ register ? '已预填默认密码，建议修改（8–64位）。' : '请输入8–64位新密码。修改后需重新登录。' }}</small>
       <label v-if="!register">确认新密码 *<input v-model="form.confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="64" required :disabled="busy" /></label>
       <template v-if="register">
-        <div class="contact-heading full-row">联系方式 <span>手机号 / 邮箱至少填写一项</span></div>
-        <label>手机号<input v-model.trim="form.phone" placeholder="11位手机号" type="tel" autocomplete="tel" maxlength="11" :disabled="busy" /></label>
-        <label>邮箱<input v-model.trim="form.email" placeholder="常用邮箱" type="email" autocomplete="email" maxlength="45" :disabled="busy" /></label>
+        <div class="contact-heading full-row">联系方式 <span>邮箱必填，手机号选填</span></div>
+        <label class="full-row">手机号<input v-model.trim="form.phone" placeholder="11位手机号" type="tel" autocomplete="tel" maxlength="11" :disabled="busy" /></label>
+        <label class="full-row">邮箱 *<input v-model.trim="form.email" placeholder="常用邮箱" type="email" autocomplete="email" required maxlength="45" :disabled="busy" /></label>
         <small class="full-row">填写的手机号、邮箱不能与其他账号重复。</small>
       </template>
       <p v-if="error" class="account-error full-row" role="alert">{{ error }}</p>
