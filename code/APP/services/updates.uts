@@ -1,0 +1,44 @@
+import { reactive } from 'vue';
+import { reminder, headers } from '@/api/request.uts';
+import { BASE_URL } from '@/config/environment.uts';
+import { callNative } from '@/services/native.uts';
+import { obj, s, n, message } from '@/core/json.uts';
+export type UpdateState = { supported: boolean; checking: boolean; installing: boolean; available: boolean; current: string; feedback: string; release: UTSJSONObject; };
+export const updates = reactive<UpdateState>({ supported: false, checking: false, installing: false, available: false, current: '', feedback: '', release: {} });
+let checkedAt: number = 0;
+export async function checkUpdates(force: boolean = false): Promise<void> {
+  // #ifdef APP-ANDROID
+  updates.supported = true;
+  if (updates.checking || (!force && Date.now() - checkedAt < 300000)) return;
+  updates.checking = true;
+  updates.feedback = '正在检查更新…';
+  try {
+    const local = await callNative('update.info');
+    updates.current = s(local, 'versionName') + ' (' + n(local, 'versionCode') + ')';
+    const latest = obj(await reminder('releases/latest'), 'value');
+    updates.release = latest;
+    updates.available = n(latest, 'versionCode') > n(local, 'versionCode');
+    updates.feedback = updates.available ? '发现新版本 ' + s(latest, 'versionName') + ' (' + n(latest, 'versionCode') + ')' : '当前已是最新版本';
+    checkedAt = Date.now();
+  } catch (e) { updates.feedback = '检查失败：' + message(e); }
+  finally { updates.checking = false; }
+  // #endif
+}
+export async function installUpdate(): Promise<void> {
+  // #ifdef APP-ANDROID
+  if (updates.installing || !updates.available) return;
+  updates.installing = true;
+  updates.feedback = '正在下载安装包，请稍候…';
+  try {
+    const result = await callNative('update.install', {
+      url: BASE_URL + '/app/reminder/releases/' + s(updates.release, 'id') + '/apk',
+      headers: headers(false),
+      sha256: s(updates.release, 'sha256'),
+      fileSize: n(updates.release, 'fileSize'),
+      versionCode: n(updates.release, 'versionCode'),
+    });
+    updates.feedback = result['permissionRequired'] == true ? '请允许安装此来源的应用，返回后再点下载安装' : '已打开系统安装页面，请确认安装';
+  } catch (e) { updates.feedback = '更新失败：' + message(e); }
+  finally { updates.installing = false; }
+  // #endif
+}

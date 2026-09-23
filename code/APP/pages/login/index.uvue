@@ -391,8 +391,11 @@ onReady(() => {
   align-items: center;
 }
 .dialog-cancel {
-  height: 44px;
-  line-height: 44px;
+  padding: 0;
+  height: 48px;
+  line-height: 48px;
+  font-size: 18px;
+  font-weight: 600;
   flex: 1;
   margin: 0 10px 0 0;
 }
@@ -404,6 +407,6 @@ onReady(() => {
   box-shadow: none;
 }
 .dialog-continue {
-  flex: 1.4;
+  flex: 1;
 }
 </style>

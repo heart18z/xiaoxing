@@ -6,7 +6,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application>
+        <provider android:name="uts.sdk.modules.xiaoxingNative.XiaoxingUpdateProvider" android:authorities="${applicationId}.xiaoxingupdates" android:exported="false" android:grantUriPermissions="true" />
         <receiver android:name="uts.sdk.modules.xiaoxingNative.XiaoxingAlarmReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

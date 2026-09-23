@@ -201,7 +201,10 @@ export async function login(
   captchaCode: string = '',
   confirmLogin: boolean = false,
 ): Promise<void> {
+  const loginStarted = Date.now();
   const encrypted = await encryptPassword(password);
+  console.info("[login] encryption ms=" + (Date.now() - loginStarted));
+  const requestStarted = Date.now();
   const params: UTSJSONObject = {
     tenantId: TENANT,
     username: account,
@@ -262,6 +265,8 @@ export async function login(
       fail: () => reject(new ApiError(0, '登录请求失败，请稍后重试')),
     });
   });
+  console.info("[login] token request ms=" + (Date.now() - requestStarted));
+  const bootstrapStarted = Date.now();
   const roles = s(result, 'role_name');
   if (roles.length > 0 && !roles.split(',').includes('app_user'))
     throw new ApiError(403, '当前账号未分配 APP 使用人员角色');
@@ -272,6 +277,7 @@ export async function login(
     // bootstrap failure: preserve the login screen so it can explain the error.
     const body = await raw('/app/reminder/bootstrap', null, {}, 15000);
     applyBootstrap((body['data'] as UTSJSONObject) ?? {});
+    console.info("[login] bootstrap ms=" + (Date.now() - bootstrapStarted));
   } catch (error) {
     clearSession();
     throw error instanceof Error ? error : new Error('请求未完成，请重试');

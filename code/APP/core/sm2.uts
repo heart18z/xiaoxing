@@ -268,17 +268,24 @@ function yieldEncryption(): Promise<void> {
 }
 async function multiplyResponsive(k: number[], p: Point): Promise<Point> {
   let r = infinity();
+  let sliceStart = Date.now();
   for (let i = 255; i >= 0; i--) {
     r = doublePoint(r);
     if ((k[Math.floor(i / 16)] & (1 << (i % 16))) != 0) r = addAffine(r, p);
-    if (i % 2 == 0) await yieldEncryption();
+    if (Date.now() - sliceStart >= 12) {
+      await yieldEncryption();
+      sliceStart = Date.now();
+    }
   }
   const exponent = rawSubtract(P, scale(one(), 2));
   let inv = one();
   for (let i = 255; i >= 0; i--) {
     inv = sq(inv);
     if ((exponent[Math.floor(i / 16)] & (1 << (i % 16))) != 0) inv = mul(inv, r.z);
-    if (i % 8 == 0) await yieldEncryption();
+    if (Date.now() - sliceStart >= 12) {
+      await yieldEncryption();
+      sliceStart = Date.now();
+    }
   }
   const inv2 = sq(inv);
   return { x: mul(r.x, inv2), y: mul(r.y, mul(inv2, inv)), z: one() };

@@ -1,3 +1,4 @@
+import { XiaoxingUpdates } from 'uts.sdk.modules.xiaoxingNative'
 import { XiaoxingStream } from 'uts.sdk.modules.xiaoxingNative'
 import { XiaoxingNotifications } from 'uts.sdk.modules.xiaoxingNative'
 import { XiaoxingAndroid } from 'uts.sdk.modules.xiaoxingNative'
@@ -13,6 +14,7 @@ export function nativeCall(action:string,input:string,callback:NativeResult):voi
   }
   const activity=UTSAndroid.getUniActivity()
   if(activity==null){callback('{"supported":false,"error":"应用尚未就绪"}');return}
+  if(action.startsWith('update.')){XiaoxingUpdates.call(activity,action,input,(result:string)=>callback(result));return}
   if(action.startsWith('stream.')){XiaoxingStream.call(activity,action,input,(result:string)=>callback(result));return}
   XiaoxingNotifications.call(activity,action,input,(result:string)=>callback(result))
 }

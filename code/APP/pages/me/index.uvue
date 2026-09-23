@@ -8,6 +8,7 @@
         </view>
         <view class="toolbar-button" @click="openSettings()">
           <UiIcon name="settings" tone="ink" :size="22" />
+          <view v-if="updates.available" class="update-dot" />
         </view>
       </view>
       <view class="card profile">
@@ -472,6 +473,7 @@
   />
 </template>
 <script setup lang="uts">
+import { updates, checkUpdates } from '@/services/updates.uts';
 // #ifdef WEB
 import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
 // #endif
@@ -804,6 +806,7 @@ function stopTimer() {
   clearInterval(timer);
 }
 onShow(() => {
+  void checkUpdates().catch(() => {});
   if (!requireSession()) return;
   void load();
   timer = setInterval(() => {
@@ -817,6 +820,7 @@ function openSettings() {
 }
 </script>
 <style scoped>
+.update-dot { position: absolute; right: 3px; top: 3px; width: 8px; height: 8px; border-radius: 4px; background-color: #ef4d64; }
 .me-toolbar {
   min-height: 36px;
   margin-bottom: 8px;

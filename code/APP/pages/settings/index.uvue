@@ -33,6 +33,13 @@
           </button>
           <text v-if="notificationFeedback.length > 0" class="app-font notification-copy notification-feedback">{{ notificationFeedback }}</text>
         </view>
+        <view v-if="updates.supported" class="card">
+          <view class="row"><text class="app-font heading">应用更新</text><view v-if="updates.available" class="update-dot" /></view>
+          <text class="app-font notification-copy">{{ '当前版本 ' + updates.current }}</text>
+          <text class="app-font notification-copy">{{ updates.feedback }}</text>
+          <text v-if="updates.available" class="app-font notification-copy">{{ updateNotes() }}</text>
+          <button class="app-font primary notification-button" :disabled="updates.checking || updates.installing" :loading="updates.checking || updates.installing" @click="updateAction()">{{ updates.installing ? '正在下载安装…' : updates.checking ? '正在检查…' : updates.available ? '下载安装更新' : '检查更新' }}</button>
+        </view>
         <text v-if="loading" class="app-font muted">{{ t('正在读取设置…') }}</text>
         <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
         <view v-if="!loading" class="settings-fields">
@@ -71,6 +78,7 @@
   />
 </template>
 <script setup lang="uts">
+import { updates, checkUpdates, installUpdate } from '@/services/updates.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { reactive, ref } from 'vue';
@@ -247,9 +255,15 @@ async function checkNotification(): Promise<void> {
     checkingNotification.value = false;
   }
 }
+function updateNotes(): string { return s(updates.release, 'notes'); }
+function updateAction() {
+  if (updates.available) void installUpdate();
+  else void checkUpdates(true);
+}
 onShow(() => {
   if (requireSession()) {
     void load();
+    if (!updates.installing) void checkUpdates(true);
     void syncPush();
   }
 });
@@ -258,6 +272,7 @@ function languageChanged(event: UniPickerChangeEvent) {
 }
 </script>
 <style scoped>
+.update-dot { width: 8px; height: 8px; border-radius: 4px; background-color: #ef4d64; margin-left: 8px; margin-bottom: 20px; }
 .language {
   padding: 14px;
   background-color: #f8faff;
