@@ -20,7 +20,9 @@ for(const file of walk(root)){
     }catch(e){failures.push(relative+': '+e.message)}
     if(/<(?:div|span|button-foo|el-\w+|web-view)\b/.test(source))failures.push(relative+': web-only component');
   }
-  if(file.endsWith('.uts')){modules++;try{await transform(fs.readFileSync(file,'utf8'),{loader:'ts'})}catch(e){failures.push(relative+': '+e.message)}}
+  // UTS permits this export-function annotation, while TypeScript/esbuild does not.
+  // The HBuilderX build and check-ios-generated.mjs validate its native semantics.
+  if(file.endsWith('.uts')){modules++;try{await transform(fs.readFileSync(file,'utf8').replace(/^\s*@UTSJS\.keepAlive\s*$/gm,''),{loader:'ts'})}catch(e){failures.push(relative+': '+e.message)}}
 }
 for(const page of JSON.parse(fs.readFileSync(root+'pages.json','utf8')).pages)if(!fs.existsSync(root+page.path+'.uvue'))failures.push('Missing page '+page.path);
 if(failures.length){console.error(failures.join('\n'));process.exitCode=1}else console.log(`PASS: ${pages} uvue components/pages, ${modules} UTS modules, JSON and routes. This checks Vue/TypeScript syntax, not the HBuilderX native compiler.`);

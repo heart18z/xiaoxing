@@ -2,6 +2,9 @@ import { reconcileMessageKeys } from '@/core/messages.uts';
 import { reactive } from 'vue';
 import { session, persist, requestId } from '@/store/session.uts';
 import { secureRead, nativeCall } from '@/uni_modules/xiaoxing-native';
+// #ifdef APP-IOS
+import { onStreamEvent } from '@/uni_modules/xiaoxing-native';
+// #endif
 import { reminder, headers, ApiError } from '@/api/request.uts';
 import { BASE_URL } from '@/config/environment.uts';
 import { Utf8Stream, SseFrames } from '@/core/stream.uts';
@@ -50,6 +53,20 @@ export function savedPending(): UTSJSONObject {
   }
 }
 let nativeObserveId = '';
+let nativeObserveSerial = 0;
+// #ifdef APP-IOS
+let iosStreamSubscribed = false;
+let iosStreamReceiver: ((raw: string) => void) | null = null;
+function connectIosStream(receiver: (raw: string) => void): void {
+  iosStreamReceiver = receiver;
+  if (iosStreamSubscribed) return;
+  onStreamEvent((raw: string) => {
+    const event = parseObject(raw);
+    if (nativeObserveId.length > 0 && s(event, 'id') == nativeObserveId) iosStreamReceiver?.(raw);
+  });
+  iosStreamSubscribed = true;
+}
+// #endif
 let nativeObserveCancel: (() => void) | null = null;
 function cancelNativeObserve(): void {
   const cancel = nativeObserveCancel;
@@ -58,6 +75,9 @@ function cancelNativeObserve(): void {
   if (nativeObserveId.length > 0) nativeCall('stream.cancel', JSON.stringify({ id: nativeObserveId }), (_) => {});
   // #endif
   nativeObserveId = '';
+  // #ifdef APP-IOS
+  iosStreamReceiver = null;
+  // #endif
   cancel?.();
 }
 export function pauseChat(): void {
@@ -172,10 +192,14 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
       frames = new SseFrames();
     let settled = false;
     let idleTimer: number = 0;
+    let recoveryTimer: number = 0;
+    let lastActivity = Date.now();
+    let streamRevision = 0;
     const finish = (value: UTSJSONObject) => {
       if (settled) return;
       settled = true;
       clearTimeout(idleTimer);
+      clearTimeout(recoveryTimer);
       resolve(value);
       const task = observeTask;
       observeTask = null;
@@ -186,6 +210,7 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
       if (settled) return;
       settled = true;
       clearTimeout(idleTimer);
+      clearTimeout(recoveryTimer);
       reject(error);
       const task = observeTask;
       observeTask = null;
@@ -200,6 +225,8 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
     const consume = (text: string) => {
       if (settled || current != version) return;
       armIdleTimeout();
+      lastActivity = Date.now();
+      streamRevision++;
       try {
         frames.push(text).forEach((frame: string) => {
           if (settled || current != version) return;
@@ -213,20 +240,41 @@ function observe(id: string, current: number): Promise<UTSJSONObject> {
         fail(new Error('观察响应格式有误'));
       }
     };
+    // Recover progress if a native bridge/proxy stalls after accepting the connection.
+    // Observing a job is read-only: never submit it again or cancel server-side work.
+    async function recoverProgress(): Promise<void> {
+      if (settled || current != version) return;
+      if (Date.now() - lastActivity >= 4000) {
+        const revision = streamRevision;
+        try {
+          const state = obj(await reminder('chat/jobs/status', { requestId: id }), 'value');
+          if (settled || current != version) return;
+          if (revision == streamRevision && s(state, 'reasoning').length > 0) chat.reasoning = s(state, 'reasoning');
+          if (!['QUEUED', 'RUNNING'].includes(s(state, 'status'))) { finish(state); return; }
+        } catch (_) { /* The ordinary reconnect/status loop handles persistent failures. */ }
+      }
+      if (!settled && current == version) recoveryTimer = setTimeout(() => { void recoverProgress(); }, 2000);
+    }
     const h = headers();
     h['Accept'] = 'text/event-stream';
     // #ifdef APP-ANDROID || APP-IOS
-    nativeObserveId = id + '-' + current;
+    nativeObserveSerial++;
+    nativeObserveId = id + '-' + current + '-' + nativeObserveSerial;
     nativeObserveCancel = () => fail(new Error('观察已暂停'));
-    nativeCall('stream.watch', JSON.stringify({ id: nativeObserveId,
-      url: BASE_URL + '/app/reminder/chat/jobs/watch', headers: h,
-      body: JSON.stringify({ requestId: id }) }), (raw: string) => {
+    const receiveNative = (raw: string): void => {
       if (settled || current != version) return;
       const response = parseObject(raw);
       if (s(response, 'text').length > 0) consume(s(response, 'text'));
       if (b(response, 'ended') || s(response, 'error').length > 0)
         fail(new Error('观察连接已结束，请查询状态'));
-    });
+    };
+    // #ifdef APP-IOS
+    connectIosStream(receiveNative);
+    // #endif
+    nativeCall('stream.watch', JSON.stringify({ id: nativeObserveId,
+      url: BASE_URL + '/app/reminder/chat/jobs/watch', headers: h,
+      body: JSON.stringify({ requestId: id }) }), receiveNative);
+    recoveryTimer = setTimeout(() => { void recoverProgress(); }, 2000);
     armIdleTimeout();
     // #endif
     // #ifndef APP

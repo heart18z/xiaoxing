@@ -4,26 +4,40 @@ import path from 'node:path';
 import fs from 'node:fs';
 import {dependency,root} from './loader.mjs';
 let serial=0;
+function preprocess(source,native){
+ const flags=new Set(native?['APP',native==='ios'?'APP-IOS':'APP-ANDROID']:['WEB']);
+ const stack=[true];
+ return source.split(/\r?\n/).filter(line=>{
+  const directive=line.match(/^\s*\/\/ #(ifdef|ifndef) (.+)$/);
+  if(directive){const value=directive[2].split(/\s*\|\|\s*/).some(flag=>flags.has(flag));stack.push(stack.at(-1)&&(directive[1]==='ifdef'?value:!value));return false;}
+  if(/^\s*\/\/ #endif/.test(line)){stack.pop();return false;}
+  return stack.at(-1);
+ }).join('\n');
+}
 async function fixture(handler,stream=[],history=null,native=false){
   const storage=new Map(),session={userId:'1',revision:0,visible:true},calls=[];
   class ApiError extends Error{constructor(status,message){super(message);this.status=status}}
   const env={session,persist:(k,v)=>storage.set(k,v),requestId:()=>`request-id-${'a'.repeat(24)}`,secureRead:k=>storage.get(k)||'{}',headers:()=>({}),BASE_URL:'https://fixture.invalid',reactive:v=>v,ApiError,
     reminder:async(action,data,params)=>{calls.push([action,data,params]);if(action==='chat/messages'||action==='chat/read')return {value:history?await history(action,data):action==='chat/messages'?[]:true};return {value:await handler(action,data,session)}}};
-  const streams=[...stream];let aborted=0;
+  const streams=[...stream];let aborted=0,listener=null,subscriptions=0,activeNativeId='',acknowledged=0;
+  env.onStreamEvent=callback=>{listener=callback;subscriptions++;};
+  const nativeEvent=(event,id=activeNativeId)=>listener?.(JSON.stringify({id,text:`data: ${JSON.stringify(event)}\n\n`}));
   env.nativeCall=(action,input,callback)=>{
     if(action==='stream.cancel'){aborted++;return;}
+    activeNativeId=JSON.parse(input).id;
+    if(native==='ios'){callback('{}');acknowledged++;}
     queueMicrotask(()=>{
       const batch=streams.shift();if(batch===null)return;
-      for(const frame of batch||[])callback(JSON.stringify({text:`data: ${JSON.stringify(frame)}\n\n`}));
-      callback(JSON.stringify({ended:true}));
+      for(const frame of batch||[]){if(native==='ios')nativeEvent(frame);else callback(JSON.stringify({text:`data: ${JSON.stringify(frame)}\n\n`}));}
+      if(native==='ios')listener?.(JSON.stringify({id:activeNativeId,ended:true}));else callback(JSON.stringify({ended:true}));
     });
   };
   globalThis.uni={request:options=>{let stopped=false;return{abort(){if(stopped)return;stopped=true;aborted++;options.fail?.();options.complete?.()},onChunkReceived(callback){queueMicrotask(()=>{const batch=streams.shift();if(batch===null)return;for(const frame of batch||[]){if(stopped)break;const bytes=Buffer.from(`data: ${JSON.stringify(frame)}\n\n`);for(const byte of bytes){if(stopped)break;callback({data:Uint8Array.of(byte).buffer})}}if(!stopped){options.success?.({statusCode:200});options.complete?.()}})}}}};
   globalThis.__chatFixture=env;JSON.parseObject=JSON.parse;
   const imports=['vue','@/store/session.uts','@/uni_modules/xiaoxing-native','@/api/request.uts','@/config/environment.uts'];
-  const bundle=await dependency('esbuild').build({entryPoints:[root+'services/chat.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onLoad({filter:/services[\\/]chat\.uts$/},args=>({contents:fs.readFileSync(args.path,'utf8').replace(native?/\/\/ #ifndef APP[\r\n][\s\S]*?\/\/ #endif/g:/\/\/ #ifdef APP-ANDROID[\s\S]*?\/\/ #endif/g,''),loader:'ts'}));build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__chatFixture;',loader:'js'}))}}]});
+  const bundle=await dependency('esbuild').build({entryPoints:[root+'services/chat.uts'],bundle:true,write:false,format:'esm',platform:'node',loader:{'.uts':'ts'},plugins:[{name:'fixture',setup(build){build.onLoad({filter:/services[\\/]chat\.uts$/},args=>({contents:preprocess(fs.readFileSync(args.path,'utf8'),native),loader:'ts'}));build.onResolve({filter:/.*/},args=>imports.includes(args.path)?{path:args.path,namespace:'fixture'}:args.path.startsWith('@/')?{path:path.join(root,args.path.slice(2))}:null);build.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const {'+Object.keys(env).join(',')+'}=globalThis.__chatFixture;',loader:'js'}))}}]});
   const module=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text+`\n// fixture ${serial++}`).toString('base64'));
-  return{module,session,calls,storage,ApiError,aborted:()=>aborted};
+  return{module,session,calls,storage,ApiError,aborted:()=>aborted,nativeEvent,nativeId:()=>activeNativeId,subscriptions:()=>subscriptions,acknowledged:()=>acknowledged};
 }
 test('same request ID submits once and clears only on committed success',async()=>{
   let step=0;const f=await fixture(action=>{if(action==='chat/jobs/status')return step++===0?{status:'NOT_FOUND'}:{status:'SUCCEEDED',result:{reply:'完成'}};return{status:'RUNNING'}});
@@ -126,7 +140,7 @@ test('committed reply is revealed progressively and survives hiding without resu
 });
 
 
-test('Android and iOS native snapshots stream immediately and hiding releases observation for resume',async()=>{
+test('Android native snapshots stream immediately and hiding releases observation for resume',async()=>{
  let status=0;
  const f=await fixture(action=>{
   if(action==='chat/jobs/status')return ++status===1?{status:'NOT_FOUND'}:{status:'SUCCEEDED',result:{reply:'已完成'}};
@@ -143,4 +157,38 @@ test('Android and iOS native snapshots stream immediately and hiding releases ob
  g.session.visible=false;g.module.pauseChat();
  await Promise.race([pending,new Promise((_,reject)=>setTimeout(()=>reject(Error('native observe did not settle')),500))]);
  assert.equal(g.aborted(),1);assert.ok(g.module.savedPending().requestId);
+});
+
+
+test('iOS keeps receiving reasoning after the one-shot startup callback and across reconnects',async()=>{
+ const f=await fixture(()=>({status:'RUNNING',streamSupported:true}),[null,null],()=>{throw Error('offline')},'ios');
+ const sending=f.module.submit('本周我还有哪些事',[]);
+ await new Promise(resolve=>setTimeout(resolve,20));
+ const oldId=f.nativeId();
+ assert.equal(f.acknowledged(),1);
+ f.nativeEvent({type:'ready'});
+ f.nativeEvent({type:'snapshot',reasoning:'正在核对本周安排'});
+ assert.equal(f.module.chat.reasoning,'正在核对本周安排');
+ assert.equal(f.module.chat.reply,'');assert.equal(f.module.chat.busy,true);
+ f.nativeEvent({type:'snapshot',reasoning:'正在核对本周安排，读取未结束事件。'});
+ assert.match(f.module.chat.reasoning,/未结束事件/);
+ f.nativeEvent({type:'result',data:{status:'RUNNING',streamSupported:true}});
+ await new Promise(resolve=>setTimeout(resolve,20));
+ assert.notEqual(f.nativeId(),oldId);assert.equal(f.subscriptions(),1);assert.equal(f.acknowledged(),2);
+ f.nativeEvent({type:'snapshot',reasoning:'已失效的旧连接'},oldId);
+ assert.doesNotMatch(f.module.chat.reasoning,/失效/);
+ f.nativeEvent({type:'result',data:{status:'SUCCEEDED',result:{reply:'本周有一项安排。'}}});
+ await sending;
+ assert.equal(f.module.chat.messages.at(-1).content,'本周有一项安排。');
+ assert.equal(f.calls.filter(c=>c[0]==='chat/jobs/submit').length,0);
+});
+
+test('silent iOS observation recovers incremental reasoning before the final result',async()=>{
+ let polls=0;
+ const f=await fixture(()=>++polls===1?{status:'RUNNING',streamSupported:true}:{status:'RUNNING',streamSupported:true,reasoning:'状态查询恢复了正在产生的思考'} ,[null],null,'ios');
+ const sending=f.module.submit('本周安排',[]);
+ await new Promise(resolve=>setTimeout(resolve,6300));
+ assert.match(f.module.chat.reasoning,/正在产生的思考/);assert.equal(f.module.chat.reply,'');
+ f.session.visible=false;f.module.pauseChat();await sending;
+ assert.equal(f.calls.filter(c=>c[0]==='chat/jobs/submit').length,0);assert.equal(f.aborted(),1);
 });

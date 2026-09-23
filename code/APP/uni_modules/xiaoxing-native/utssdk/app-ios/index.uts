@@ -6,3 +6,10 @@ export function nativeCall(action: string,input: string,callback: NativeResult):
   if (action.startsWith('stream.')) { XiaoxingStream.call(action,input,callback); return }
   XiaoxingBridge.call(action,input,callback)
 }
+
+// Explicitly retain the callback across SSE frames. Register once per app runtime;
+// individual stream.watch calls only acknowledge startup and remain one-shot.
+@UTSJS.keepAlive
+export function onStreamEvent(callback: NativeResult): void {
+  XiaoxingStream.listen(callback)
+}

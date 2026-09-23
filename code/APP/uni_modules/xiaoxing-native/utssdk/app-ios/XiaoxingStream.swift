@@ -4,12 +4,15 @@ import Foundation
 public final class XiaoxingStream: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
     private static var watches: [String: XiaoxingStream] = [:] // main queue only
     private let id: String
-    private let callback: (String) -> Void
+    private static var eventListener: ((String) -> Void)?
     private var session: URLSession?
     private var task: URLSessionDataTask?
     private var pending = Data()
     private var cancelled = false
-    private init(_ id: String, _ callback: @escaping (String) -> Void) { self.id = id; self.callback = callback }
+    private init(_ id: String) { self.id = id }
+    public static func listen(_ callback: @escaping (String) -> Void) {
+        DispatchQueue.main.async { eventListener = callback }
+    }
     public static func call(_ action: String, _ json: String, _ callback: @escaping (String) -> Void) {
         DispatchQueue.main.async {
             let input = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
@@ -19,7 +22,8 @@ public final class XiaoxingStream: NSObject, URLSessionDataDelegate, URLSessionT
                 callback("{\"error\":\"流式地址无效\"}"); return
             }
             watches.removeValue(forKey: id)?.cancel()
-            let watch = XiaoxingStream(id, callback); watches[id] = watch
+            guard eventListener != nil else { callback("{\"error\":\"流式监听尚未就绪\"}"); return }
+            let watch = XiaoxingStream(id); watches[id] = watch
             var request = URLRequest(url: url); request.httpMethod = "POST"
             for (name, value) in input["headers"] as? [String: String] ?? [:] { request.setValue(value, forHTTPHeaderField: name) }
             request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
@@ -29,11 +33,13 @@ public final class XiaoxingStream: NSObject, URLSessionDataDelegate, URLSessionT
             config.requestCachePolicy = .reloadIgnoringLocalCacheData
             watch.session = URLSession(configuration: config, delegate: watch, delegateQueue: .main)
             watch.task = watch.session?.dataTask(with: request); watch.task?.resume()
+            callback("{}") // One-shot UTS method callback; all data uses the persistent listener.
         }
     }
     private func emit(_ value: [String: Any]) {
-        guard !cancelled, let data = try? JSONSerialization.data(withJSONObject: value), let text = String(data: data, encoding: .utf8) else { return }
-        callback(text)
+        var event = value; event["id"] = id
+        guard !cancelled, let data = try? JSONSerialization.data(withJSONObject: event), let text = String(data: data, encoding: .utf8) else { return }
+        XiaoxingStream.eventListener?(text)
     }
     private func cancel() {
         cancelled = true; pending.removeAll(); task?.cancel(); session?.invalidateAndCancel(); task = nil; session = nil
