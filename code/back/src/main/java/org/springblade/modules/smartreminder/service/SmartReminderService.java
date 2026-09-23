@@ -149,6 +149,7 @@ public class SmartReminderService {
 					JsonNode payloadNode = objectMapper.readTree(payload);
 					if (payloadNode instanceof ObjectNode objectNode) {
 						if("CANDIDATE".equals(row.get("messageType")))row.put("messageType",candidateStates.getOrDefault(objectNode.path("candidateId").asText(),"CANDIDATE_EXPIRED"));
+						refreshConfirmedQuestion(row,objectNode);
 						if (!showThinking) objectNode.remove("reasoningContent");
 						enrichEventPayload(row, objectNode);
 						if ("FEEDBACK".equals(row.get("messageType"))) enrichFeedbackPayload(row, objectNode);
@@ -206,6 +207,16 @@ public class SmartReminderService {
 			}
 			return allPast?"CANDIDATE_EXPIRED":"CANDIDATE";
 		}catch(Exception ex){return "CANDIDATE_EXPIRED";}
+	}
+
+	/** Render historical confirmed cards consistently without rewriting conversation storage. */
+	private void refreshConfirmedQuestion(Map<String,Object> row,ObjectNode payload) {
+		if(!"CANDIDATE_CONFIRMED".equals(row.get("messageType")))return;
+		String content=Objects.toString(row.get("content"),"");
+		if(!content.endsWith("在拟安排的时间已有其他不同事项，可能无法同时参加。是否仍要继续安排？"))return;
+		for(JsonNode event:payload.path("events"))if(event.path("scheduleConflicts").isArray()&&!event.path("scheduleConflicts").isEmpty()) {
+			row.put("content","已确认并创建提醒。");return;
+		}
 	}
 
 	/** 让历史提醒、询问和冲突卡也能显示明确的事件名称。 */
@@ -337,7 +348,7 @@ public class SmartReminderService {
 	}
 
 	private String intentPrompt(AiRuntimeConfig config,Long userId) {
-		return (Func.isBlank(config.intentPrompt())?SmartReminderPrompts.INTENT:config.intentPrompt())+"""
+		return (Func.isBlank(config.intentPrompt())?SmartReminderPrompts.INTENT:config.intentPrompt())+SmartScheduleService.TIME_EVIDENCE_RULES+"""
 
 		本人识别协议：好友上下文中self=true是当前登录用户。用户说“提醒我/自己/本人”时recipientNames与recipientTasks.recipientName必须使用“我”，不替换成姓名，也不从好友推测本人。
         创建输出协议：创建或修改候选提醒时，每个events元素必须完整给出recipientTasks（与recipientNames逐项同名）、relatedMessageIds（从本轮候选消息选取真实ID，必须包含当前用户消息）。这两项在本次推理完成，避免遗漏后再次请求模型补全。不要为无关闲聊输出events。
@@ -517,6 +528,16 @@ public class SmartReminderService {
 				return Map.of("confirmationRequired",true,"reply",reply);
 			}
 			long createStarted=System.nanoTime();
+			// Once confirmation succeeds, an old conflict question is no longer a pending question.
+			if(!approved.isEmpty()) {
+				String confirmationReply=conflicts.isEmpty()?"日程已重新核对，提醒已创建。":"已按你的确认保留安排，提醒已创建。";
+				jdbcTemplate.update("update blade_smart_candidate set event_json=?,ai_reply=? where id=?",events.toString(),confirmationReply,candidateId);
+				for(Map<String,Object> chatRow:jdbcTemplate.queryForList("select id,payload_json from blade_smart_chat_message where user_id=? and message_type='CANDIDATE' and payload_json like ?",userId,"%\"candidateId\":\""+candidateId+"\"%")) {
+					ObjectNode payload=(ObjectNode)objectMapper.readTree(chatRow.get("payload_json").toString());
+					payload.set("events",events);
+					jdbcTemplate.update("update blade_smart_chat_message set content=?,payload_json=? where id=?",confirmationReply,payload.toString(),chatRow.get("id"));
+				}
+			}
 			List<Long> ids=createCandidateEvents(userId,candidateId);
 			log.info("Candidate confirm candidateId={} persistenceMs={}",candidateId,(System.nanoTime()-createStarted)/1_000_000);
 			return Map.of("eventIds",ids);
@@ -1117,7 +1138,7 @@ public class SmartReminderService {
 			String trigger=data.get("evaluation_requested_at")==null?"SCHEDULED":"CREATOR_FEEDBACK";
 			Long creatorIdForContext=((Number)data.get("creator_user_id")).longValue();
 			AiRuntimeConfig config = aiConfigService.enabledConfigForUser(creatorIdForContext,"LLM");
-			String system=(Func.isBlank(config.decisionPrompt()) ? SmartReminderPrompts.DECISION : config.decisionPrompt())+ReminderWording.RULES+CreatorChangeReview.RULES+aiConfigService.languageInstruction(creatorIdForContext);
+			String system=(Func.isBlank(config.decisionPrompt()) ? SmartReminderPrompts.DECISION : config.decisionPrompt())+SmartScheduleService.TIME_EVIDENCE_RULES+ReminderWording.RULES+CreatorChangeReview.RULES+aiConfigService.languageInstruction(creatorIdForContext);
 			Map<String,Object> state=new LinkedHashMap<>();
 			for(String key:List.of("event_no","creator_name","recipient_name","recipient_real_name","branch_status","event_time","deadline_time","next_evaluate_time","last_evaluate_time"))state.put(key,data.get(key));
 			state.put("current_task",data.get("event_summary"));state.put("trigger",trigger);state.put("current_time",now().format(DATE_TIME));

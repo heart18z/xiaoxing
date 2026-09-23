@@ -28,9 +28,10 @@
           <text v-if="pushState.error.length > 0" class="app-font error">
             {{ pushState.error }}
           </text>
-          <button class="app-font primary notification-button" @click="checkNotification()">
-            {{ t('开启 / 检查通知') }}
+          <button class="app-font primary notification-button" :disabled="checkingNotification || pushState.busy" :loading="checkingNotification || pushState.busy" @click="checkNotification()">
+            {{ t(checkingNotification || pushState.busy ? '正在检查通知…' : '开启 / 检查通知') }}
           </button>
+          <text v-if="notificationFeedback.length > 0" class="app-font notification-copy notification-feedback">{{ notificationFeedback }}</text>
         </view>
         <text v-if="loading" class="app-font muted">{{ t('正在读取设置…') }}</text>
         <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
@@ -93,6 +94,8 @@ function syncPush(requestPermission: boolean = false): Promise<void> {
   return _syncPush(requestPermission);
 }
 const pushState: PushState = _pushState;
+const checkingNotification = ref(false);
+const notificationFeedback = ref('');
 function t(value: string): string {
   return _t(value);
 }
@@ -223,11 +226,25 @@ function notificationStatus(): string {
       : t('请在手机 App 中开启通知。');
   // #endif
 }
-function checkNotification() {
-  if (pushState.permission == 'denied') {
-    void openSettings();
-  } else {
-    void syncPush(true);
+async function checkNotification(): Promise<void> {
+  if (checkingNotification.value || pushState.busy) return;
+  checkingNotification.value = true;
+  notificationFeedback.value = t('正在检查通知权限和设备绑定…');
+  try {
+    if (pushState.permission == 'denied') {
+      const result = await callNative('settings');
+      notificationFeedback.value = t(result['supported'] == false ? '请在手机 App 中管理通知权限' : '请在系统设置中允许通知，返回后将重新检查');
+    } else {
+      await syncPush(true);
+      notificationFeedback.value = pushState.error.length > 0 ? pushState.error : t(
+        pushState.registered ? '检查完成，通知已开启，设备已绑定' :
+        pushState.permission == 'denied' ? '通知未获允许，请在系统设置中开启' :
+        pushState.supported ? '检查完成，设备尚未完成绑定，请稍后重试' : '请在手机 App 中开启通知');
+    }
+  } catch (e) {
+    notificationFeedback.value = message(e);
+  } finally {
+    checkingNotification.value = false;
   }
 }
 onShow(() => {
@@ -273,7 +290,12 @@ function languageChanged(event: UniPickerChangeEvent) {
 .notification-button {
   margin-top: 18px;
   margin-bottom: 0;
+  font-weight: 600;
 }
+.notification-feedback { margin-top: 10px; }
+/* #ifdef APP-IOS */
+.notification-button { font-family: 'PingFangSC-Semibold'; }
+/* #endif */
 .label {
   margin-bottom: 14px;
 }

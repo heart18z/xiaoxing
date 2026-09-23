@@ -1,6 +1,6 @@
 <template>
   <view class="thinking-panel">
-    <view :class="['thinking-toggle', open ? 'thinking-open' : '']" @click.stop="emit('toggle')">
+    <view class="thinking-toggle" @click.stop="emit('toggle')">
       <view
         :class="['thinking-mark', streaming ? 'thinking-active' : '']"
         :style="{ opacity: streaming && pulse ? 0.55 : 1 }"
@@ -93,11 +93,8 @@ watch(
 .thinking-toggle {
   flex-direction: row;
   align-items: center;
-  padding: 1px 0;
-}
-.thinking-open {
+  padding: 1px 0 9px;
   border-bottom: 1px solid #edf0f6;
-  padding-bottom: 9px;
 }
 .thinking-chevron {
   width: 28px;

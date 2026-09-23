@@ -25,7 +25,7 @@
         <view
           style="align-self: stretch"
           v-if="s(item, 'content').length > 0"
-          :class="[reason.length > 0 ? 'reply-after-thinking' : '']"
+          :class="[reason.length > 0 ? 'reply-after-thinking' : '', reason.length > 0 && expanded ? 'reply-after-thinking-open' : '']"
         >
           <text v-if="user" class="app-font user-text" selectable>{{ s(item, 'content') }}</text>
           <rich-text v-else :nodes="markdown(replyText(item))" />
@@ -570,8 +570,11 @@ const isStreaming = computed(() => b(props.item, 'streaming'));
   box-shadow: 0 3px 14px #1c2b5210;
 }
 .reply-after-thinking {
-  margin-top: 4px;
+  margin-top: 0;
   padding-top: 6px;
+}
+.reply-after-thinking-open {
+  margin-top: 4px;
   border-top: 1px solid #edf0f5;
 }
 .related-label {
