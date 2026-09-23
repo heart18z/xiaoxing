@@ -1,3 +1,4 @@
+import { reconcileMessageKeys } from '@/core/messages.uts';
 import { reactive } from 'vue';
 import { session, persist, requestId } from '@/store/session.uts';
 import { secureRead, nativeCall } from '@/uni_modules/xiaoxing-native';
@@ -102,7 +103,7 @@ function applyHistory(rows: UTSJSONObject[]): void {
       )
         chat.messages.push(row);
     }
-  } else chat.messages = rows;
+  } else chat.messages = reconcileMessageKeys(rows, chat.messages);
 }
 export function invalidateHistory(): void {
   historyTicket++;
@@ -374,6 +375,7 @@ export async function resume(): Promise<void> {
         if (!active()) return;
         chat.messages.push({
           id: 'completed-user-' + id,
+          _renderKey: 'live-user-' + id,
           messageRole: 'user',
           messageType: 'TEXT',
           content: s(pending, 'content'),
@@ -389,6 +391,7 @@ export async function resume(): Promise<void> {
           );
         chat.messages.push({
           id: 'completed-ai-' + id,
+          _renderKey: 'live-ai-' + id,
           messageRole: 'assistant',
           messageType: hasCandidate ? 'CANDIDATE' : 'TEXT',
           content: text,

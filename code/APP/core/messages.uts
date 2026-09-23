@@ -1,7 +1,32 @@
 import { s, obj } from './json.uts';
 export function messageKey(row: UTSJSONObject): string {
+  const renderKey = s(row, '_renderKey');
+  if (renderKey.length > 0) return renderKey;
   const candidateId = s(obj(row, 'payload'), 'candidateId');
   if (s(row, 'messageType').startsWith('CANDIDATE') && candidateId.length > 0)
     return 'candidate:' + candidateId;
   return s(row, 'id');
+}
+
+// Carry the live component into confirmed history. Never match ambiguous duplicates.
+export function reconcileMessageKeys(rows: UTSJSONObject[], previous: UTSJSONObject[]): UTSJSONObject[] {
+  const existingIds = previous.map((row: UTSJSONObject): string => s(row, 'id'));
+  for (const row of rows) {
+    const old = previous.find((item: UTSJSONObject): boolean => s(item, 'id') == s(row, 'id'));
+    if (old != null && s(old, '_renderKey').length > 0) row['_renderKey'] = s(old, '_renderKey');
+  }
+  for (const old of previous) {
+    if (!s(old, 'id').startsWith('completed-')) continue;
+    const candidateId = s(old, 'messageType').startsWith('CANDIDATE') ? s(obj(old, 'payload'), 'candidateId') : '';
+    const similar = previous.filter((item: UTSJSONObject): boolean => s(item, 'id').startsWith('completed-') &&
+      s(item, 'messageRole') == s(old, 'messageRole') && s(item, 'content') == s(old, 'content') &&
+      s(item, 'messageType') == s(old, 'messageType'));
+    if (candidateId.length == 0 && similar.length != 1) continue;
+    const matches = rows.filter((row: UTSJSONObject): boolean =>
+      !existingIds.includes(s(row, 'id')) && s(row, 'messageRole') == s(old, 'messageRole') &&
+      (candidateId.length > 0 ? s(obj(row, 'payload'), 'candidateId') == candidateId :
+        s(row, 'messageType') == s(old, 'messageType') && s(row, 'content') == s(old, 'content')));
+    if (matches.length == 1) matches[0]['_renderKey'] = messageKey(old);
+  }
+  return rows;
 }

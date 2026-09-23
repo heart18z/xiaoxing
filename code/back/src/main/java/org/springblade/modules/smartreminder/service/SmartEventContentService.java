@@ -28,9 +28,21 @@ public class SmartEventContentService {
 
 	/** Personal task is authoritative; receipts/completion never replace the requirement. */
 	public String latestTask(Long eventId, Long userId) {
+		if(isSplitEvent(eventId)) {
+			for(var task:overviewTasks(eventId))if(userId.toString().equals(Objects.toString(task.get("recipientId"),"")))return absoluteSplitTask(task);
+			return storedBranchTask(eventId,userId);
+		}
 		var rows=jdbc.queryForList("select latest_summary,summary_source_hash from blade_smart_event_branch where event_id=? and recipient_user_id=?",eventId,userId);
 		if(!rows.isEmpty()&&rows.get(0).get("latest_summary")!=null&&overviewHash(overviewSource(eventId,overviewTasks(eventId))).equals(rows.get(0).get("summary_source_hash")))return rows.get(0).get("latest_summary").toString();
 		return storedBranchTask(eventId,userId);
+	}
+
+	/** One confirmed candidate can create several independent events from the same utterance. */
+	private boolean isSplitEvent(Long eventId) {
+		return Boolean.TRUE.equals(jdbc.queryForObject("""
+			select exists(select 1 from blade_smart_event e join blade_smart_event sibling
+			on sibling.source_candidate_id=e.source_candidate_id and sibling.id<>e.id where e.id=?)
+			""",Boolean.class,eventId));
 	}
 
 	/** Only shorten a legacy acknowledgement when the exact stored fact has raw evidence. */
@@ -45,7 +57,7 @@ public class SmartEventContentService {
 
 	private List<Map<String,Object>> overviewTasks(Long eventId) {
 		return jdbc.queryForList("""
-			select b.id,coalesce(nullif(u.name,''),nullif(u.real_name,''),u.account) as recipient,
+			select b.id,b.recipient_user_id as recipientId,coalesce(nullif(u.name,''),nullif(u.real_name,''),u.account) as recipient,
 			b.task_content as task,
 			case when b.task_time_scoped=1 then b.task_event_time when (select count(*) from blade_smart_event_branch x where x.event_id=b.event_id)=1 then e.event_time else null end as eventTime,
 			case when b.task_time_scoped=1 then b.task_deadline_time when (select count(*) from blade_smart_event_branch x where x.event_id=b.event_id)=1 then e.deadline_time else null end as deadlineTime
@@ -94,17 +106,33 @@ public class SmartEventContentService {
 		return Objects.toString(value,"待确认具体任务").trim().replaceAll("[。；;\\s]+$","");
 	}
 
+	private String absoluteSplitTask(Map<String,Object> task) {
+		String text=cleanTask(task.get("task"));
+		Set<String> dates=new LinkedHashSet<>();
+		for(String key:List.of("eventTime","deadlineTime")) {
+			String value=Objects.toString(task.get(key),"");
+			if(value.length()>=10)dates.add(value.substring(0,10));
+		}
+		// Resolve relative wording only from this task's known date, never the current day.
+		if(dates.size()==1) {
+			java.time.LocalDate date=java.time.LocalDate.parse(dates.iterator().next());
+			text=text.replaceAll("(?:今天|明天|后天|今日|明日|后日)(?=上午|下午|早上|晚上|中午|凌晨|[0-9])",date.getMonthValue()+"月"+date.getDayOfMonth()+"日");
+		}
+		return displayText(text);
+	}
+
 	/** Read-only and version checked: a stale AI overview can never hide a new arrangement. */
 	public String latestEventSummary(Long eventId, String fallback) {
 		var tasks=overviewTasks(eventId);
 		if(tasks.isEmpty())return displayText(fallback);
+		boolean split=isSplitEvent(eventId);
 		var cached=jdbc.queryForMap("select overview_summary,overview_source_hash from blade_smart_event where id=?",eventId);
-		if(overviewHash(overviewSource(eventId,tasks)).equals(cached.get("overview_source_hash")) && cached.get("overview_summary")!=null)
+		if(!split && overviewHash(overviewSource(eventId,tasks)).equals(cached.get("overview_source_hash")) && cached.get("overview_summary")!=null)
 			return displayText(cached.get("overview_summary"));
 		// Exact duplicate tasks are safely grouped while the semantic overview is generated.
 		Map<String,List<String>> grouped=new LinkedHashMap<>();
 		for(var row:tasks) {
-			String task=cleanTask(row.get("task"));
+			String task=split?absoluteSplitTask(row):cleanTask(row.get("task"));
 			if(row.get("eventTime")!=null)task+="（时间："+displayText(row.get("eventTime"))+"）";
 			if(row.get("deadlineTime")!=null)task+="（截止："+displayText(row.get("deadlineTime"))+"）";
 			grouped.computeIfAbsent(task,key->new ArrayList<>()).add(row.get("recipient").toString());
@@ -130,7 +158,8 @@ public class SmartEventContentService {
 		try {
 			for(Long id:jdbc.query("""
 				select e.id from blade_smart_event e
-				where (e.overview_source_hash is null or e.overview_source_hash not like 'v4:%' or timestampadd(second,1,e.update_time)>e.overview_updated_at
+				where not exists(select 1 from blade_smart_event sibling where sibling.source_candidate_id=e.source_candidate_id and sibling.id<>e.id)
+				and (e.overview_source_hash is null or e.overview_source_hash not like 'v4:%' or timestampadd(second,1,e.update_time)>e.overview_updated_at
 				or exists(select 1 from blade_smart_event_branch b where b.event_id=e.id and timestampadd(second,1,b.update_time)>e.overview_updated_at))
 				and (e.overview_retry_after is null or e.overview_retry_after<=now())
 				and exists(select 1 from blade_smart_event_branch b where b.event_id=e.id)
@@ -140,6 +169,10 @@ public class SmartEventContentService {
 	}
 
 	public boolean refreshEventOverview(Long eventId) {
+		// The confirmed branch task already defines this split event. Shared creation
+		// evidence must never expand it back into its sibling events. Read paths also
+		// ignore old generated summaries, so existing records are repaired without rewriting history.
+		if(isSplitEvent(eventId))return false;
 		var tasks=overviewTasks(eventId);
 		if(tasks.isEmpty())return false;
 		String source=overviewSource(eventId,tasks),hash=overviewHash(source);

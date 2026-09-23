@@ -29,12 +29,11 @@
       id="chat-scroll"
       class="scroll"
       :scroll-top="scrollTop"
-      :scroll-into-view="anchor"
       :scroll-with-animation="false"
       @scroll="scrolling"
       @touchstart="stopScrollLock()"
     >
-      <view class="messages">
+      <view id="chat-messages" class="messages">
         <view v-if="chat.loading" class="card">
           <text class="app-font muted">{{ t('正在加载对话记录…') }}</text>
         </view>
@@ -57,16 +56,13 @@
           </text>
         </view>
         <ChatMessage
-          v-for="item in chat.messages"
+          v-for="item in displayedMessages"
           :key="rowKey(item)"
           :item="item"
           :busy="confirming == s(payload(item), 'candidateId')"
+          @layout="scrollLatest"
           @confirm="confirmCandidate"
         />
-        <view v-if="s(chat.pending, 'requestId').length > 0">
-          <ChatMessage :item="pendingUser" :busy="false" />
-          <ChatMessage :item="pendingAssistant" :busy="false" />
-        </view>
         <view id="latest" style="height: 12px" />
       </view>
     </scroll-view>
@@ -250,6 +246,7 @@ function markdown(value: string): string {
 }
 const pendingUser = computed((): UTSJSONObject => ({
   id: 'pending-user-' + s(chat.pending, 'requestId'),
+  _renderKey: 'live-user-' + s(chat.pending, 'requestId'),
   messageRole: 'user',
   messageType: 'TEXT',
   content: s(chat.pending, 'content'),
@@ -257,12 +254,16 @@ const pendingUser = computed((): UTSJSONObject => ({
 }));
 const pendingAssistant = computed((): UTSJSONObject => ({
   id: 'pending-ai-' + s(chat.pending, 'requestId'),
+  _renderKey: 'live-ai-' + s(chat.pending, 'requestId'),
   messageRole: 'assistant',
   messageType: 'TEXT',
   content: chat.reply,
   reasoningContent: chat.reasoning,
   streaming: chat.busy,
 }));
+const displayedMessages = computed((): UTSJSONObject[] => s(chat.pending, 'requestId').length > 0
+  ? chat.messages.concat([pendingUser.value, pendingAssistant.value]) : chat.messages);
+
 type Attachment = {
   key: string;
   path: string;
@@ -392,15 +393,46 @@ let scrollLockedUntil: number = 0,
   scrollTimer: number = 0,
   scrollHeight: number = 0;
 let initialScrollPending = false;
+let layoutTimer: number = 0;
+let layoutUntil: number = 0;
+function measureScroll() {
+  // #ifdef WEB
+  const element = document.getElementById('chat-scroll');
+  if (element != null) scrollHeight = element.clientHeight;
+  // #endif
+  // #ifdef APP
+  const nativeElement = uni.getElementById('chat-scroll');
+  if (nativeElement != null) scrollHeight = nativeElement.getBoundingClientRect().height;
+  // #endif
+}
+function scrollAfterLayout() {
+  if (!follow.value) { clearInterval(layoutTimer); layoutTimer = 0; return; }
+  measureScroll();
+  let contentHeight = 0;
+  // #ifdef WEB
+  const content = document.getElementById('chat-messages');
+  if (content != null) contentHeight = content.getBoundingClientRect().height;
+  // #endif
+  // #ifdef APP
+  const nativeContent = uni.getElementById('chat-messages');
+  if (nativeContent != null) contentHeight = nativeContent.getBoundingClientRect().height;
+  // #endif
+  if (scrollHeight > 0 && contentHeight > 0) {
+    const target = Math.max(0, Math.ceil(contentHeight - scrollHeight));
+    scrollLockedUntil = Date.now() + 80;
+    scrollTop.value = target;
+  }
+  if (Date.now() >= layoutUntil) { clearInterval(layoutTimer); layoutTimer = 0; }
+}
 function scrollLatest() {
   if (!follow.value) return;
-  scrollLockedUntil = Date.now() + 450;
-  anchor.value = '';
-  scrollTop.value = scrollTop.value == 999999 ? 999998 : 999999;
-  nextTick(() => {
-    anchor.value = 'latest';
-  });
+  // Coalesce deltas, then follow the measured content through native layout/height transitions.
+  layoutUntil = Date.now() + 260;
+  if (layoutTimer != 0) return;
+  layoutTimer = setInterval(() => { scrollAfterLayout(); }, 32);
+  nextTick(() => { scrollAfterLayout(); });
 }
+
 function jumpLatest() {
   follow.value = true;
   scrollLatest();
@@ -438,24 +470,19 @@ function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) {
   updateKeyboard(event.detail.height);
 }
 function stopScrollLock() {
+  clearInterval(layoutTimer);
+  layoutTimer = 0;
+  follow.value = false;
   initialScrollPending = false;
   clearInterval(scrollTimer);
   scrollLockedUntil = 0;
 }
-function measureScroll() {
-  // #ifdef WEB
-  const element = document.getElementById('chat-scroll');
-  if (element != null) scrollHeight = element.clientHeight;
-  // #endif
-  // #ifdef APP
-  const nativeElement = uni.getElementById('chat-scroll');
-  if (nativeElement != null) scrollHeight = nativeElement.getBoundingClientRect().height;
-  // #endif
-}
+
 function scrolling(event: UniScrollEvent) {
   if (initialScrollPending || Date.now() < scrollLockedUntil) return;
   measureScroll();
   const detail = event.detail;
+  scrollTop.value = detail.scrollTop;
   follow.value = detail.scrollHeight - detail.scrollTop - scrollHeight < 80;
 }
 let inputConfirmType = 'send';
@@ -915,6 +942,8 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
+  clearInterval(layoutTimer);
+  layoutTimer = 0;
   initialScrollPending = false;
   clearInterval(scrollTimer);
   clearTimeout(keyboardLayoutTimer);
@@ -1021,6 +1050,7 @@ watch((): number => chat.messages.length, scrollLatest);
 watch((): UTSJSONObject[] => chat.messages, scrollLatest);
 watch((): string => chat.reasoning, scrollLatest);
 watch((): string => chat.reply, scrollLatest);
+watch((): string => s(chat.pending, 'requestId'), scrollLatest);
 </script>
 <style scoped>
 .toolbar {

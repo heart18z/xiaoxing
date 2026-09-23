@@ -7,7 +7,10 @@
       >
         <UiIcon name="spark" tone="blue" :size="15" />
       </view>
-      <text class="app-font thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
+      <view class="thinking-label-wrap">
+        <text class="app-font thinking-label">{{ streaming ? t('正在思考…') : t('AI 思考') }}</text>
+        <view v-if="streaming" class="thinking-shimmer" :style="{ transform: 'translateX(' + shine + 'px)' }" />
+      </view>
       <text class="app-font thinking-action">{{ open ? t('收起') : t('查看') }}</text>
       <view
         class="thinking-chevron"
@@ -16,18 +19,24 @@
         <UiIcon name="chevron" :size="20" />
       </view>
     </view>
-    <scroll-view v-if="open" :scroll-y="true" class="thinking-content" :scroll-into-view="anchor">
+    <view class="thinking-window" :style="{ height: windowOpen ? '146px' : '0px' }">
+    <scroll-view :scroll-y="true" class="thinking-content" :scroll-into-view="anchor">
       <text class="app-font thinking-text" selectable>{{ displayed }}</text>
       <view id="reasoning-end" style="height: 1px" />
     </scroll-view>
+    </view>
   </view>
 </template>
 <script setup lang="uts">
 import UiIcon from './UiIcon.uvue';
-import { ref, watch, nextTick, onUnmounted } from 'vue';
+import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue';
 import { t as _t } from '@/core/locale.uts';
 const props = defineProps<{ content: string; open: boolean; streaming: boolean }>();
-const emit = defineEmits(['toggle']);
+const emit = defineEmits(['toggle', 'layout']);
+const shine = ref(-90);
+const windowOpen = ref(false);
+onMounted(() => { nextTick(() => { windowOpen.value = props.open; emit('layout'); }); });
+watch((): boolean => props.open, (open: boolean) => { windowOpen.value = open; });
 const anchor = ref('');
 const displayed = ref('');
 let revealTimer: number = 0;
@@ -66,8 +75,8 @@ watch(
     stopPulse();
     if (streaming)
       pulseTimer = setInterval(() => {
-        pulse.value = !pulse.value;
-      }, 600);
+        shine.value = ((Date.now() % 1800) / 1800) * 220 - 90;
+      }, 40);
   },
   { immediate: true },
 );
@@ -85,6 +94,7 @@ watch(
     });
   },
 );
+watch((): boolean => props.open, () => { nextTick(() => { emit('layout'); }); });
 </script>
 <style scoped>
 .thinking-panel {
@@ -115,8 +125,10 @@ watch(
 .thinking-active {
   background-color: #dce5ff;
 }
+.thinking-label-wrap { flex: 1; flex-direction: row; }
+.thinking-shimmer { position: absolute; top: 0; bottom: 0; left: 0; width: 40px; background-image: linear-gradient(to right, #ffffff00, #ffffffbb, #ffffff00); transition-property: transform; transition-duration: 40ms; transition-timing-function: linear; }
+.thinking-label-wrap { position: relative; overflow: hidden; }
 .thinking-label {
-  flex: 1;
   color: #596780;
   font-size: 13px;
   font-weight: 600;
@@ -126,8 +138,10 @@ watch(
   font-size: 11px;
   margin-right: 8px;
 }
+.thinking-window { overflow: hidden; transition-property: height; transition-duration: 180ms; transition-timing-function: ease-out; }
 .thinking-content {
-  max-height: 138px;
+  height: 138px;
+  flex-shrink: 0;
   margin-top: 8px;
 }
 .thinking-text {

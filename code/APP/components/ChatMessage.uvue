@@ -19,8 +19,9 @@
           v-if="reason.length > 0 && !user"
           :content="reason"
           :open="expanded"
-          :streaming="isStreaming"
-          @toggle="expanded = !expanded"
+          :streaming="thinkingActive"
+          @toggle="toggleThinking()"
+          @layout="emit('layout')"
         />
         <view
           style="align-self: stretch"
@@ -62,8 +63,9 @@
           <ThinkingPanel
             :content="reason"
             :open="expanded"
-            :streaming="isStreaming"
-            @toggle="expanded = !expanded"
+            :streaming="thinkingActive"
+            @toggle="toggleThinking()"
+          @layout="emit('layout')"
           />
         </view>
         <view :class="['notice-label', noticeClass]">
@@ -172,7 +174,7 @@ import { t as _t } from '@/core/locale.uts';
 import ThinkingPanel from './ThinkingPanel.uvue';
 import ReplyProgress from './ReplyProgress.uvue';
 import { timeOf, dayOf } from '@/core/time.uts';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { SessionState, session as _session } from '@/store/session.uts';
 import {
   firstText,
@@ -208,8 +210,9 @@ function openEvent(id: string): void {
 }
 const messageWidth = Math.max(180, (uni.getWindowInfo().windowWidth - 70) * 0.94);
 const props = defineProps<{ item: UTSJSONObject; busy: boolean }>();
-const emit = defineEmits(['confirm']);
-const expanded = ref(false),
+const emit = defineEmits(['confirm', 'layout']);
+let manuallyToggled = false;
+const expanded = ref(b(props.item, 'streaming')),
   alarms = ref<number[]>([]);
 const user = computed(() => s(props.item, 'messageRole') == 'user'),
   avatarUrl = computed(() =>
@@ -343,7 +346,6 @@ function toggleAlarm(index: number) {
 watch(
   (): string => s(props.item, 'id'),
   () => {
-    expanded.value = b(props.item, 'streaming');
     alarms.value = arr(payload(props.item), 'events')
       .map((event: UTSJSONObject, index: number): number =>
         b(event, 'alarmRequested') ? index : -1,
@@ -354,6 +356,16 @@ watch(
 );
 
 const isStreaming = computed(() => b(props.item, 'streaming'));
+const thinkingActive = computed((): boolean => isStreaming.value && s(props.item, 'content').length == 0);
+function toggleThinking() {
+  manuallyToggled = true;
+  expanded.value = !expanded.value;
+}
+watch((): boolean => thinkingActive.value, (active: boolean) => {
+  if (!manuallyToggled) expanded.value = active;
+});
+watch((): string => reason.value + s(props.item, 'content'), () => { nextTick(() => { emit('layout'); }); });
+watch((): boolean => expanded.value, () => { nextTick(() => { emit('layout'); }); });
 </script>
 <style scoped>
 .message {
