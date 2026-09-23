@@ -69,13 +69,37 @@ function mul(a: number[], b: number[]): number[] {
   return fromHex(product.toString(16).padStart(64, '0'));
   // #endif
   // #ifndef APP-ANDROID
-  let result = zero(),
-    current = a;
-  for (let i = 0; i < 256; i++) {
-    if ((b[Math.floor(i / 16)] & (1 << (i % 16))) != 0) result = add(result, current);
-    current = add(current, current);
+  // Schoolbook product in exact 16-bit limbs; all intermediates remain below 2^53.
+  const limbs = zero(32);
+  for (let i = 0; i < 16; i++) {
+    for (let j = 0; j < 16; j++) limbs[i + j] += a[i] * b[j];
   }
-  return result;
+  // 2^256 = 2^224 + 2^96 - 2^64 + 1 (mod p).
+  for (let i = 31; i >= 16; i--) {
+    const high = limbs[i];
+    limbs[i] = 0;
+    limbs[i - 2] += high;
+    limbs[i - 10] += high;
+    limbs[i - 12] -= high;
+    limbs[i - 16] += high;
+  }
+  let carry = 0;
+  do {
+    carry = 0;
+    for (let i = 0; i < 16; i++) {
+      const value = limbs[i] + carry;
+      carry = Math.floor(value / 65536);
+      limbs[i] = value - carry * 65536;
+    }
+    if (carry != 0) {
+      limbs[14] += carry;
+      limbs[6] += carry;
+      limbs[4] -= carry;
+      limbs[0] += carry;
+    }
+  } while (carry != 0);
+  const result = limbs.slice(0, 16);
+  return compare(result, P) >= 0 ? rawSubtract(result, P) : result;
   // #endif
 }
 function sq(a: number[]): number[] {

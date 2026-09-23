@@ -230,10 +230,11 @@ async function continueLogin() {
 function forgot() {
   forgotOpen.value = true;
 }
-function registered(value: string) {
+function registered(value: string, registeredPassword: string) {
   account.value = value;
-  password.value = '';
-  toast('注册成功，请使用刚设置的密码登录');
+  password.value = registeredPassword;
+  toast('注册成功，正在登录…');
+  void submit();
 }
 onReady(() => {
   entryTimer = setTimeout(() => {

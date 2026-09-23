@@ -35,7 +35,8 @@
           <UiIcon name="close" tone="muted" :size="20" />
         </view>
       </view>
-      <scroll-view :scroll-y="true" class="popup-scroll">
+      <view v-if="variant == 'conversation'" class="popup-body"><slot /></view>
+      <scroll-view v-else :scroll-y="true" class="popup-scroll">
         <view class="popup-body"><slot /></view>
       </scroll-view>
       <view v-if="fixedFooter" class="popup-footer"><slot name="footer" /></view>
@@ -54,7 +55,7 @@ const props = defineProps({
   fixedFooter: { type: Boolean, default: false },
   panelHeight: { type: Number, default: 640 },
 });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'opened']);
 const rendered = ref(false),
   visible = ref(false);
 let animationTimer: number = 0;
@@ -66,6 +67,9 @@ watch(
       rendered.value = true;
       animationTimer = setTimeout(() => {
         visible.value = true;
+        animationTimer = setTimeout(() => {
+          if (props.open) emit('opened');
+        }, 180);
       }, 30);
     } else {
       visible.value = false;

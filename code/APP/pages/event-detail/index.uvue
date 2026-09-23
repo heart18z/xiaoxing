@@ -220,6 +220,7 @@
     :open="conversationOpen"
     :title="conversationName + ' · ' + t('事件对话')"
     @close="closeConversation"
+    @opened="conversationReady = true"
   >
     <scroll-view
       :scroll-y="true"
@@ -255,7 +256,7 @@
           <text v-if="s(row, 'messageRole') == 'user'" class="app-font dialog-user-text">
             {{ s(row, 'content') }}
           </text>
-          <rich-text v-else class="dialog-rich-text" :nodes="markdown(s(row, 'content'))" />
+          <rich-text v-else class="dialog-rich-text" :nodes="s(row, 'renderedContent')" />
           <text
             class="app-font"
             :class="['dialog-time', s(row, 'messageRole') == 'user' ? 'dialog-user-time' : '']"
@@ -326,6 +327,7 @@ const id = ref(''),
   conversationLoading = ref(false),
   conversationRows = ref<UTSJSONObject[]>([]);
 const conversationData = ref<UTSJSONObject>({});
+const conversationReady = ref(false);
 const conversationHeight = Math.min(620, uni.getWindowInfo().windowHeight * 0.68);
 function conversationAvatar(row: UTSJSONObject): string {
   return asset(
@@ -418,6 +420,7 @@ async function stop() {
 }
 async function conversation(userId: string, name: string) {
   const current = ++conversationTicket;
+  conversationReady.value = false;
   conversationName.value = name;
   conversationOpen.value = true;
   conversationLoading.value = true;
@@ -431,7 +434,20 @@ async function conversation(userId: string, name: string) {
     );
     if (current == conversationTicket) {
       conversationData.value = obj(data, 'value');
-      conversationRows.value = arr(conversationData.value, 'messages');
+      // Finish the popup transition before mounting rich text. Yield between small batches.
+      while (!conversationReady.value && current == conversationTicket) {
+        await new Promise<void>((resolve) => { setTimeout(() => resolve(), 16); });
+      }
+      const rows = arr(conversationData.value, 'messages');
+      for (let index = 0; index < rows.length; index += 8) {
+        if (current != conversationTicket) return;
+        const batch = rows.slice(index, index + 8);
+        batch.forEach((row: UTSJSONObject) => { row['renderedContent'] = markdown(s(row, 'content')); });
+        conversationRows.value = conversationRows.value.concat(batch);
+        conversationLoading.value = false;
+        await new Promise<void>((resolve) => { setTimeout(() => resolve(), 16); });
+      }
+      if (current != conversationTicket) return;
       const participantName = s(obj(conversationData.value, 'participant'), 'displayName');
       if (participantName.length > 0) conversationName.value = participantName;
     }

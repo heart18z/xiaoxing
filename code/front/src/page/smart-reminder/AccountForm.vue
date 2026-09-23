@@ -67,7 +67,7 @@ const submit = async () => {
   try {
     if (props.register) await registerAccount({ account:form.account, name:form.name, password:form.password, phone:form.phone, email:form.email });
     else await changeOwnPassword({ oldPassword:form.oldPassword, password:form.password, confirmation:form.confirmation });
-    emit('success', props.register ? { account:form.account } : undefined);
+    emit('success', props.register ? { account:form.account, password:form.password } : undefined);
     emit('update:modelValue', false);
     reset();
   } catch (e) { error.value = mobileError(e,'提交失败，请重试'); }

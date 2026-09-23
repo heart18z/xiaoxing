@@ -45,7 +45,7 @@ import AccountForm from './AccountForm.vue';
 import {lastLoginAccount,rememberLoginAccount} from './loginMemory';
 import {mobileError} from './mobileError.mjs';
 const registerVisible = ref(false);
-const registered = ({account}) => { form.username=account; form.password=''; ElMessage.success('注册成功，请使用刚设置的密码登录'); };
+const registered = async ({account,password}) => { form.username=account; form.password=password; ElMessage.success('注册成功，正在登录…'); await login(); form.password=''; };
 
 const router = useRouter(); const store = useStore(); const loading = ref(false), showPassword = ref(false);
 const form = reactive({ tenantId:'000000', username:lastLoginAccount(), password:'', type:'account', deptId:'', roleId:'', key:'', code:'', mobile:true });

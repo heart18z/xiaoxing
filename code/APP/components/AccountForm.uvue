@@ -200,7 +200,7 @@ async function submit() {
       15000,
       !props.register,
     );
-    emit('success', account.value);
+    emit('success', account.value, props.register ? password.value : '');
     emit('close');
     password.value = props.register ? 'admin@123' : '';
     oldPassword.value = '';

@@ -42,7 +42,7 @@ public class AccountRegression {
     AtomicLong ids=new AtomicLong();
     IUserService users=(IUserService)Proxy.newProxyInstance(IUserService.class.getClassLoader(),new Class[]{IUserService.class},(proxy,method,values)->{
       if(!method.getName().equals("submit"))throw new UnsupportedOperationException(method.getName());
-      User u=(User)values[0];check("10".equals(u.getRoleId())&&"000000".equals(u.getTenantId()),"server controls role and tenant");
+      User u=(User)values[0];check(u.getAvatar()!=null && u.getAvatar().matches("/avatars/user/B([1-9]|1[0-3])[.]png"),"new user receives library avatar");check("10".equals(u.getRoleId())&&"000000".equals(u.getTenantId()),"server controls role and tenant");
       return db.update("insert into blade_user(id,tenant_id,account,password,role_id,phone,email,status,is_deleted) values(?,?,?,?,?,?,?,1,0)",ids.incrementAndGet(),u.getTenantId(),u.getAccount(),DigestUtil.encrypt(u.getPassword()),u.getRoleId(),u.getPhone(),u.getEmail())==1;
     });
     var service=new AppAccountService(db,users);

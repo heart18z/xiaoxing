@@ -1,7 +1,7 @@
 <template>
   <el-dialog :model-value="open" @update:model-value="$emit('close')" :title="title" width="min(92vw,430px)" append-to-body class="avatar-picker">
     <p class="picker-tip">{{ mt("选择默认头像，或上传自己的图片") }}</p>
-    <div class="avatar-grid"><button v-if="kind==='user'" type="button" :disabled="busy" :class="{selected:!value}" @click="$emit('choose','')" :aria-label="mt('使用名字首字')"><b>{{ initial||mt('我') }}</b></button><button v-for="item in presets" :key="item" type="button" :class="{selected:value===item}" :disabled="busy" @click="$emit('choose',item)" :aria-label="mt('选择头像 ')+item.split('/').pop()"><img :src="item" :alt="mt('默认头像')"/><span v-if="value===item">✓</span></button></div>
+    <div class="avatar-grid"><button v-if="kind==='user'" type="button" :disabled="busy" :class="{selected:!value}" @click="$emit('choose',presets[Math.floor(Math.random()*presets.length)])" :aria-label="mt('随机头像')"><b>↻</b></button><button v-for="item in presets" :key="item" type="button" :class="{selected:value===item}" :disabled="busy" @click="$emit('choose',item)" :aria-label="mt('选择头像 ')+item.split('/').pop()"><img :src="item" :alt="mt('默认头像')"/><span v-if="value===item">✓</span></button></div>
     <label :class="['avatar-upload',{busy}]"><span v-if="busy" class="upload-spinner"></span>{{ busy?mt('正在保存…'):mt('上传图片') }}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="busy" @change="upload" /></label>
     <small>{{ mt("支持 JPG、PNG、WEBP、GIF，最大 2MB") }}</small>
   </el-dialog>

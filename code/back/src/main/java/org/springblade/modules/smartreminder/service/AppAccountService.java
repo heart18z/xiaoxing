@@ -70,6 +70,7 @@ public class AppAccountService {
         if (roles.size() != 1) throw new ServiceException("APP使用人员角色尚未配置，请联系管理员");
         User user = new User();
         user.setTenantId(TENANT); user.setAccount(input.getAccount());
+        user.setAvatar("/avatars/user/B" + java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 14) + ".png");
         user.setName(input.getName().trim()); user.setRealName(input.getName().trim());
         user.setPassword(input.getPassword()); user.setPhone(input.getPhone()); user.setEmail(input.getEmail());
         user.setRoleId(String.valueOf(roles.get(0))); user.setUserType("1");
