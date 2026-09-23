@@ -19,6 +19,9 @@ export async function checkUpdates(force: boolean = false): Promise<void> {
     updates.release = latest;
     updates.available = n(latest, 'versionCode') > n(local, 'versionCode');
     updates.feedback = updates.available ? '发现新版本 ' + s(latest, 'versionName') + ' (' + n(latest, 'versionCode') + ')' : '当前已是最新版本';
+    if (updates.available && n(local, 'pendingVersionCode') > n(local, 'versionCode')) {
+      updates.feedback = '上次更新尚未完成，当前仍为 ' + updates.current + '，请重新下载安装';
+    }
     checkedAt = Date.now();
   } catch (e) { updates.feedback = '检查失败：' + message(e); }
   finally { updates.checking = false; }
