@@ -1,6 +1,7 @@
 package org.springblade.common.filter;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springblade.core.launch.constant.TokenConstant;
@@ -32,19 +33,37 @@ public class CookieSecureFilter implements Filter {
 		Cookie[] cookies = httpServletRequest.getCookies();
 
 		BladeUser bladeUser = AuthUtil.getUser();
-//		AuthUtil.
 		 if (bladeUser!=null && Func.notNull(bladeUser.getUserId()) && cookies != null) {
 			 String cookieToken = Arrays.stream(cookies).filter(i-> "saber-access-token".equals(i.getName())).map(Cookie::getValue).findFirst().orElse(null);
 			 if (Func.isNotBlank(cookieToken)) {
-				 Claims claims = AuthUtil.parseJWT(cookieToken);
-				 Long cookieUserId = Long.valueOf((String) claims.get(TokenConstant.USER_ID));
-				 if (!bladeUser.getUserId().equals(cookieUserId))  {
+				 Claims claims;
+				 try {
+					 claims = AuthUtil.parseJWT(cookieToken);
+				 } catch (JwtException | IllegalArgumentException invalidCookie) {
+					 claims = null;
+				 }
+				 Object cookieUserId = claims == null ? null : claims.get(TokenConstant.USER_ID);
+				 if (cookieUserId == null || cookieUserId.toString().isBlank()) {
+					 // A fresh Blade-Auth credential can coexist with an expired native cookie.
+					 // Discard only the stale cookie; downstream authentication still validates
+					 // the request credential, its session state and its permissions.
+					 clearCookie((HttpServletResponse) servletResponse, httpServletRequest.isSecure());
+				 } else if (!bladeUser.getUserId().toString().equals(cookieUserId.toString())) {
 					 write((HttpServletResponse)servletResponse);
 					 return;
 				 }
 			 }
         }
 		filterChain.doFilter(servletRequest, servletResponse);
+	}
+
+	private static void clearCookie(HttpServletResponse response, boolean secure) {
+		Cookie cookie = new Cookie("saber-access-token", "");
+		cookie.setPath("/");
+		cookie.setMaxAge(0);
+		cookie.setHttpOnly(true);
+		cookie.setSecure(secure);
+		response.addCookie(cookie);
 	}
 
 	@Override

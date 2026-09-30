@@ -28,4 +28,4 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 ENV JAVA_OPTS=""
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Dnetworkaddress.cache.ttl=0 -Dnetworkaddress.cache.negative.ttl=0 -Djava.security.egd=file:/dev/./urandom -Duser.timezone=Asia/Shanghai -jar /app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java --add-opens=java.base/java.lang=ALL-UNNAMED $JAVA_OPTS -Dnetworkaddress.cache.ttl=0 -Dnetworkaddress.cache.negative.ttl=0 -Djava.security.egd=file:/dev/./urandom -Duser.timezone=Asia/Shanghai -jar /app.jar"]
