@@ -1,0 +1,50 @@
+<template>
+  <view>
+    <text class="app-font label">{{ t('邮箱验证码') }}</text>
+    <view class="code-row">
+      <input class="app-font input code-input" :value="modelValue" type="number" maxlength="6" :disabled="disabled" :placeholder="t('6位验证码')" @input="changed" />
+      <view class="code-send" :class="{ dim: sending || remaining > 0 || disabled }" @click="send">
+        <text class="app-font code-label">{{ sending ? t('发送中…') : remaining > 0 ? remaining + 's' : t('获取验证码') }}</text>
+      </view>
+    </view>
+    <text v-if="hint.length > 0" class="app-font hint">{{ t(hint) }}</text>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onUnmounted } from 'vue';
+import { post } from '@/api/request.uts';
+import { message } from '@/core/json.uts';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
+const props = defineProps({ email: { type: String, default: '' }, purpose: { type: String, default: 'LOGIN' }, modelValue: { type: String, default: '' }, disabled: { type: Boolean, default: false } });
+const emit = defineEmits(['update:modelValue']);
+const sending = ref(false), remaining = ref(0), hint = ref('');
+let timer: number = 0, until: number = 0, alive = true;
+function changed(event: UniInputEvent) { emit('update:modelValue', event.detail.value); }
+watch((): string => props.email, () => { emit('update:modelValue', ''); hint.value = ''; });
+onUnmounted(() => { alive = false; clearInterval(timer); });
+async function send() {
+  if (sending.value || remaining.value > 0 || props.disabled) return;
+  const target = props.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) { hint.value = '请输入正确的邮箱'; return; }
+  sending.value = true; hint.value = '';
+  try {
+    await post('/app/account/access-code', { email: target, purpose: props.purpose }, {}, 45000, false);
+    if (!alive) return;
+    until = Date.now() + 60000; remaining.value = 60;
+    clearInterval(timer);
+    timer = setInterval(() => { remaining.value = Math.max(0, Math.ceil((until - Date.now()) / 1000)); if (remaining.value == 0) clearInterval(timer); }, 1000);
+    if (target == props.email.trim().toLowerCase()) hint.value = '验证码已发送，请检查邮箱或垃圾邮件';
+  } catch (e) { if (alive) hint.value = message(e); }
+  finally { if (alive) sending.value = false; }
+}
+</script>
+<style scoped>
+.label { font-size: 14px; color: #374151; margin-bottom: 8px; }
+.code-row { flex-direction: row; align-items: center; }
+.code-input { flex: 1; min-width: 0; margin-bottom: 0; }
+.code-send { height: 44px; padding: 0 12px; margin-left: 8px; border-radius: 11px; background-color: #eef0ff; align-items: center; justify-content: center; }
+.code-label { font-size: 13px; font-weight: 600; color: #4c5cff; }
+.hint { font-size: 12px; color: #74809a; line-height: 20px; margin-top: 8px; }
+.dim { opacity: 0.5; }
+</style>

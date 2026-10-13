@@ -1192,7 +1192,7 @@ watch((): string => s(chat.pending, 'requestId'), scrollLatest);
   flex-shrink: 0;
   border-radius: 0;
   margin: 2px 9px 0 0;
-  box-shadow: 0 2px 5px #827bec33;
+  /* The bitmap already contains a round alpha mask. Native shadows on image layers can clip it. */
 }
 .compose-input {
   flex: 1;

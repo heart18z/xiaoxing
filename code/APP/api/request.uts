@@ -2,7 +2,7 @@ import { BASE_URL, BASIC_AUTH, TENANT, SM2_PUBLIC_KEY } from '@/config/environme
 import { session, saveSession, clearSession, applyBootstrap } from '@/store/session.uts';
 import { sm2Encrypt, sm2EncryptResponsive } from '@/core/sm2.uts';
 import { randomHex } from '@/uni_modules/xiaoxing-native';
-import { s, n, parseObject } from '@/core/json.uts';
+import { s, n, obj, parseObject } from '@/core/json.uts';
 import { credentialRejected } from '@/core/auth.uts';
 // UTSAndroid is built in. Explicit imports can hide the name used by generated typeof calls.
 export class ApiError extends Error {
@@ -281,6 +281,9 @@ export async function login(
     });
   });
   console.info("[login] token request ms=" + (Date.now() - requestStarted));
+  await finishLogin(result);
+}
+async function finishLogin(result: UTSJSONObject): Promise<void> {
   const bootstrapStarted = Date.now();
   const roles = s(result, 'role_name');
   if (roles.length > 0 && !roles.split(',').includes('app_user'))
@@ -297,6 +300,32 @@ export async function login(
     clearSession();
     throw error instanceof Error ? error : new Error('请求未完成，请重试');
   }
+}
+export async function emailLogin(email: string, code: string, confirmed: boolean = false): Promise<void> {
+  const result = await new Promise<UTSJSONObject>((resolve, reject) => {
+    const h = headers();
+    if (confirmed) h['confirm'] = 'true';
+    uni.request({ url: BASE_URL + '/app/account/email-login', method: 'POST', header: h,
+      data: { email: email, code: code }, timeout: 15000,
+      success: (res) => {
+        let body: UTSJSONObject;
+        try {
+          if (res.data == null || (typeof res.data != 'string' && (typeof res.data != 'object' || Array.isArray(res.data)))) throw new Error('response');
+          body = typeof res.data == 'string' ? parseObject(res.data as string) : res.data as UTSJSONObject;
+          if (UTSJSONObject.keys(body).length == 0) throw new Error('response');
+        } catch (_) { reject(new ApiError(res.statusCode >= 400 ? res.statusCode : 0, '服务器响应异常，请稍后重试')); return; }
+        if (s(body, 'error') == 'need_confirm_login' || n(body, 'code') == 601) {
+          reject(new ApiError(601, '账号已在其他设备登录，请确认是否继续')); return;
+        }
+        const token = obj(body, 'data');
+        if (res.statusCode >= 400 || s(token, 'access_token').length == 0) {
+          reject(new ApiError(res.statusCode, s(body, 'error_description', s(body, 'msg', '登录失败，请重试')))); return;
+        }
+        resolve(token);
+      }, fail: () => reject(new ApiError(0, '登录请求失败，请稍后重试')),
+    });
+  });
+  await finishLogin(result);
 }
 export async function upload(
   path: string,

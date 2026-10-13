@@ -34,6 +34,19 @@ public class EmailVerificationService {
     public void send(String rawEmail,String ip) {
         String email=ContactIdentity.email(rawEmail);mail.requireEnabled();
         if(!Boolean.TRUE.equals(availability("email",email).get("available")))throw new ServiceException("邮箱已被使用，请更换邮箱");
+        sendScoped(email,ip,"REGISTER");
+    }
+    public void sendAction(String rawEmail,String ip,String purpose) {
+        action(purpose);
+        String email=ContactIdentity.email(rawEmail);mail.requireEnabled();
+        sendScoped(email,ip,purpose);
+    }
+    private static void action(String purpose) {
+        if(!Set.of("LOGIN","RESET").contains(purpose))throw new ServiceException("验证码用途无效");
+    }
+    private void sendScoped(String email,String ip,String purpose) {
+        String table="REGISTER".equals(purpose)?"blade_registration_code":"blade_account_code";
+        String identity="REGISTER".equals(purpose)?email:purpose+":"+email;
         String code=String.format(Locale.ROOT,"%06d",random.nextInt(1_000_000)),nonce=UUID.randomUUID().toString();
         long now=System.currentTimeMillis();
         transactions.executeWithoutResult(status->{
@@ -42,14 +55,14 @@ public class EmailVerificationService {
             limit("ip:"+ip,now,3600_000,30);
             limit("email-hour:"+email,now,3600_000,5);
             limit("email-minute:"+email,now,60_000,1);
-            jdbc.update("delete from blade_registration_code where expires_at<?",now-86400_000);
-            jdbc.update("insert into blade_registration_code(email,nonce,code_hash,expires_at,attempts,delivered,used) values(?,?,?,?,0,0,0) on duplicate key update nonce=values(nonce),code_hash=values(code_hash),expires_at=values(expires_at),attempts=0,delivered=0,used=0",email,nonce,hash(email+":"+nonce+":"+code),now+600_000);
+            jdbc.update("delete from "+table+" where expires_at<?",now-86400_000);
+            jdbc.update("insert into "+table+"(email,nonce,code_hash,expires_at,attempts,delivered,used) values(?,?,?,?,0,0,0) on duplicate key update nonce=values(nonce),code_hash=values(code_hash),expires_at=values(expires_at),attempts=0,delivered=0,used=0",identity,nonce,hash(identity+":"+nonce+":"+code),now+600_000);
         });
         try {
-            mail.sendCode(email,code);
-            jdbc.update("update blade_registration_code set delivered=1 where email=? and nonce=?",email,nonce);
+            if("REGISTER".equals(purpose))mail.sendCode(email,code); else mail.sendActionCode(email,code,purpose);
+            jdbc.update("update "+table+" set delivered=1 where email=? and nonce=?",identity,nonce);
         } catch(RuntimeException error) {
-            jdbc.update("delete from blade_registration_code where email=? and nonce=?",email,nonce);
+            jdbc.update("delete from "+table+" where email=? and nonce=?",identity,nonce);
             throw error;
         }
     }
@@ -66,19 +79,23 @@ public class EmailVerificationService {
     }
     /** Must run inside the registration transaction. Invalid attempts commit; successful
      * consumption rolls back if inserting the account fails, so the user can correct it. */
-    public void consume(String email,String code) {
+    public void consume(String email,String code) { consumeScoped(email,code,"blade_registration_code"); }
+    public void consumeAction(String email,String code,String purpose) {
+        action(purpose);consumeScoped(purpose+":"+ContactIdentity.email(email),code,"blade_account_code");
+    }
+    private void consumeScoped(String email,String code,String table) {
         if(code==null || !code.matches("[0-9]{6}"))throw new InvalidCode("请输入6位邮箱验证码");
-        var rows=jdbc.queryForList("select * from blade_registration_code where email=? for update",email);
+        var rows=jdbc.queryForList("select * from "+table+" where email=? for update",email);
         if(rows.isEmpty())throw new InvalidCode("请先获取当前邮箱的验证码");
         var row=rows.get(0);
         if(((Number)row.get("used")).intValue()!=0 || ((Number)row.get("delivered")).intValue()!=1 || ((Number)row.get("expires_at")).longValue()<=System.currentTimeMillis())throw new InvalidCode("验证码已失效，请重新获取");
         int attempts=((Number)row.get("attempts")).intValue();
         if(attempts>=5)throw new InvalidCode("验证码错误次数过多，请重新获取");
         if(!MessageDigest.isEqual(hash(email+":"+row.get("nonce")+":"+code).getBytes(StandardCharsets.US_ASCII),((String)row.get("code_hash")).getBytes(StandardCharsets.US_ASCII))) {
-            jdbc.update("update blade_registration_code set attempts=attempts+1 where email=?",email);
+            jdbc.update("update "+table+" set attempts=attempts+1 where email=?",email);
             throw new InvalidCode(attempts==4?"验证码错误次数过多，请重新获取":"验证码不正确，请检查邮箱");
         }
-        jdbc.update("update blade_registration_code set used=1 where email=?",email);
+        jdbc.update("update "+table+" set used=1 where email=?",email);
     }
     private String hash(String text) {
         try { Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(key,"HmacSHA256"));return HexFormat.of().formatHex(mac.doFinal(text.getBytes(StandardCharsets.UTF_8))); }

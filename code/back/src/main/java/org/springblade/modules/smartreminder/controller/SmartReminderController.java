@@ -77,6 +77,10 @@ public class SmartReminderController {
 		return R.data(reminderService.clearChatContext());
 	}
 
+    @PostMapping("/settings/language")
+    public R<Object> saveLanguage(@RequestBody Map<String,String> input) {
+        AppRoleGuard.requireAppUser();aiConfigService.saveLanguage(AuthUtil.getUserId(),input.get("language"));return R.data(true);
+    }
 	@PostMapping("/settings/models")
 	public R<Object> modelSettings() { AppRoleGuard.requireAppUser();return R.data(aiConfigService.preferences(AuthUtil.getUserId())); }
 

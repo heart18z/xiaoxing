@@ -1,18 +1,20 @@
 <template>
   <view
     class="login-submit"
+    :class="{ secondary: secondary }"
     role="button"
     :aria-label="busy ? busyLabel : label"
     :aria-disabled="busy"
     @click="activate()"
   >
     <view v-if="busy" class="login-spinner" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
-    <text class="app-font login-submit-label">{{ busy ? busyLabel : label }}</text>
+    <text class="app-font login-submit-label" :class="{ secondaryLabel: secondary }">{{ busy ? busyLabel : label }}</text>
   </view>
 </template>
 <script setup lang="uts">
 import { ref, watch, onUnmounted } from 'vue';
 const props = defineProps({
+  secondary: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
   label: { type: String, default: '登录' },
   busyLabel: { type: String, default: '正在登录…' },
@@ -64,4 +66,6 @@ function activate() {
   border-radius: 9px;
   margin-right: 9px;
 }
+.secondary { background-color: #eef0ff; background-image: none; box-shadow: none; }
+.secondaryLabel { color: #4960e8; }
 </style>

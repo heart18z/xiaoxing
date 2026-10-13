@@ -18,16 +18,21 @@
           transform: entered ? 'translateY(0px)' : 'translateY(12px)',
         }"
       >
-        <text class="app-font label">{{ t('账号') }}</text>
+        <view class="login-modes">
+          <text class="app-font mode" :class="{ active: !codeMode }" @click="switchMode(false)">{{ t('密码登录') }}</text>
+          <text class="app-font mode" :class="{ active: codeMode }" @click="switchMode(true)">{{ t('邮箱验证码登录') }}</text>
+        </view>
+        <text class="app-font label">{{ t(codeMode ? '邮箱' : '账号 / 邮箱') }}</text>
         <view class="login-input">
           <UiIcon name="user" tone="purple" :size="19" />
           <input
             class="app-font field"
             v-model="account"
-            :placeholder="t('请输入账号')"
+            :placeholder="t(codeMode ? '请输入邮箱' : '请输入账号或邮箱')"
             :disabled="busy"
           />
         </view>
+        <view v-if="!codeMode">
         <text class="app-font label password-label">{{ t('密码') }}</text>
         <view class="login-input">
           <UiIcon name="lock" tone="purple" :size="19" />
@@ -43,7 +48,9 @@
             <UiIcon :name="show ? 'eye' : 'eyeOff'" tone="purple" :size="20" />
           </view>
         </view>
-        <view v-if="captchaEnabled" class="row">
+        </view>
+        <view v-else class="code-section"><EmailCodeField v-model="emailCode" :email="account" :disabled="busy" /></view>
+        <view v-if="captchaEnabled && !codeMode" class="row">
           <input
             class="app-font input"
             v-model="captchaCode"
@@ -60,27 +67,20 @@
           :busy-label="t('正在登录…')"
           @click="submit()"
         />
-        <text class="app-font register" @click="register = true">
+        <text class="app-font register" @click="openRegister">
           {{ t('没有账号？注册账号') }}
         </text>
       </view>
       <text class="app-font slogan">{{ t('更智能的提醒\u3000·\u3000更从容的生活') }}</text>
     </view>
   </scroll-view>
-  <AccountForm :open="register" :register="true" @close="register = false" @success="registered" />
-  <Popup :open="forgotOpen" :title="t('忘记密码')" @close="forgotOpen = false">
-    <text class="app-font dialog-copy">{{ t('请联系管理员重置密码，然后使用新密码登录。') }}</text>
-    <button class="app-font primary dialog-primary" @click="forgotOpen = false">
-      {{ t('知道了') }}
-    </button>
-  </Popup>
   <Popup :open="confirmOpen" :title="t('确认在此设备登录？')" :busy="busy" @close="cancelLogin">
     <text class="app-font dialog-copy">{{ t('账号已在其他设备登录，继续将退出其他设备。') }}</text>
 
     <view class="dialog-actions">
-      <button class="app-font secondary dialog-cancel" :disabled="busy" @click="cancelLogin()">
-        {{ t('取消') }}
-      </button>
+      <view class="dialog-continue dialog-cancel-wrap">
+        <LoginButton :secondary="true" :label="t('取消')" @click="cancelLogin()" />
+      </view>
       <view class="dialog-continue">
         <LoginButton
           :busy="busy"
@@ -100,8 +100,8 @@ import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, nextTick, onUnmounted } from 'vue';
 import LoginButton from '@/components/LoginButton.uvue';
-import AccountForm from '@/components/AccountForm.uvue';
-import { login, post, ApiError } from '@/api/request.uts';
+import EmailCodeField from '@/components/EmailCodeField.uvue';
+import { login, emailLogin, post, ApiError } from '@/api/request.uts';
 import Popup from '@/components/Popup.uvue';
 import { hasSession } from '@/store/session.uts';
 import { syncPush } from '@/services/native.uts';
@@ -110,6 +110,8 @@ import { toast } from '@/core/ui.uts';
 function t(value: string): string {
   return _t(value);
 }
+const codeMode = ref(false), emailCode = ref('');
+function openRegister() { uni.navigateTo({ url: '/pages/register/index' }); }
 const entered = ref(false);
 let entryTimer: number = 0;
 onUnmounted(() => clearTimeout(entryTimer));
@@ -125,6 +127,8 @@ const forgotOpen = ref(false),
   pendingAccount = ref(''),
   confirmError = ref('');
 let pendingPassword = '';
+function switchMode(value: boolean) { if (busy.value) return; codeMode.value = value; emailCode.value = ''; error.value = ''; }
+
 function cancelLogin() {
   if (busy.value) return;
   confirmOpen.value = false;
@@ -161,19 +165,20 @@ async function loadCaptchaMode() {
 }
 async function submit(confirmed: boolean = false) {
   if (busy.value) return;
-  if (account.value.trim().length == 0 || password.value.length == 0) {
-    error.value = '请输入账号和密码';
+  if (account.value.trim().length == 0 || (!codeMode.value && password.value.length == 0)) {
+    error.value = codeMode.value ? '请输入邮箱' : '请输入账号或邮箱和密码';
     toast(error.value);
     return;
   }
   if (
-    captchaEnabled.value &&
+    !codeMode.value && captchaEnabled.value &&
     (captchaCode.value.trim().length == 0 || captchaKey.value.length == 0)
   ) {
     error.value = t('请输入验证码');
     toast(error.value);
     return;
   }
+  if (codeMode.value && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.value.trim()) || !/^[0-9]{6}$/.test(emailCode.value))) { toast('请输入正确的邮箱和6位验证码'); return; }
   busy.value = true;
   error.value = '';
   try {
@@ -181,7 +186,8 @@ async function submit(confirmed: boolean = false) {
     await new Promise<void>((resolve) => {
       setTimeout(() => resolve(), 32);
     });
-    await login(
+    if (codeMode.value) await emailLogin(account.value.trim(), emailCode.value, confirmed);
+    else await login(
       account.value.trim(),
       password.value,
       captchaEnabled.value ? captchaKey.value : '',
@@ -189,7 +195,7 @@ async function submit(confirmed: boolean = false) {
       confirmed,
     );
     uni.setStorageSync('last-account', account.value.trim());
-    password.value = '';
+    password.value = ''; emailCode.value = '';
     confirmOpen.value = false;
     pendingAccount.value = '';
     pendingPassword = '';
@@ -207,7 +213,7 @@ async function submit(confirmed: boolean = false) {
   } catch (e) {
     if (e instanceof ApiError && e.status == 601 && !confirmed) {
       pendingAccount.value = account.value.trim();
-      pendingPassword = password.value;
+      pendingPassword = codeMode.value ? emailCode.value : password.value;
       confirmError.value = '';
       confirmOpen.value = true;
       return;
@@ -221,14 +227,14 @@ async function submit(confirmed: boolean = false) {
   }
 }
 async function continueLogin() {
-  if (account.value.trim() != pendingAccount.value || password.value != pendingPassword) {
+  if (account.value.trim() != pendingAccount.value || (codeMode.value ? emailCode.value : password.value) != pendingPassword) {
     cancelLogin();
     return;
   }
   await submit(true);
 }
 function forgot() {
-  forgotOpen.value = true;
+  uni.navigateTo({ url: '/pages/reset-password/index' });
 }
 function registered(value: string, registeredPassword: string) {
   account.value = value;
@@ -409,5 +415,12 @@ onReady(() => {
 }
 .dialog-continue {
   flex: 1;
+  width: 0;
+  min-width: 0;
 }
+.dialog-cancel-wrap { margin-right: 10px; }
+.login-modes { flex-direction: row; margin-bottom: 24px; }
+.mode { flex: 1; text-align: center; font-size: 14px; padding-bottom: 12px; color: #949bb0; border-bottom: 2px solid #edf0f8; }
+.active { color: #425bff; border-bottom-color: #425bff; font-weight: 600; }
+.code-section { margin-top: 22px; }
 </style>

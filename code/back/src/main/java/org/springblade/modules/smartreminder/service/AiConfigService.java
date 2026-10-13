@@ -200,6 +200,10 @@ public class AiConfigService {
 		});
 	}
 
+    public void saveLanguage(Long userId,String language) {
+        if(!java.util.Set.of("zh-cn","en-us").contains(java.util.Objects.toString(language,"")))throw new IllegalArgumentException("不支持的语言");
+        jdbcTemplate.update("insert into blade_smart_user_preference(user_id,language,update_time) values(?,?,now()) on duplicate key update language=values(language),update_time=now()",userId,language);
+    }
 	public Map<String,Object> preferences(Long userId) {
 		Map<String,Object> result=new LinkedHashMap<>();result.put("models",choices(true));
 		List<Map<String,Object>> rows=jdbcTemplate.query("select llm_config_id,speech_config_id from blade_smart_user_preference where user_id=?",(rs,n)->{

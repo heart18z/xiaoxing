@@ -14,7 +14,10 @@ public class AppRoleGuard {
 
 	public void requireAppUser() {
 		List<String> roles = Func.toStrList(AuthUtil.getUserRole());
-		if (!roles.contains(APP_ROLE)) {
+		Integer active = org.springblade.core.tool.utils.SpringUtil.getBean(org.springframework.jdbc.core.JdbcTemplate.class)
+            .queryForObject("select count(*) from blade_user where id=? and is_deleted=0 and status=1",Integer.class,AuthUtil.getUserId());
+        if(active==null || active!=1)throw new ServiceException("账号已停用，请重新登录");
+        if (!roles.contains(APP_ROLE)) {
 			throw new ServiceException("当前账号未分配APP端使用人员角色");
 		}
 	}

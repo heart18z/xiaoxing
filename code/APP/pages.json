@@ -7,6 +7,18 @@
       }
     },
     {
+      "path": "pages/register/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/reset-password/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/chat/index",
       "style": {
         "navigationStyle": "custom",

@@ -101,3 +101,24 @@ test('late unauthorized response cannot refresh or clear a new account',async()=
  const f=await fixture((o,session)=>{if(o.url.includes('/oauth/token'))refreshes++;session.userId='2';session.revision++;o.success({statusCode:401,data:{}})});
  await assert.rejects(f.module.post('/a'),/账号已变化/);assert.equal(refreshes,0);assert.equal(f.cleared(),0);
 });
+
+test('email code login waits for explicit device confirmation before saving session',async()=>{
+ const calls=[];
+ const f=await fixture(o=>{
+  calls.push(o);
+  if(o.url.includes('bootstrap')){o.success({statusCode:200,data:{code:200,data:{}}});return}
+  o.success(o.header.confirm==='true'?{statusCode:200,data:{code:200,data:{access_token:'email-token',role_name:'app_user'}}}:{statusCode:400,data:{error:'need_confirm_login'}});
+ });
+ await assert.rejects(f.module.emailLogin('one@example.com','123456'),e=>e.status===601);
+ assert.equal(f.refreshed(),0);assert.equal(calls.length,1);
+ await f.module.emailLogin('one@example.com','123456',true);
+ assert.equal(f.refreshed(),1);assert.equal(f.session.token,'email-token');
+ assert.equal(calls[1].header.confirm,'true');assert.deepEqual(calls[1].data,{email:'one@example.com',code:'123456'});
+});
+test('malformed email login response rejects without modifying session',async()=>{
+ for(const data of [null,'<html>gateway</html>',[],42,'{}']){
+  const f=await fixture(o=>o.success({statusCode:502,data}));
+  await assert.rejects(f.module.emailLogin('one@example.com','123456'));
+  assert.equal(f.refreshed(),0);assert.equal(f.session.token,'old');
+ }
+});

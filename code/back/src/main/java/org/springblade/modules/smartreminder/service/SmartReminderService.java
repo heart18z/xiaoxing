@@ -2131,7 +2131,12 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 				JsonNode child = object.get(name);
 				if (child != null && child.isIntegralNumber() && ("id".equalsIgnoreCase(name) || name.toLowerCase(Locale.ROOT).endsWith("id"))) {
 					object.put(name, child.asText());
-				} else stringifyJsonIds(child);
+				} else if (child instanceof ArrayNode ids && name.toLowerCase(Locale.ROOT).endsWith("ids")) {
+                    for(int i=0;i<ids.size();i++) {
+                        if(ids.get(i).isIntegralNumber())ids.set(i,com.fasterxml.jackson.databind.node.TextNode.valueOf(ids.get(i).asText()));
+                        else stringifyJsonIds(ids.get(i));
+                    }
+                } else stringifyJsonIds(child);
 			}
 		} else if (node != null && node.isContainerNode()) {
 			node.forEach(this::stringifyJsonIds);

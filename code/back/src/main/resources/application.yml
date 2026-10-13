@@ -259,7 +259,11 @@ blade:
       - /app/account/suggest-account
       - /app/account/check-contact
       - /app/account/email-code
+      - /app/account/access-code
+      - /app/account/email-login
+      - /app/account/reset-password
       - /app/account/password
+      - /app/account/close
       - /blade-smart/ai-config/**
       - /blade-smart/registration-mail/**
   #安全框架配置
@@ -273,6 +277,9 @@ blade:
       - /app/account/suggest-account
       - /app/account/check-contact
       - /app/account/email-code
+      - /app/account/access-code
+      - /app/account/email-login
+      - /app/account/reset-password
       - /open/**
       - /unified-oauth/get-login-url
     #授权认证配置

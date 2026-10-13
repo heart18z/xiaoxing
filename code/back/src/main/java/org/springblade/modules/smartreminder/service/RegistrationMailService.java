@@ -67,6 +67,10 @@ public class RegistrationMailService {
     public void sendCode(String email,String code) {
         send(email,"AI小醒注册验证码","你的注册验证码是："+code+"\n\n验证码10分钟内有效，仅用于本邮箱注册。请勿向他人透露。\n如非本人操作，请忽略此邮件。",true);
     }
+    public void sendActionCode(String email,String code,String purpose) {
+        String label=switch(purpose){case "LOGIN" -> "登录";case "RESET" -> "重置密码";default -> throw new IllegalArgumentException("验证码用途无效");};
+        send(email,"AI小醒"+label+"验证码","你的"+label+"验证码是："+code+"\n\n10分钟内有效，仅用于本邮箱"+label+"。请勿向他人透露。如非本人操作，请忽略此邮件。",true);
+    }
     public void test(String recipient) { send(ContactIdentity.email(recipient),"AI小醒 SMTP 测试","这是一封 SMTP 配置测试邮件，不含注册验证码。收到此邮件表示发信链路正常。",false); }
     protected void send(String recipient,String subject,String body,boolean requireEnabled) {
         var rows=jdbc.queryForList("select * from blade_registration_mail where id=1");
