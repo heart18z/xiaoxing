@@ -8,5 +8,7 @@ fun main() {
     check(cursor.select("bob", listOf("2" to "REMINDER", "4" to "QUESTION")).isEmpty())
     check(cursor.select("bob", listOf("4" to "QUESTION", "5" to "EVENT_ASSIGNED")) == setOf("5"))
     check(cursor.select("bob", listOf("" to "REMINDER")).isEmpty())
+    check(cursor.select("bob", listOf("6" to "FRIEND_REQUEST")) == setOf("6"))
+    check(cursor.select("bob", listOf("6" to "FRIEND_REQUEST")).isEmpty())
     println("PASS: backlog suppression, duplicate suppression, account isolation, notification types")
 }

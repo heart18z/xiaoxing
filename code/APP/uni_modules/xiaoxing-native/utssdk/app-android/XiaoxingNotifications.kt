@@ -57,10 +57,10 @@ object XiaoxingNotifications {
         pendingTap = "{}"
         return result
     }
-    fun notification(context: Context, title: String, text: String, event: String = "", owner: String = "", ongoing: Boolean = false): Notification {
+    fun notification(context: Context, title: String, text: String, event: String = "", owner: String = "", ongoing: Boolean = false, type: String = ""): Notification {
         val intent = Intent(context, XiaoxingNotificationOpenActivity::class.java)
-        intent.putExtra("xiaoxing.event", event).putExtra("xiaoxing.owner", owner)
-        val pending = PendingIntent.getActivity(context, (owner + ":" + event).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        intent.putExtra("xiaoxing.event", event).putExtra("xiaoxing.owner", owner).putExtra("xiaoxing.type", type)
+        val pending = PendingIntent.getActivity(context, (owner + ":" + type + ":" + event).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, if (ongoing) CONNECTION else ALERT) else Notification.Builder(context)
         return builder.setSmallIcon(android.R.drawable.ic_popup_reminder).setContentTitle(title).setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(pending)
@@ -171,7 +171,7 @@ class XiaoxingReminderService: Service() {
             if (closed || XiaoxingAndroid.read(this, "session") != snapshot) return
             val code = result.optInt("code", 200)
             if (code != 200) {
-                if (code == 401 || result.optString("msg").contains("令牌")) expired(snapshot)
+                if (code == 401 || result.optString("msg").contains("令牌") || result.optString("msg") == "认证信息错误或无效") expired(snapshot)
                 return
             }
             val rows = result.optJSONObject("data")?.optJSONArray("messages") ?: return
@@ -182,7 +182,7 @@ class XiaoxingReminderService: Service() {
                 if (closed || XiaoxingAndroid.read(this, "session") != snapshot) return
                 val text = row.optString("content").ifBlank { "你有一条新的事件提醒" }
                 XiaoxingNotifications.manager(this).notify("xiaoxing:" + owner, row.getString("id").hashCode(),
-                    XiaoxingNotifications.notification(this, "AI小醒 · 事件提醒", text, row.optString("eventId"), owner))
+                    XiaoxingNotifications.notification(this, if (row.optString("messageType") == "FRIEND_REQUEST") "AI小醒 · 好友申请" else "AI小醒 · 事件提醒", text, row.optString("eventId"), owner, type = row.optString("messageType")))
             }
             XiaoxingNotifications.lastError = ""
         } catch (_: Exception) {
@@ -203,6 +203,7 @@ class XiaoxingNotificationOpenActivity: Activity() {
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         XiaoxingNotifications.pendingTap = JSONObject()
+            .put("type", intent.getStringExtra("xiaoxing.type") ?: "")
             .put("eventId", intent.getStringExtra("xiaoxing.event") ?: "")
             .put("recipientUserId", intent.getStringExtra("xiaoxing.owner") ?: "").toString()
         packageManager.getLaunchIntentForPackage(packageName)?.let {

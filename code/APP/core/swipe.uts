@@ -1,0 +1,21 @@
+// Lock direction early: a vertical scroll must never become a tab/drawer swipe.
+export class HorizontalSwipe {
+  private x: number = 0;
+  private y: number = 0;
+  private axis: number = 0;
+  private active: boolean = false;
+  start(x: number, y: number): void { this.x = x; this.y = y; this.axis = 0; this.active = true; }
+  move(x: number, y: number): number {
+    if (!this.active) return 0;
+    const dx = x - this.x, dy = y - this.y;
+    if (this.axis == 0 && Math.max(Math.abs(dx), Math.abs(dy)) >= 12)
+      this.axis = Math.abs(dx) > Math.abs(dy) * 1.5 ? 1 : 2;
+    return this.axis == 1 ? dx : 0;
+  }
+  end(x: number, y: number): number {
+    const dx = this.move(x, y);
+    this.active = false;
+    return Math.abs(dx) >= 64 ? (dx < 0 ? -1 : 1) : 0;
+  }
+  cancel(): void { this.active = false; }
+}

@@ -1,3 +1,4 @@
+import { openFriendRequests } from '@/store/navigation.uts';
 import { reactive } from 'vue';
 import { nativeCall, secureRead, randomHex } from '@/uni_modules/xiaoxing-native';
 import { session, persist, clearSession } from '@/store/session.uts';
@@ -208,8 +209,9 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
 }
 export async function checkNotificationTap(): Promise<void> {
   const tap = await callNative('push.tap');
-  if (s(tap, 'recipientUserId') == session.userId && session.userId.length > 0)
-    openEvent(s(tap, 'eventId'));
+  if (s(tap, 'recipientUserId') != session.userId || session.userId.length == 0) return;
+  if (s(tap, 'type') == 'FRIEND_REQUEST') openFriendRequests();
+  else openEvent(s(tap, 'eventId'));
 }
 export async function startNative(): Promise<void> {
   await callNative('initialize');

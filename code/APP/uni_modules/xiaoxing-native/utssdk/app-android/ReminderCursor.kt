@@ -9,7 +9,7 @@ class ReminderCursor {
         if (owner != user) { owner = user; primed = false; seen.clear() }
         val fresh = LinkedHashSet<String>()
         for ((id, type) in rows) {
-            if (id.isNotEmpty() && seen.add(id) && primed && type in setOf("REMINDER", "QUESTION", "FEEDBACK", "CONFLICT", "EVENT_ASSIGNED")) fresh.add(id)
+            if (id.isNotEmpty() && seen.add(id) && primed && type in setOf("REMINDER", "QUESTION", "FEEDBACK", "CONFLICT", "EVENT_ASSIGNED", "FRIEND_REQUEST")) fresh.add(id)
         }
         primed = true
         while (seen.size > 500) seen.remove(seen.first())

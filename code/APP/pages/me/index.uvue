@@ -334,7 +334,7 @@
       <view class="info-row">
         <text class="app-font info-key">{{ t('姓名') }}</text>
         <text class="app-font info-value">
-          {{ s(selected, 'name', s(selected, 'realName', t('未填写'))) }}
+          {{ originalName(selected) }}
         </text>
       </view>
       <view class="info-row">
@@ -477,9 +477,10 @@ import { updates, checkUpdates } from '@/services/updates.uts';
 // #ifdef WEB
 import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
 // #endif
+import { NavigationState, navigation as _navigation, consumeFriendRequests } from '@/store/navigation.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
 import AvatarPicker from '@/components/AvatarPicker.uvue';
@@ -489,6 +490,12 @@ import { firstText, s as _s, arr as _arr, obj, message } from '@/core/json.uts';
 import { asset as _asset, toast, confirm } from '@/core/ui.uts';
 import { logout } from '@/services/native.uts';
 const session: SessionState = _session;
+const navigation: NavigationState = _navigation;
+function originalName(person: UTSJSONObject): string {
+  const name = _s(person, 'name').trim();
+  const realName = _s(person, 'realName').trim();
+  return name.length > 0 ? name : realName.length > 0 ? realName : _t('未填写');
+}
 function t(value: string): string {
   return _t(value);
 }
@@ -805,7 +812,11 @@ function stopTimer() {
   ticket++;
   clearInterval(timer);
 }
+watch((): string => navigation.friendRequestsOwner, (owner: string) => {
+  if (owner.length > 0 && consumeFriendRequests()) tab.value = 1;
+});
 onShow(() => {
+  if (consumeFriendRequests()) tab.value = 1;
   void checkUpdates().catch(() => {});
   if (!requireSession()) return;
   void load();

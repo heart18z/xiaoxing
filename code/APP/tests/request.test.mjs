@@ -122,3 +122,26 @@ test('malformed email login response rejects without modifying session',async()=
   assert.equal(f.refreshed(),0);assert.equal(f.session.token,'old');
  }
 });
+
+test('business authentication error with HTTP 200 refreshes and expires once for concurrent callers', async () => {
+ let launches=0;
+ const f=await fixture(o=>o.success({statusCode:200,data:{code:500,msg:'认证信息错误或无效'}}));
+ globalThis.uni.reLaunch=()=>launches++;
+ await Promise.allSettled([f.module.post('/profile'),f.module.post('/friends')]);
+ assert.equal(f.cleared(),1);assert.equal(launches,1);
+});
+test('temporary invalid access token recovers without a login redirect',async()=>{
+ let calls=0, launches=0;
+ const f=await fixture(o=>o.success(o.url.includes('/oauth/token')?{statusCode:200,data:{access_token:'renewed'}}:++calls===1?{statusCode:200,data:{code:500,msg:'认证信息错误或无效'}}:{statusCode:200,data:{code:200,data:{ok:true}}}));
+ globalThis.uni.reLaunch=()=>launches++;
+ await f.module.post('/profile');assert.equal(f.refreshed(),1);assert.equal(f.cleared(),0);assert.equal(launches,0);
+});
+
+test('requests after expiry cannot repeatedly relaunch the login page',async()=>{
+ let launches=0;
+ const f=await fixture(o=>o.success({statusCode:200,data:{code:500,msg:'认证信息错误或无效'}}));
+ globalThis.uni.reLaunch=()=>launches++;
+ await Promise.allSettled([f.module.post('/profile'),f.module.post('/friends')]);
+ await Promise.allSettled([f.module.post('/summary'),f.module.post('/events')]);
+ assert.equal(launches,1);
+});

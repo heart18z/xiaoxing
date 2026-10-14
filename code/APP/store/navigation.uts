@@ -1,0 +1,13 @@
+import { reactive } from 'vue';
+import { session } from './session.uts';
+export type NavigationState = { friendRequestsOwner: string };
+export const navigation = reactive<NavigationState>({ friendRequestsOwner: '' });
+export function openFriendRequests(): void {
+  navigation.friendRequestsOwner = session.userId;
+  uni.switchTab({ url: '/pages/me/index' });
+}
+export function consumeFriendRequests(): boolean {
+  const pending = navigation.friendRequestsOwner.length > 0 && navigation.friendRequestsOwner == session.userId;
+  navigation.friendRequestsOwner = '';
+  return pending;
+}

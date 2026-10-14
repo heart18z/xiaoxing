@@ -5,5 +5,5 @@ export function credentialRejected(status: number, body: UTSJSONObject): boolean
   const error = s(body, 'error');
   if (error == 'invalid_grant' || error == 'invalid_token') return true;
   const description = s(body, 'error_description', s(body, 'msg', s(body, 'message'))).trim();
-  return ['令牌刷新错误或无效', '令牌无效', '无效的令牌', '令牌已过期'].includes(description);
+  return ['令牌刷新错误或无效', '令牌无效', '无效的令牌', '令牌已过期', '认证信息错误或无效', '账号已停用，请重新登录'].includes(description);
 }

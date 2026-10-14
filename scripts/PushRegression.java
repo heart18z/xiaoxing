@@ -91,6 +91,23 @@ public class PushRegression {
       check(json.readTree(Base64.getUrlDecoder().decode(parts[1])).path("iat").asLong()==1700000000,"JWT issued-at timestamp is in seconds");
       p.setProductionKeyPath("relative.p8");check(!new ApnsClient(p,json).ready("production"),"missing/non-absolute private key does not enable transport");
       check(!new ApnsClient.Result(400,"BadTopic").retryable(),"permanent APNs configuration errors do not spin retries");
+      apns.next = new ApnsClient.Result(200,"Accepted");
+      register(1, installation, secret);
+      // Upgrade an existing NOT NULL outbox, then verify a social delivery has no fake event id.
+      db.execute("alter table blade_smart_push_delivery modify column event_id bigint not null");
+      PushSchema.migrate(db);
+      db.update("insert into blade_smart_chat_message values(100,1,null,0,'FRIEND_REQUEST','小谢申请添加你为好友，点击查看。')");
+      tx.execute(state -> { PushOutbox.enqueue(db,100,1,"assistant","FRIEND_REQUEST",null,false); return null; });
+      check(count("select count(*) from blade_smart_push_delivery where message_id=100")==1,"friend request enters device outbox without an event");
+      worker.deliver(job(100));
+      check(status(100).equals("SENT") && apns.payload.get("type").equals("FRIEND_REQUEST") && apns.payload.get("eventId").equals("") && apns.payload.get("recipientUserId").equals("1"),"friend notification routes to requests for its recipient");
+      db.update("insert into blade_smart_chat_message values(101,1,null,0,'FRIEND_REQUEST','request')");
+      PushOutbox.enqueue(db,101,1,"assistant","FRIEND_REQUEST",null,false);
+      db.update("update blade_smart_chat_message set is_read=1 where id=101");
+      worker.deliver(job(101));check(status(101).equals("CANCELLED"),"processed friend request cannot deliver a late alert");
+      db.update("insert into blade_smart_chat_message values(102,1,null,0,'TEXT','normal reply')");
+      PushOutbox.enqueue(db,102,1,"assistant","TEXT",null,false);
+      check(count("select count(*) from blade_smart_push_delivery where message_id=102")==0,"ordinary replies with no event do not generate notifications");
       System.out.println("ALL PUSH REGRESSIONS PASSED");
     } finally {worker.close();}
   }

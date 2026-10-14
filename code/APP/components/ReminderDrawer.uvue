@@ -7,9 +7,11 @@
   >
     <view
       class="drawer"
-      :style="{ transform: visible ? 'translateX(0px)' : 'translateX(-100%)' }"
+      :style="{ transform: visible ? 'translateX(' + dragX + 'px)' : 'translateX(-100%)', transitionDuration: dragging ? '0ms' : '240ms' }"
+      @touchstart="swipeStart" @touchmove="swipeMove" @touchend="swipeEnd" @touchcancel="swipeCancel"
       @click.stop="noop"
     >
+      <view class="drawer-sheen" />
       <view :style="{ height: top + 'px' }" />
       <view class="drawer-heading">
         <view class="grow">
@@ -59,7 +61,7 @@
           <text class="app-font error">{{ error }}</text>
           <button class="app-font secondary" @click="load()">{{ t('重试') }}</button>
         </view>
-        <view v-for="group in groups" :key="group.key" class="reminder-group">
+        <view v-for="group in groups" :key="group.key" :class="['reminder-group', 'group-' + group.key]">
           <view class="group-heading">
             <text class="app-font group-title">{{ t(group.title) }}</text>
             <text class="app-font" :class="['group-count', 'count-' + group.key]">
@@ -72,7 +74,6 @@
             :key="s(item, 'eventId')"
             class="drawer-card"
             @click="
-              emit('close');
               openEvent(s(item, 'eventId'));
             "
           >
@@ -122,6 +123,7 @@
   />
 </template>
 <script setup lang="uts">
+import { HorizontalSwipe } from '@/core/swipe.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed, watch, onUnmounted } from 'vue';
@@ -145,9 +147,6 @@ function b(row: UTSJSONObject, key: string): boolean {
 }
 function displayTime(value: string): string {
   return _displayTime(value);
-}
-function openEvent(id: string): void {
-  return _openEvent(id);
 }
 const props = defineProps({ open: { type: Boolean, default: false } });
 const emit = defineEmits(['close']);
@@ -196,6 +195,30 @@ function applyRange(a: string, b: string) {
   end.value = b;
 }
 function noop() {}
+const swipe = new HorizontalSwipe();
+const dragX = ref(0), dragging = ref(false);
+let ignoreClickUntil = 0;
+function openEvent(id: string): void {
+  if (Date.now() < ignoreClickUntil) return;
+  emit('close');
+  return _openEvent(id);
+}
+function swipeCancel(): void { swipe.cancel(); dragging.value = false; dragX.value = 0; }
+function swipeStart(e: UniTouchEvent): void {
+  swipe.cancel();
+  if (dateOpen.value || e.touches.length != 1) return;
+  swipe.start(e.touches[0].clientX, e.touches[0].clientY);
+}
+function swipeMove(e: UniTouchEvent): void {
+  if (e.touches.length != 1) { swipeCancel(); return; }
+  const dx = swipe.move(e.touches[0].clientX, e.touches[0].clientY);
+  if (dx != 0 || dragging.value) { dragging.value = true; dragX.value = Math.min(0, dx); ignoreClickUntil = Date.now() + 400; }
+}
+function swipeEnd(e: UniTouchEvent): void {
+  dragging.value = false;
+  if (e.changedTouches.length > 0 && swipe.end(e.changedTouches[0].clientX, e.changedTouches[0].clientY) < 0) emit('close');
+  dragX.value = 0;
+}
 const rendered = ref(false),
   visible = ref(false);
 let animationTimer: number = 0;
@@ -205,6 +228,7 @@ watch(
   (): boolean => props.open,
   (value: boolean) => {
     clearTimeout(animationTimer);
+    swipeCancel();
     if (value) {
       rendered.value = true;
       animationTimer = setTimeout(() => {
@@ -224,6 +248,8 @@ watch(
 );
 </script>
 <style scoped>
+.drawer-sheen { position: absolute; top: 0; right: 0; width: 180px; height: 230px; border-bottom-left-radius: 180px; background-color: #ffffff40; }
+
 .drawer-mask {
   transition-property: opacity;
   transition-duration: 240ms;
@@ -245,10 +271,10 @@ watch(
   height: 100%;
   padding: 28px 12px 24px;
   /* #ifdef WEB */
-  background-image: linear-gradient(125deg, #f8fbff, #eef4ff, #f8fbff);
+  background-image: linear-gradient(125deg, #e3efff, #f1edff, #e8f7f6);
   /* #endif */
   /* #ifndef WEB */
-  background-image: linear-gradient(to bottom right, #f8fbff, #f8fbff);
+  background-image: linear-gradient(to bottom right, #e7efff, #edf8f7);
   /* #endif */
   border-top-right-radius: 26px;
   border-bottom-right-radius: 26px;
@@ -350,7 +376,8 @@ watch(
 .reminder-group {
   padding: 10px 6px 4px;
   border-radius: 19px;
-  background-color: #eaf2fc75;
+  background-color: #dbeaff80;
+  border: 1px solid #ffffff99;
   margin-bottom: 12px;
 }
 .group-heading {
@@ -381,7 +408,8 @@ watch(
 .drawer-card {
   flex-direction: row;
   align-items: center;
-  background-color: #ffffffed;
+  background-color: #ffffffc9;
+  border: 1px solid #ffffffd9;
   border-radius: 17px;
   padding: 10px 8px;
   margin-bottom: 6px;
@@ -477,4 +505,7 @@ watch(
 .date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-family: 'PingFangSC-Semibold'; }
 .drawer-event-meta { font-family: 'PingFangSC-Medium'; }
 /* #endif */
+.group-sent { background-color: #d6eee380; }
+.group-tomorrow { background-color: #e4dcfa80; }
+.group-later { background-color: #f5e8d380; }
 </style>

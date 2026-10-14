@@ -695,6 +695,11 @@ public class SmartReminderService {
 		Long id = IdWorker.getId();
 		jdbcTemplate.update("insert into blade_friend_request(id,applicant_user_id,target_user_id,request_message,request_type,permission_mode,request_status,create_time,update_time) values(?,?,?,?,?,?,'PENDING',now(),now())",
 			id, userId, targetUserId, Func.toStr(message).trim(), requestType, mode);
+        var applicant = jdbcTemplate.queryForMap("select name,real_name as realName,account from blade_user where id=?",userId);
+        String applicantName = firstNonBlank(applicant.get("name"), applicant.get("realName"), applicant.get("account"), "用户");
+        String notice = applicantName + ("PERMISSION".equals(requestType) ? "申请调整提醒权限，点击查看。" : "申请添加你为好友，点击查看。");
+        insertChat(targetUserId, "assistant", "FRIEND_REQUEST", notice,
+            "{\"requestId\":\"" + id + "\",\"requestType\":\"" + requestType + "\"}", null, null, false);
 		return id;
 	}
 
@@ -710,6 +715,7 @@ public class SmartReminderService {
 		Long applicant = ((Number) request.get("applicant_user_id")).longValue();
 		String mode = normalizePermissionMode(Objects.toString(request.get("permission_mode"), "MUTUAL"));
 		jdbcTemplate.update("update blade_friend_request set request_status=?,reply_time=now(),update_time=now() where id=?", accept ? "ACCEPTED" : "REJECTED", requestId);
+        jdbcTemplate.update("update blade_smart_chat_message set is_read=1 where user_id=? and message_type='FRIEND_REQUEST' and JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.requestId'))=?", userId, requestId.toString());
 		if (accept) {
 			upsertFriendship(applicant, userId, mode);
 			upsertFriendship(userId, applicant, mirrorPermissionMode(mode));
@@ -727,7 +733,7 @@ public class SmartReminderService {
 			e.event_status as eventStatus,e.create_time as createTime,b.id as branchId,b.branch_status as branchStatus,b.next_evaluate_time as nextEvaluateTime,
 			(select case when t.node_type='TIME_CONFLICT_DETECTED' then '该时段已有其他安排，请确认本事件是否继续或调整时间。' else t.content end from blade_smart_timeline t where t.event_id=e.id and (t.branch_id is null or t.branch_id=b.id) order by t.create_time desc,t.id desc limit 1) as latestFact,
 			(select t.create_time from blade_smart_timeline t where t.event_id=e.id and (t.branch_id is null or t.branch_id=b.id) order by t.create_time desc,t.id desc limit 1) as latestProgressTime,
-			u.name as creatorName,u.real_name as creatorRealName
+			u.id as creatorId,u.avatar as creatorAvatar,u.name as creatorName,u.real_name as creatorRealName
 			from blade_smart_event_branch b join blade_smart_event e on e.id=b.event_id join blade_user u on u.id=e.creator_user_id
 			where b.recipient_user_id=? and e.creator_user_id<>?
 			""" : """
@@ -748,7 +754,32 @@ public class SmartReminderService {
 		if (!received) sql += " group by e.id";
 		sql += " order by e.create_time desc";
 		List<Map<String, Object>> result = jdbcTemplate.queryForList(sql, args.toArray());
+        // Fetch recipient thumbnails once for this owner's event list, not once per card.
+        Map<Long,List<Map<String,Object>>> eventPeople = new HashMap<>();
+        if (!received && !result.isEmpty()) {
+            Set<Long> visibleIds = new HashSet<>();
+            for (var item : result) visibleIds.add(((Number)item.get("id")).longValue());
+            for (var person : jdbcTemplate.queryForList("""
+                select eventId,id,avatar,name,realName from (
+                    select b.event_id as eventId,u.id,u.avatar,u.name,u.real_name as realName,
+                    row_number() over (partition by b.event_id order by b.id) as thumbnailOrder
+                    from blade_smart_event_branch b join blade_smart_event e on e.id=b.event_id
+                    join blade_user u on u.id=b.recipient_user_id where e.creator_user_id=?
+                ) thumbnails where thumbnailOrder<=4 order by eventId,thumbnailOrder
+                """,userId)) {
+                Long eventId = ((Number)person.remove("eventId")).longValue();
+                if (!visibleIds.contains(eventId)) continue;
+                var people = eventPeople.computeIfAbsent(eventId, ignored -> new ArrayList<>());
+                if (people.size() < 4) { normalizeMapIds(person); people.add(person); }
+            }
+        }
 		for(Map<String,Object> item:result) {
+            if (received) {
+                Map<String,Object> person = new LinkedHashMap<>();
+                person.put("id", Objects.toString(item.get("creatorId"), ""));
+                person.put("avatar", item.get("creatorAvatar"));
+                item.put("people", List.of(person));
+            } else item.put("people", eventPeople.getOrDefault(((Number)item.get("id")).longValue(), List.of()));
 			Long id=((Number)item.get("id")).longValue();
 			item.put("eventSummary",received?eventContent.latestTask(id,userId):eventContent.latestEventSummary(id,Objects.toString(item.get("eventSummary"),"")));
 			if(!received) {

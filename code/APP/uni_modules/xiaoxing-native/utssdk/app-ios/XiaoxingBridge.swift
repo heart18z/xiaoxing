@@ -149,7 +149,7 @@ public final class XiaoxingBridge: NSObject, UNUserNotificationCenterDelegate, U
     public func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping()->Void){
         DispatchQueue.main.async {
             let info=response.notification.request.content.userInfo
-            for key in ["eventId","messageId","recipientUserId"] { if let value=info[key] {self.tapped[key]="\(value)"} }
+            for key in ["eventId","messageId","recipientUserId","type"] { if let value=info[key] {self.tapped[key]="\(value)"} }
             if let old=self.previousNotificationDelegate,old.responds(to:#selector(self.userNotificationCenter(_:didReceive:withCompletionHandler:))) {old.userNotificationCenter?(center,didReceive:response,withCompletionHandler:completionHandler)}else{completionHandler()}
         }
     }

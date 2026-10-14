@@ -48,6 +48,10 @@
         >
           {{ t('附件：') }}{{ strings(payload(item), 'fileNames').join('、') }}
         </text>
+        <view v-if="s(item, 'messageType') == 'FRIEND_REQUEST'" class="card-footer">
+          <text class="app-font event-link" @click="openRequests()">{{ t('查看好友申请 ›') }}</text>
+          <text class="app-font message-time">{{ messageTime }}</text>
+        </view>
         <view v-if="s(item, 'messageType') == 'EVENT_ASSIGNED'" class="card-footer">
           <text class="app-font event-link" @click="openEvent(s(item, 'eventId'))">
             {{ t('查看事件详情 ›') }}
@@ -180,6 +184,7 @@
   </view>
 </template>
 <script setup lang="uts">
+import { openFriendRequests } from '@/store/navigation.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import ThinkingPanel from './ThinkingPanel.uvue';
@@ -199,6 +204,7 @@ import {
 import { asset, openEvent as _openEvent } from '@/core/ui.uts';
 import { markdown as _markdown } from '@/core/markdown.uts';
 const session: SessionState = _session;
+function openRequests(): void { openFriendRequests(); }
 function t(value: string): string {
   return _t(value);
 }

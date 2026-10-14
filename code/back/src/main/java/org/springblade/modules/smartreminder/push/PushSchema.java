@@ -18,7 +18,7 @@ public final class PushSchema {
             """);
         jdbc.execute("""
             create table if not exists blade_smart_push_delivery (
-              id bigint primary key, message_id bigint not null, event_id bigint not null,
+              id bigint primary key, message_id bigint not null, event_id bigint null,
               user_id bigint not null, device_id varchar(36) not null, binding_id varchar(36) not null,
               apns_id varchar(36) not null, status varchar(20) not null default 'PENDING',
               attempts int not null default 0, next_attempt_at datetime(6) not null,
@@ -28,5 +28,14 @@ public final class PushSchema {
               key idx_push_pending(status,next_attempt_at), key idx_push_device(device_id,binding_id)
             )
             """);
+        // Existing installations created this column as NOT NULL. Social notifications have no event.
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            try (var columns = connection.getMetaData().getColumns(connection.getCatalog(), null, "blade_smart_push_delivery", "event_id")) {
+                if (columns.next() && columns.getInt("NULLABLE") == java.sql.DatabaseMetaData.columnNoNulls) {
+                    try (var statement = connection.createStatement()) { statement.execute("alter table blade_smart_push_delivery modify column event_id bigint null"); }
+                }
+            }
+            return null;
+        });
     }
 }

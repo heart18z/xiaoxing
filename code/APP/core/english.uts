@@ -555,3 +555,5 @@ english["确认注销"] = "Delete account";
 english["正在注销…"] = "Deleting\u2026";
 english["语言已保存"] = "Language saved";
 english["账号已注销"] = "Account deleted";
+
+english["查看好友申请 ›"] = "View friend requests ›";

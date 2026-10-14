@@ -57,6 +57,10 @@
       :refresher-triggered="refreshing"
       refresher-default-style="none"
       @refresherrefresh="refresh()"
+      @touchstart="swipeStart"
+      @touchmove="swipeMove"
+      @touchend="swipeEnd"
+      @touchcancel="swipe.cancel()"
     >
       <view slot="refresher" class="refresh-status">
         <view
@@ -122,11 +126,16 @@
           </view>
           <text class="app-font event-title">{{ s(item, 'eventSummary') }}</text>
           <view class="people">
-            <UiIcon name="people" :size="17" />
+            <view v-if="people(item).length > 0" class="people-avatars">
+              <image v-for="person in people(item)" :key="s(person, 'id')" class="person-avatar"
+                :src="personAvatar(person)" mode="aspectFill" />
+              <text v-if="type == 'sent' && n(item, 'recipientCount') > 4" class="app-font people-more">…</text>
+            </view>
+            <UiIcon v-else name="people" :size="17" />
             <text class="app-font muted">
               {{
                 type == 'received'
-                  ? t('发起人：') + s(item, 'creatorName', s(item, 'creatorRealName'))
+                  ? creatorLabel(item)
                   : t('接收人 ') +
                     n(item, 'recipientCount') +
                     t(' 人 · 进行中 ') +
@@ -162,6 +171,9 @@
   </AppFrame>
 </template>
 <script setup lang="uts">
+import { HorizontalSwipe } from '@/core/swipe.uts';
+import { asset } from '@/core/ui.uts';
+import { arr, firstText } from '@/core/json.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { latestProgress } from '@/core/events.uts';
 import { t as _t } from '@/core/locale.uts';
@@ -191,9 +203,12 @@ function displayTime(value: string): string {
 function statusText(value: string): string {
   return _statusText(value);
 }
+let ignoreClickUntil = 0;
 function openEvent(id: string): void {
+  if (Date.now() < ignoreClickUntil) return;
   return _openEvent(id);
 }
+const swipe = new HorizontalSwipe();
 const type = ref('sent'),
   all = ref(false),
   keyword = ref(''),
@@ -222,6 +237,20 @@ const filtered = computed(() =>
       .includes(keyword.value.toLowerCase()),
   ),
 );
+function creatorLabel(item: UTSJSONObject): string { return _t('发起人：') + firstText(item, ['creatorName', 'creatorRealName']); }
+function people(item: UTSJSONObject): UTSJSONObject[] { return arr(item, 'people').slice(0, 4); }
+function personAvatar(person: UTSJSONObject): string {
+  const url = s(person, 'avatar').trim();
+  return asset(url.length > 0 ? url : '/avatars/user/B1.png');
+}
+function swipeStart(e: UniTouchEvent): void {
+  if (e.touches.length != 1) { swipe.cancel(); return; }
+  swipe.start(e.touches[0].clientX, e.touches[0].clientY);
+}
+function swipeMove(e: UniTouchEvent): void {
+  if (e.touches.length != 1) { swipe.cancel(); return; }
+  if (Math.abs(swipe.move(e.touches[0].clientX, e.touches[0].clientY)) > 12) ignoreClickUntil = Date.now() + 400;
+}
 async function load(silent: boolean = false) {
   if (silent && (loadingRequest || refreshing.value)) return;
   const current = ++ticket;
@@ -272,8 +301,18 @@ async function refresh() {
   }
 }
 function changeType(value: string) {
+  if (type.value == value) return;
+  rows.value = [];
   type.value = value;
   void load();
+}
+function swipeEnd(e: UniTouchEvent): void {
+  if (e.changedTouches.length == 0) return;
+  const direction = swipe.end(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+  if (direction != 0) {
+    ignoreClickUntil = Date.now() + 400;
+    changeType(direction < 0 ? 'received' : 'sent');
+  }
 }
 function stop() {
   ticket++;
@@ -294,6 +333,10 @@ onHide(stop);
 onUnload(stop);
 </script>
 <style scoped>
+.people-avatars { flex-direction: row; align-items: center; flex-shrink: 0; margin-right: 6px; }
+.person-avatar { width: 24px; height: 24px; border-radius: 8px; margin-right: 4px; background-color: #eef2ff; }
+.people-more { width: 18px; color: #71809e; text-align: center; font-size: 16px; }
+
 .filters {
   padding: 0 16px;
 }
@@ -485,6 +528,8 @@ onUnload(stop);
   color: #9699a5;
 }
 .people .muted {
+  flex: 1;
+  min-width: 0;
   margin-left: 9px;
 }
 .date-row .muted {

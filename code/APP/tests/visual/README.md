@@ -27,3 +27,6 @@ npx --yes --package @playwright/cli playwright-cli -s=visual run-code --filename
 
 
 2026-09-21 iOS parity checks: `chat-voice.js` now checks the inline recording panel, microphone release, cancellation and late transcription results. `native-ui.test.mjs` prevents nested elements in native buttons. HBuilderX 5.24 bundles Vue 3.4.21; Web verification must use the matching compiler and `@vue/shared`, rather than accidentally resolving the project's newer test-only Vue dependencies.
+
+
+2026-10-14 / 131：启动本机 5175 Web 预览，在独立 Playwright CLI 会话中依次执行 `social131-fixture.js`、`social131.js`、`social131-notification.js`、`social131-drawer-auth.js`。最后一个脚本模拟登录失效并退出测试登录；再次运行需重载 fixture。覆盖空 name / 非空 realName、四头像及省略号、左右切换/纵向手势、抽屉关闭、320px 布局、通知入口和登录失效。接口均为浏览器拦截的本地测试数据。截图在 `output/playwright/social131-*.png`。

@@ -90,12 +90,18 @@ function raw(
   });
 }
 let refreshing: Promise<void> | null = null;
+let redirectingToLogin = false;
+function goToLogin(): void {
+  if (redirectingToLogin) return;
+  redirectingToLogin = true;
+  uni.reLaunch({ url: '/pages/login/index', fail: (_) => { redirectingToLogin = false; } });
+}
 function expireSession(revision: number): void {
   if (revision != session.revision) return;
   try {
     clearSession();
   } finally {
-    uni.reLaunch({ url: '/pages/login/index' });
+    goToLogin();
   }
 }
 export function refreshToken(): Promise<void> {
@@ -140,9 +146,10 @@ export async function post(
   const owner = session.userId,
     revision = session.revision;
   if (auth && session.token.length == 0) {
-    uni.reLaunch({ url: '/pages/login/index' });
+    goToLogin();
     throw new ApiError(401, '请先登录');
   }
+  if (auth) redirectingToLogin = false;
   let body: UTSJSONObject;
   try {
     body = await raw(path, data, params, timeout);
