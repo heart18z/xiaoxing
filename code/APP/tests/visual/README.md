@@ -34,3 +34,5 @@ npx --yes --package @playwright/cli playwright-cli -s=visual run-code --filename
 2026-10-14 / 132：先运行 `social131-fixture.js`，再运行 `reminder132.js`。检查六人显示四头像和 `+2`、四种配色与说明、空分组只保留标题、320px 卡片布局、纵向滚动与左滑收回。截图在 `output/playwright/reminder132-*.png`。
 
 2026-10-14 / 133：先运行 `social131-fixture.js`，再运行 `reminder133.js`。检查圆形头像与 `+N`、90% 宽抽屉、点击右侧空白收回且不触发底层页面、320px 头像行及筛选按钮布局、纵向滚动与左滑收回。截图在 `output/playwright/reminder133-*.png`。
+
+2026-10-14 / 134：先运行 `social131-fixture.js`，再运行 `applications134.js`。验证好友申请合并列表、双向待处理/已通过状态、准确接受/拒绝、已处理记录保留、待处理计数、权限内容、320px 布局及头像弹窗已恢复原样。截图在 `output/playwright/applications134-requests.png`、`applications134-320.png`。`social131-notification.js` 的目标标签改为「好友申请」。

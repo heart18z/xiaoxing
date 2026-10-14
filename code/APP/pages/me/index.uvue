@@ -61,12 +61,7 @@
           :class="['segment-item', tab == 1 ? 'selected' : '']"
           @click="tab = 1"
         >
-          {{ t('申请待通过') }}
-          {{
-            arr(requests, 'incoming').length + arr(requests, 'outgoing').length > 0
-              ? arr(requests, 'incoming').length + arr(requests, 'outgoing').length
-              : ''
-          }}
+          {{ t('好友申请') }} {{ arr(requests, 'incoming').length > 0 ? arr(requests, 'incoming').length : '' }}
         </text>
       </view>
       <view v-if="error.length > 0" class="card">
@@ -123,113 +118,27 @@
         </view>
       </view>
       <view v-else class="requests-area">
-        <view class="request-section">
-          <view class="request-section-head">
-            <view class="request-section-icon">
-              <UiIcon name="people" tone="blue" :size="18" />
+        <scroll-view :scroll-y="true" :show-scrollbar="false" class="applications-scroll" :bounces="false">
+          <view class="applications-card">
+            <view v-if="requestItems.length == 0" class="application-empty">
+              <text class="app-font application-name">{{ t('暂无好友申请') }}</text>
+              <text class="app-font application-description">{{ t('收到和发出的申请会显示在这里') }}</text>
             </view>
-            <text class="app-font request-section-title">{{ t('等待我处理') }}</text>
-            <text class="app-font request-section-count">
-              {{ arr(requests, 'incoming').length }}
-            </text>
+            <view v-for="item in requestItems" :key="s(item, 'id')" class="application-row">
+              <image class="application-avatar" :src="asset(s(item, 'avatar').length > 0 ? s(item, 'avatar') : '/avatars/user/B1.png')" mode="aspectFill" />
+              <view class="application-person">
+                <text class="app-font application-name">{{ name(item) }}</text>
+                <text class="app-font application-description">{{ t(requestDescription(item)) }}</text>
+                <text v-if="s(item, 'requestType') == 'PERMISSION' && s(item, 'requestStatus') == 'PENDING'" class="app-font application-permission">{{ t(permission(s(item, 'permissionMode'), s(item, 'direction') == 'incoming')) }}</text>
+              </view>
+              <view v-if="s(item, 'direction') == 'incoming' && s(item, 'requestStatus') == 'PENDING'" class="application-actions">
+                <button class="app-font application-reject" :disabled="saving" @click="reply(s(item, 'id'), false)">{{ t('拒绝') }}</button>
+                <button class="app-font application-accept" :disabled="saving" @click="reply(s(item, 'id'), true)">{{ t('接受') }}</button>
+              </view>
+              <text v-else class="app-font application-status">{{ t(requestStatus(item)) }}</text>
+            </view>
           </view>
-          <scroll-view :scroll-y="true" class="request-section-scroll">
-            <view v-if="arr(requests, 'incoming').length == 0" class="request-empty">
-              <text class="app-font request-empty-title">{{ t('暂时没有待处理申请') }}</text>
-              <text class="app-font muted">{{ t('新的好友和权限申请会显示在这里') }}</text>
-            </view>
-            <view
-              v-for="item in arr(requests, 'incoming')"
-              :key="s(item, 'id')"
-              class="card request-card"
-            >
-              <view class="row">
-                <image
-                  v-if="s(item, 'avatar').length > 0"
-                  class="avatar"
-                  :src="asset(s(item, 'avatar'))"
-                />
-                <view v-else class="avatar">
-                  <text class="app-font friend-initial">{{ name(item).slice(0, 1) }}</text>
-                </view>
-                <view class="grow">
-                  <text class="app-font request-name">{{ name(item) }}</text>
-                  <text class="app-font muted">@{{ s(item, 'account') }}</text>
-                </view>
-                <view class="request-actions">
-                  <button
-                    class="app-font secondary request-action"
-                    :disabled="saving"
-                    @click="reply(s(item, 'id'), false)"
-                  >
-                    {{ t('拒绝') }}
-                  </button>
-                  <button
-                    class="app-font primary request-action"
-                    :disabled="saving"
-                    @click="reply(s(item, 'id'), true)"
-                  >
-                    {{ t('同意') }}
-                  </button>
-                </view>
-              </view>
-              <view class="request-meta">
-                <text class="app-font permission-tag">
-                  {{ permission(s(item, 'permissionMode'), true) }}
-                </text>
-                <text class="app-font request-kind">
-                  {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
-                </text>
-              </view>
-            </view>
-          </scroll-view>
-        </view>
-        <view class="request-section outgoing-section">
-          <view class="request-section-head">
-            <view class="request-section-icon outgoing-icon">
-              <UiIcon name="clock" tone="violet" :size="18" />
-            </view>
-            <text class="app-font request-section-title">{{ t('我申请的') }}</text>
-            <text class="app-font request-section-count outgoing-count">
-              {{ arr(requests, 'outgoing').length }}
-            </text>
-          </view>
-          <scroll-view :scroll-y="true" class="request-section-scroll">
-            <view v-if="arr(requests, 'outgoing').length == 0" class="request-empty">
-              <text class="app-font request-empty-title">{{ t('暂无发出的申请') }}</text>
-              <text class="app-font muted">{{ t('添加好友后，可在这里查看申请状态') }}</text>
-            </view>
-            <view
-              v-for="item in arr(requests, 'outgoing')"
-              :key="s(item, 'id')"
-              class="card request-card"
-            >
-              <view class="row">
-                <image
-                  v-if="s(item, 'avatar').length > 0"
-                  class="avatar"
-                  :src="asset(s(item, 'avatar'))"
-                />
-                <view v-else class="avatar">
-                  <text class="app-font friend-initial">{{ name(item).slice(0, 1) }}</text>
-                </view>
-                <view class="grow">
-                  <text class="app-font request-name">{{ name(item) }}</text>
-                  <text class="app-font muted">@{{ s(item, 'account') }}</text>
-                </view>
-                <text class="app-font request-status">{{ t('已发送') }}</text>
-              </view>
-              <view class="request-meta">
-                <text class="app-font permission-tag">
-                  {{ permission(s(item, 'permissionMode')) }}
-                </text>
-                <text class="app-font request-kind">
-                  {{ s(item, 'requestType') == 'PERMISSION' ? t('权限变更申请') : t('好友申请') }}
-                </text>
-              </view>
-            </view>
-          </scroll-view>
-        </view>
+        </scroll-view>
       </view>
       <view class="logout" @click="logoutOpen = true">
         <UiIcon name="logout" tone="red" :size="23" />
@@ -542,6 +451,32 @@ const managing = ref(false),
 let timer: number = 0,
   ticket = 0;
 const displayName = computed(() => firstText(session.profile, ['name', 'realName', 'account']));
+const requestItems = computed<UTSJSONObject[]>(() => {
+  if (requests.value['items'] != null) return arr(requests.value, 'items');
+  // Older servers still supply only pending requests during a staged upgrade.
+  const rows: UTSJSONObject[] = [];
+  for (const direction of ['incoming', 'outgoing']) {
+    for (const row of arr(requests.value, direction)) rows.push({ ...row, direction: direction, requestStatus: 'PENDING' });
+  }
+  return rows;
+});
+function requestDescription(item: UTSJSONObject): string {
+  const incoming=s(item,'direction') == 'incoming', status=s(item,'requestStatus'), permissionRequest=s(item,'requestType') == 'PERMISSION';
+  if (status == 'PENDING') return permissionRequest ? (incoming ? '请求调整提醒权限' : '你申请调整提醒权限') : (incoming ? '请求添加你为好友' : '你申请添加对方');
+  if (status == 'ACCEPTED') return permissionRequest ? (incoming ? '你已接受对方的权限申请' : '对方已通过你的权限申请') : (incoming ? '你已接受对方的申请' : '对方已通过你的申请');
+  if (status == 'REJECTED') return incoming ? '你已拒绝对方的申请' : '对方已拒绝你的申请';
+  if (status == 'CANCELLED') return '申请已取消';
+  return '已处理';
+}
+function requestStatus(item: UTSJSONObject): string {
+  const status=s(item,'requestStatus');
+  if (status == 'PENDING') return '等待对方通过';
+  if (status == 'ACCEPTED') return s(item,'requestType') != 'PERMISSION' && item['friendActive'] == true ? '已添加' : '已通过';
+  if (status == 'REJECTED') return '已拒绝';
+  if (status == 'CANCELLED') return '已取消';
+  return '已处理';
+}
+
 const filteredFriends = computed(() =>
   friends.value.filter((person: UTSJSONObject): boolean =>
     [s(person, 'name'), s(person, 'realName'), s(person, 'friendRemark'), s(person, 'account')]
@@ -1226,109 +1161,31 @@ function openSettings() {
 .permission-note {
   margin-bottom: 6px;
 }
-.requests-area {
-  flex: 1;
-  min-height: 0;
+.requests-area { flex: 1; min-height: 0; }
+.applications-scroll { flex: 1; min-height: 0; }
+.applications-card { background-color: #ffffffcc; border: 1px solid #ffffff; border-radius: 22px; overflow: hidden; }
+.application-row { flex-direction: row; align-items: center; padding: 18px 14px; min-height: 84px; border-bottom: 1px solid #e8edf580; }
+.application-avatar { width: 44px; height: 44px; border-radius: 13px; margin-right: 12px; flex-shrink: 0; }
+.application-person { flex: 1; min-width: 0; }
+.application-name { font-size: 16px; font-weight: 600; line-height: 23px; color: #142341; }
+.application-description { font-size: 12px; line-height: 18px; color: #919bb0; margin-top: 3px; }
+.application-permission { font-size: 11px; line-height: 17px; color: #7484b0; }
+.application-actions { flex-direction: row; align-items: center; margin-left: 8px; flex-shrink: 0; }
+.application-reject, .application-accept { width: 58px; min-height: 32px; height: 32px; line-height: 30px; padding: 0; margin: 0; border-radius: 13px; font-size: 13px; font-weight: 500; }
+.application-reject { border: 1px solid #e1e6f3; background-color: #f8faff; color: #939db2; }
+.application-accept { margin-left: 6px; color: #ffffff; background-color: #315bff;
+  /* #ifdef WEB */
+  background-image: linear-gradient(125deg, #204eff, #326aff);
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #204eff, #326aff);
+  /* #endif */
 }
-.request-section {
-  flex: 1;
-  min-height: 0;
-  margin-bottom: 10px;
-  border-radius: 20px;
-  border: 1px solid #ffffff;
-  background-color: #ffffffcf;
-  overflow: hidden;
-}
-.request-section-head {
-  flex-direction: row;
-  align-items: center;
-  padding: 11px 13px;
-  border-bottom: 1px solid #edf1f8;
-}
-.request-section-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  background-color: #edf3ff;
-  align-items: center;
-  justify-content: center;
-  margin-right: 9px;
-}
-.outgoing-icon {
-  background-color: #f0eaff;
-}
-.request-section-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  color: #253652;
-}
-.request-section-count {
-  min-width: 24px;
-  height: 24px;
-  border-radius: 12px;
-  background-color: #edf3ff;
-  color: #4262f2;
-  text-align: center;
-  line-height: 24px;
-  font-size: 12px;
-  padding: 0 6px;
-}
-.outgoing-count {
-  color: #8655e9;
-  background-color: #f0eaff;
-}
-.request-section-scroll {
-  height: 0;
-  flex: 1;
-  min-height: 0;
-}
-.request-empty {
-  padding: 18px 14px;
-  align-items: center;
-}
-.request-empty-title {
-  font-size: 13px;
-  color: #687c9e;
-  margin-bottom: 5px;
-}
-.request-card {
-  margin: 8px;
-  padding: 12px;
-  border: 1px solid #edf1fa;
-}
-.request-name {
-  font-size: 16px;
-  color: #202e50;
-  font-weight: 600;
-}
-.request-status {
-  font-size: 11px;
-  color: #657bb3;
-  background-color: #eff3fc;
-  border-radius: 12px;
-  padding: 5px 9px;
-}
-.request-mode {
-  color: #60749b;
-  font-size: 12px;
-  margin-top: 12px;
-  margin-bottom: 5px;
-}
-.request-actions {
-  flex-direction: row;
-  justify-content: flex-end;
-  margin-left: 6px;
-  flex-shrink: 0;
-}
-.request-action {
-  margin: 0 0 0 5px;
-  padding: 0 9px;
-  height: 30px;
-  min-height: 30px;
-  line-height: 30px;
-  font-size: 12px;
-}
+.application-status { color: #939db1; font-size: 12px; line-height: 19px; margin-left: 8px; text-align: right; max-width: 80px; flex-shrink: 0; }
+.application-empty { padding: 28px 16px; align-items: center; }
+/* #ifdef APP-IOS */
+.application-name { font-family: 'PingFangSC-Semibold'; }
+/* #endif */
 .search-person {
   background-color: #ffffff;
   padding: 16px 0 4px;

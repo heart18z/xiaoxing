@@ -674,6 +674,24 @@ public class SmartReminderService {
 		outgoing.forEach(this::normalizeMapIds);
 		result.put("incoming", incoming);
 		result.put("outgoing", outgoing);
+		List<Map<String, Object>> items = jdbcTemplate.queryForList("""
+			select r.id,r.request_status as requestStatus,r.request_type as requestType,
+			r.permission_mode as permissionMode,r.request_message as requestMessage,r.create_time as createTime,
+			case when r.target_user_id=? then 'incoming' else 'outgoing' end as direction,
+			u.id as userId,u.account,u.name,u.real_name as realName,u.avatar,
+			exists(select 1 from blade_friendship f where f.owner_user_id=? and f.friend_user_id=u.id and f.status='ACTIVE') as friendActive
+			from blade_friend_request r join blade_user u
+			on u.id=case when r.applicant_user_id=? then r.target_user_id else r.applicant_user_id end
+			where (r.target_user_id=? or r.applicant_user_id=?) and u.is_deleted=0
+			order by case when r.request_status='PENDING' and r.target_user_id=? then 0
+			when r.request_status='PENDING' then 1 else 2 end,r.update_time desc,r.id desc limit 200
+			""", userId,userId,userId,userId,userId,userId);
+		items.forEach(row -> {
+			normalizeMapIds(row);
+			Object active=row.get("friendActive");
+			row.put("friendActive",Boolean.TRUE.equals(active)||(active instanceof Number && ((Number)active).intValue()!=0));
+		});
+		result.put("items", items);
 		return result;
 	}
 
