@@ -12,21 +12,21 @@
       @click.stop="noop"
     >
       <view class="drawer-sheen" />
-      <view :style="{ height: top + 'px' }" />
+      <view class="drawer-safe-top" :style="{ height: top + 'px' }" />
       <view class="drawer-heading">
         <view class="grow">
           <text class="app-font drawer-title">{{ t('提醒列表') }}</text>
           <text class="app-font drawer-subtitle">{{ t('查看与管理全部提醒') }}</text>
         </view>
-        <view class="drawer-close" @click="emit('close')"><UiIcon name="close" :size="24" /></view>
+        <view class="drawer-close" @click="emit('close')"><UiIcon name="close" tone="purple" :size="24" /></view>
       </view>
       <view class="drawer-filter">
         <view class="date-filter" @click="dateOpen = true">
-          <view class="date-icon"><UiIcon name="calendar" tone="purple" :size="17" /></view>
+          <view class="date-icon"><UiIcon name="calendar" tone="purple" :size="20" /></view>
           <text class="app-font date-label">
             {{ start.length > 0 ? start + t(' 至 ') + end : t('选择日期范围') }}
           </text>
-          <UiIcon name="down" :size="12" />
+          <UiIcon name="down" :size="16" />
         </view>
         <view
           class="reset"
@@ -37,7 +37,7 @@
             load();
           "
         >
-          <UiIcon name="reset" tone="purple" :size="17" />
+          <UiIcon name="reset" tone="purple" :size="21" />
           <text class="app-font reset-text">{{ t('还原') }}</text>
         </view>
       </view>
@@ -63,12 +63,15 @@
         </view>
         <view v-for="group in groups" :key="group.key" :class="['reminder-group', 'group-' + group.key]">
           <view class="group-heading">
-            <text class="app-font group-title">{{ t(group.title) }}</text>
-            <text class="app-font" :class="['group-count', 'count-' + group.key]">
-              {{ group.items.length }}
-            </text>
+            <view class="group-heading-main">
+              <view :class="['group-icon', 'group-icon-' + group.key]">
+                <UiIcon :name="group.key == 'sent' ? 'check' : group.key == 'later' ? 'note' : 'clock'" tone="white" :size="16" />
+              </view>
+              <text class="app-font group-title">{{ t(group.title) }}</text>
+              <text class="app-font" :class="['group-count', 'count-' + group.key]">{{ group.items.length }}</text>
+            </view>
+            <text class="app-font group-description">{{ t(groupDescription(group.key)) }}</text>
           </view>
-          <text v-if="group.items.length == 0" class="app-font muted">{{ t('暂无提醒') }}</text>
           <view
             v-for="item in group.items"
             :key="s(item, 'eventId')"
@@ -89,7 +92,7 @@
                         ? 'amber'
                         : 'blue'
                 "
-                :size="21"
+                :size="25"
               />
             </view>
             <view class="drawer-event-main">
@@ -105,7 +108,7 @@
             <text class="app-font" :class="['drawer-status', 'status-' + group.key]">
               {{ group.key == 'sent' ? t('已提醒') : t('待提醒') }}
             </text>
-            <UiIcon name="chevron" :size="18" />
+            <UiIcon name="chevron" :size="16" />
           </view>
         </view>
       </scroll-view>
@@ -147,6 +150,12 @@ function b(row: UTSJSONObject, key: string): boolean {
 }
 function displayTime(value: string): string {
   return _displayTime(value);
+}
+function groupDescription(key: string): string {
+  if (key == 'sent') return '今日已发送的提醒';
+  if (key == 'tomorrow') return '明天需关注的提醒';
+  if (key == 'later') return '过往创建且未到期的提醒';
+  return '今日需关注的提醒';
 }
 const props = defineProps({ open: { type: Boolean, default: false } });
 const emit = defineEmits(['close']);
@@ -248,264 +257,121 @@ watch(
 );
 </script>
 <style scoped>
-.drawer-sheen { position: absolute; top: 0; right: 0; width: 180px; height: 230px; border-bottom-left-radius: 180px; background-color: #ffffff40; }
-
 .drawer-mask {
-  transition-property: opacity;
-  transition-duration: 240ms;
-  transition-timing-function: ease-out;
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 80;
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 80;
   background-color: rgba(24, 30, 42, 0.56);
+  transition-property: opacity; transition-duration: 240ms; transition-timing-function: ease-out;
 }
 .drawer {
-  transition-property: transform;
-  transition-duration: 240ms;
-  transition-timing-function: ease-out;
-  width: 92%;
-  max-width: 560px;
-  height: 100%;
-  padding: 28px 12px 24px;
+  width: 100%; max-width: 560px; height: 100%; padding: 16px 14px 20px;
+  background-color: #f6faff;
   /* #ifdef WEB */
-  background-image: linear-gradient(125deg, #e3efff, #f1edff, #e8f7f6);
+  background-image: linear-gradient(125deg, #f9fcff, #eaf3ff, #f8fbff);
   /* #endif */
   /* #ifndef WEB */
-  background-image: linear-gradient(to bottom right, #e7efff, #edf8f7);
+  background-image: linear-gradient(to bottom right, #f9fcff, #edf5ff);
   /* #endif */
-  border-top-right-radius: 26px;
-  border-bottom-right-radius: 26px;
+  border-top-right-radius: 26px; border-bottom-right-radius: 26px;
+  transition-property: transform; transition-duration: 240ms; transition-timing-function: ease-out;
 }
-.drawer-heading {
-  flex-direction: row;
-  align-items: center;
-  padding: 0 6px;
+.drawer-sheen {
+  position: absolute; top: -36px; right: -100px; width: 290px; height: 230px;
+  border-bottom-left-radius: 190px; background-color: #d4e7ff59;
 }
-.drawer-title {
-  font-size: 23px;
-  font-weight: 700;
-  color: #13234b;
-}
-.drawer-subtitle {
-  font-size: 13px;
-  color: #8b91a8;
-  margin-top: 7px;
-}
+.drawer-safe-top { flex-shrink: 0; }
+.drawer-heading { flex-direction: row; align-items: flex-start; padding: 0 6px; flex-shrink: 0; }
+.drawer-title { font-size: 26px; line-height: 34px; font-weight: 700; color: #08162f; }
+.drawer-subtitle { font-size: 14px; line-height: 21px; color: #7c88a6; margin-top: 3px; }
 .drawer-close {
-  width: 42px;
-  height: 42px;
-  border: 1px solid #ffffff;
-  border-radius: 21px;
-  align-items: center;
-  justify-content: center;
+  width: 38px; height: 38px; margin-top: 2px; border: 1px solid #ffffff;
+  border-radius: 19px; background-color: #ffffff70; align-items: center; justify-content: center;
 }
-.drawer-filter {
-  flex-direction: row;
-  margin-top: 19px;
-}
+.drawer-filter { flex-direction: row; margin: 10px 5px 0; flex-shrink: 0; }
 .date-filter {
-  flex: 1;
-  min-width: 0;
-  flex-direction: row;
-  align-items: center;
-  min-height: 46px;
-  padding: 0 10px 0 7px;
-  background-color: #ffffffc9;
-  border: 1px solid #e2e9f6;
-  border-radius: 15px;
+  flex: 1; min-width: 0; flex-direction: row; align-items: center; min-height: 42px;
+  padding: 0 12px 0 10px; background-color: #ffffffd9; border: 1px solid #dbe7fa; border-radius: 13px;
 }
 .date-icon {
-  width: 29px;
-  height: 29px;
-  border-radius: 10px;
-  background-color: #edf3ff;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
+  width: 28px; height: 28px; border-radius: 9px; background-color: #eef3ff;
+  align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0;
 }
-.date-label {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  color: #969cad;
-  line-height: 19px;
-}
+.date-label { flex: 1; min-width: 0; font-size: 13px; color: #7986a3; line-height: 19px; }
 .reset {
-  min-width: 64px;
-  padding: 0 10px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e2e9f6;
-  border-radius: 15px;
-  background-color: #f3f5ff;
-  margin-left: 8px;
+  width: 88px; flex-direction: row; align-items: center; justify-content: center;
+  border: 1px solid #dfe6f7; border-radius: 13px; background-color: #ffffffb3; margin-left: 9px;
 }
-.reset-text {
-  font-size: 12px;
-  color: #8997bd;
-  margin-left: 5px;
-}
-.drawer-tabs {
-  flex-direction: row;
-  align-self: flex-start;
-  background-color: #e9eff880;
-  border-radius: 20px;
-  padding: 3px;
-  margin: 10px 0 13px;
-}
+.reset-text { font-size: 14px; color: #53659f; margin-left: 8px; }
+.drawer-tabs { flex-direction: row; align-self: flex-start; margin: 12px 4px 13px; flex-shrink: 0; }
 .drawer-tab {
-  font-size: 12px;
-  color: #8c95a5;
-  line-height: 32px;
-  padding: 0 15px;
-  border-radius: 17px;
+  min-width: 80px; font-size: 14px; text-align: center; color: #5f6e97; line-height: 32px;
+  padding: 0 16px; border-radius: 13px; background-color: #eaf0ffb3; margin-right: 6px;
 }
 .drawer-tab-selected {
   color: #ffffff;
   /* #ifdef WEB */
-  background-image: linear-gradient(125deg, #54c2f7, #6584ff);
+  background-image: linear-gradient(125deg, #519eff, #2475ff);
   /* #endif */
   /* #ifndef WEB */
-  background-image: linear-gradient(to bottom right, #54c2f7, #6584ff);
+  background-image: linear-gradient(to bottom right, #519eff, #2475ff);
   /* #endif */
 }
 .reminder-group {
-  padding: 10px 6px 4px;
-  border-radius: 19px;
-  background-color: #dbeaff80;
-  border: 1px solid #ffffff99;
-  margin-bottom: 12px;
+  padding: 10px 6px 2px; border-radius: 15px; background-color: #dcebff8c;
+  border: 1px solid #ffffffcc; margin-bottom: 8px;
 }
-.group-heading {
-  flex-direction: row;
-  align-items: center;
-  margin: 0 6px 8px;
-}
-.group-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #172b4c;
-}
-.group-count {
-  font-size: 15px;
-  font-weight: 700;
-  color: #4799e5;
-  margin-left: 10px;
-}
-.count-sent {
-  color: #37b293;
-}
-.count-tomorrow {
-  color: #8655e9;
-}
-.count-later {
-  color: #e79a29;
-}
+.group-heading { flex-direction: row; align-items: center; justify-content: space-between; margin: 0 6px 9px; min-height: 22px; }
+.group-heading-main { flex-direction: row; align-items: center; flex-shrink: 0; }
+.group-icon { width: 22px; height: 22px; border-radius: 11px; align-items: center; justify-content: center; background-color: #307bff; margin-right: 9px; }
+.group-icon-sent { background-color: #26ac73; }
+.group-icon-tomorrow { background-color: #8246f4; }
+.group-icon-later { background-color: #e5a03e; }
+.group-title { font-size: 14px; line-height: 22px; font-weight: 700; color: #0b1833; }
+.group-count { font-size: 14px; line-height: 22px; font-weight: 700; color: #2778ff; margin-left: 8px; }
+.count-sent { color: #129962; }
+.count-tomorrow { color: #8449f1; }
+.count-later { color: #f59327; }
+.group-description { flex: 1; min-width: 0; text-align: right; font-size: 10px; line-height: 15px; color: #8190ac; margin-left: 6px; }
 .drawer-card {
-  flex-direction: row;
-  align-items: center;
-  background-color: #ffffffc9;
-  border: 1px solid #ffffffd9;
-  border-radius: 17px;
-  padding: 10px 8px;
-  margin-bottom: 6px;
-  min-height: 64px;
-  flex-shrink: 0;
+  flex-direction: row; align-items: center; background-color: #ffffffde; border: 1px solid #ffffffe6;
+  border-radius: 13px; padding: 10px 9px; margin-bottom: 6px; min-height: 59px; flex-shrink: 0;
 }
 .drawer-symbol {
-  width: 30px;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border-radius: 15px;
-  background-color: #eaf3ff;
-  margin-right: 7px;
+  width: 36px; height: 36px; align-items: center; justify-content: center; flex-shrink: 0;
+  border-radius: 18px; background-color: #e7f0ff; margin-right: 12px;
 }
-.symbol-sent {
-  background-color: #e7faf0;
-}
-.symbol-tomorrow {
-  background-color: #f0eaff;
-}
-.symbol-later {
-  background-color: #fff5e7;
-}
+.symbol-sent { background-color: #e0f8ee; }
+.symbol-tomorrow { background-color: #efe7ff; }
+.symbol-later { background-color: #fff1de; }
+.drawer-event-main { flex: 1; min-width: 0; }
 .drawer-event-title {
   /* #ifdef APP */
   lines: 2;
   /* #endif */
-  text-overflow: ellipsis;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 21px;
-  color: #172746;
+  text-overflow: ellipsis; font-size: 13px; font-weight: 600; line-height: 19px; color: #0d1933;
 }
-.drawer-event-meta {
-  font-size: 12px;
-  color: #929baa;
-  line-height: 18px;
-  margin-top: 3px;
-}
+.drawer-event-meta { font-size: 11px; color: #7e8baa; line-height: 16px; margin-top: 3px; }
 .drawer-status {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: #4799da;
-  background-color: #ecf3ff;
-  padding: 4px 7px;
-  border-radius: 18px;
-  margin: 0 7px;
+  flex-shrink: 0; font-size: 11px; font-weight: 600; color: #2475ff; background-color: #e7f1ff;
+  padding: 5px 10px; border-radius: 16px; margin: 0 9px;
 }
-.status-sent {
-  color: #45ab92;
-  background-color: #e7faf0;
-}
-.status-tomorrow {
-  color: #8655e9;
-  background-color: #f0eaff;
-}
-.status-later {
-  color: #e79a29;
-  background-color: #fff5e7;
-}
+.status-sent { color: #079a5c; background-color: #e2f8ef; }
+.status-tomorrow { color: #8041f3; background-color: #eee5ff; }
+.status-later { color: #d58c25; background-color: #fff1de; }
 .drawer-footer {
-  font-size: 10px;
-  line-height: 18px;
-  color: #a0a6b5;
-  text-align: center;
-  border-top: 1px solid #dfe6f3;
-  margin: 10px 7px 0;
-  padding-top: 18px;
-  padding-bottom: 25px;
+  font-size: 10px; line-height: 18px; color: #8190ae; text-align: center;
+  border-top: 1px solid #dfe7f7; margin: 8px 9px 0; padding-top: 10px; padding-bottom: 0; flex-shrink: 0;
 }
-/* #ifdef WEB */
-.drawer-event-title {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-/* #endif */
-.drawer-event-main {
-  flex: 1;
-  min-width: 0;
-}
-.drawer .scroll {
-  flex: 1;
-  min-height: 0;
-}
-.date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-weight: 600; }
+.drawer .scroll { flex: 1; min-height: 0; }
+.date-label, .reset-text, .drawer-tab { font-weight: 600; }
 .drawer-event-meta { font-weight: 500; }
+.group-sent { background-color: #d9f3eb8c; }
+.group-tomorrow { background-color: #ebe2ff8c; }
+.group-later { background-color: #fff0da8c; }
+/* #ifdef WEB */
+.drawer-event-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* #endif */
 /* #ifdef APP-IOS */
-.date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-family: 'PingFangSC-Semibold'; }
+.drawer-title, .group-title, .group-count, .date-label, .reset-text, .drawer-tab, .drawer-event-title, .drawer-status { font-family: 'PingFangSC-Semibold'; }
 .drawer-event-meta { font-family: 'PingFangSC-Medium'; }
 /* #endif */
-.group-sent { background-color: #d6eee380; }
-.group-tomorrow { background-color: #e4dcfa80; }
-.group-later { background-color: #f5e8d380; }
 </style>

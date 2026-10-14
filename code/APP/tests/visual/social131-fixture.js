@@ -38,6 +38,6 @@ async page => {
  await page.reload();
  await page.locator('.event-card').first().waitFor();
  await page.locator('.filter').click();
- await page.addStyleTag({content:'.frame>uni-view:nth-child(2){height:62px!important;flex-shrink:0}.dock{height:102px!important;padding-bottom:34px!important}.brand{margin-top:62px!important}.drawer>uni-view:first-child{height:34px!important;flex-shrink:0}'});
+ await page.addStyleTag({content:'.frame>uni-view:nth-child(2){height:62px!important;flex-shrink:0}.dock{height:102px!important;padding-bottom:34px!important}.brand{margin-top:62px!important}.drawer-safe-top{height:34px!important;flex-shrink:0}'});
  await page.screenshot({path:'output/playwright/replica-events.png'});
 }

@@ -557,3 +557,7 @@ english["语言已保存"] = "Language saved";
 english["账号已注销"] = "Account deleted";
 
 english["查看好友申请 ›"] = "View friend requests ›";
+english["今日需关注的提醒"] = "Due today";
+english["今日已发送的提醒"] = "Sent today";
+english["明天需关注的提醒"] = "Due tomorrow";
+english["过往创建且未到期的提醒"] = "Upcoming reminders";
