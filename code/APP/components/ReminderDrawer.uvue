@@ -12,6 +12,9 @@
       @click.stop="noop"
     >
       <view class="drawer-sheen" />
+      <view class="drawer-bubble bubble-blue"><view class="bubble-glint" /></view>
+      <view class="drawer-bubble bubble-violet"><view class="bubble-glint" /></view>
+      <view class="drawer-bubble bubble-aqua"><view class="bubble-glint" /></view>
       <view class="drawer-safe-top" :style="{ height: top + 'px' }" />
       <view class="drawer-heading">
         <view class="grow">
@@ -259,25 +262,40 @@ watch(
 <style scoped>
 .drawer-mask {
   position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 80;
-  background-color: rgba(24, 30, 42, 0.56);
+  background-color: rgba(27, 43, 70, 0.28);
   transition-property: opacity; transition-duration: 240ms; transition-timing-function: ease-out;
 }
 .drawer {
-  width: 100%; max-width: 560px; height: 100%; padding: 16px 14px 20px;
-  background-color: #f6faff;
+  width: 90%; max-width: 560px; height: 100%; padding: 16px 12px 20px;
+  overflow: hidden;
+  background-color: #edf5ffd9;
   /* #ifdef WEB */
-  background-image: linear-gradient(125deg, #f9fcff, #eaf3ff, #f8fbff);
+  background-image: linear-gradient(125deg, #f9fcffa6, #e8f2ff8c, #f8fbffb3);
   /* #endif */
   /* #ifndef WEB */
-  background-image: linear-gradient(to bottom right, #f9fcff, #edf5ff);
+  background-image: linear-gradient(to bottom right, #f9fcffa6, #e8f2ff8c);
   /* #endif */
   border-top-right-radius: 26px; border-bottom-right-radius: 26px;
   transition-property: transform; transition-duration: 240ms; transition-timing-function: ease-out;
 }
 .drawer-sheen {
   position: absolute; top: -36px; right: -100px; width: 290px; height: 230px;
-  border-bottom-left-radius: 190px; background-color: #d4e7ff59;
+  border-bottom-left-radius: 190px; background-color: #d4e7ff40;
 }
+.drawer-bubble {
+  position: absolute; border: 1px solid #ffffffb3; overflow: hidden;
+  /* #ifdef WEB */
+  background-image: linear-gradient(135deg, #ffffffa6, #c4dcff66, #acbeef40);
+  pointer-events: none;
+  /* #endif */
+  /* #ifndef WEB */
+  background-image: linear-gradient(to bottom right, #ffffffa6, #b9d2ff59);
+  /* #endif */
+}
+.bubble-blue { width: 136px; height: 136px; border-radius: 68px; top: 42px; right: -34px; }
+.bubble-violet { width: 86px; height: 86px; border-radius: 43px; top: 44%; left: -32px; background-color: #ddd5fa40; }
+.bubble-aqua { width: 154px; height: 154px; border-radius: 77px; bottom: 76px; right: -58px; background-color: #cef3ed40; }
+.bubble-glint { position: absolute; top: 12%; left: 15%; width: 26%; height: 17%; border-radius: 30px; background-color: #ffffff80; transform: rotate(-35deg); }
 .drawer-safe-top { flex-shrink: 0; }
 .drawer-heading { flex-direction: row; align-items: flex-start; padding: 0 6px; flex-shrink: 0; }
 .drawer-title { font-size: 26px; line-height: 34px; font-weight: 700; color: #08162f; }
@@ -297,14 +315,14 @@ watch(
 }
 .date-label { flex: 1; min-width: 0; font-size: 13px; color: #7986a3; line-height: 19px; }
 .reset {
-  width: 88px; flex-direction: row; align-items: center; justify-content: center;
+  width: 76px; flex-direction: row; align-items: center; justify-content: center;
   border: 1px solid #dfe6f7; border-radius: 13px; background-color: #ffffffb3; margin-left: 9px;
 }
 .reset-text { font-size: 14px; color: #53659f; margin-left: 8px; }
-.drawer-tabs { flex-direction: row; align-self: flex-start; margin: 12px 4px 13px; flex-shrink: 0; }
+.drawer-tabs { flex-direction: row; margin: 12px 0 13px; flex-shrink: 0; }
 .drawer-tab {
-  min-width: 80px; font-size: 14px; text-align: center; color: #5f6e97; line-height: 32px;
-  padding: 0 16px; border-radius: 13px; background-color: #eaf0ffb3; margin-right: 6px;
+  flex: 1; min-width: 0; font-size: 14px; text-align: center; color: #5f6e97; line-height: 32px;
+  padding: 0 8px; border-radius: 13px; background-color: #eaf0ff80; margin: 0 3px;
 }
 .drawer-tab-selected {
   color: #ffffff;
@@ -316,10 +334,10 @@ watch(
   /* #endif */
 }
 .reminder-group {
-  padding: 10px 6px 2px; border-radius: 15px; background-color: #dcebff8c;
+  padding: 10px 6px 2px; border-radius: 15px; background-color: #dcebff66;
   border: 1px solid #ffffffcc; margin-bottom: 8px;
 }
-.group-heading { flex-direction: row; align-items: center; justify-content: space-between; margin: 0 6px 9px; min-height: 22px; }
+.group-heading { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 6px 9px; min-height: 22px; }
 .group-heading-main { flex-direction: row; align-items: center; flex-shrink: 0; }
 .group-icon { width: 22px; height: 22px; border-radius: 11px; align-items: center; justify-content: center; background-color: #307bff; margin-right: 9px; }
 .group-icon-sent { background-color: #26ac73; }
@@ -330,9 +348,9 @@ watch(
 .count-sent { color: #129962; }
 .count-tomorrow { color: #8449f1; }
 .count-later { color: #f59327; }
-.group-description { flex: 1; min-width: 0; text-align: right; font-size: 10px; line-height: 15px; color: #8190ac; margin-left: 6px; }
+.group-description { flex: 1; min-width: 74px; text-align: right; font-size: 10px; line-height: 15px; color: #8190ac; margin-left: 6px; }
 .drawer-card {
-  flex-direction: row; align-items: center; background-color: #ffffffde; border: 1px solid #ffffffe6;
+  flex-direction: row; align-items: center; background-color: #ffffffc9; border: 1px solid #ffffffe6;
   border-radius: 13px; padding: 10px 9px; margin-bottom: 6px; min-height: 59px; flex-shrink: 0;
 }
 .drawer-symbol {
@@ -364,9 +382,9 @@ watch(
 .drawer .scroll { flex: 1; min-height: 0; }
 .date-label, .reset-text, .drawer-tab { font-weight: 600; }
 .drawer-event-meta { font-weight: 500; }
-.group-sent { background-color: #d9f3eb8c; }
-.group-tomorrow { background-color: #ebe2ff8c; }
-.group-later { background-color: #fff0da8c; }
+.group-sent { background-color: #d9f3eb66; }
+.group-tomorrow { background-color: #ebe2ff66; }
+.group-later { background-color: #fff0da66; }
 /* #ifdef WEB */
 .drawer-event-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* #endif */

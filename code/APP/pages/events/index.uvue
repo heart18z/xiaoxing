@@ -129,7 +129,9 @@
             <view v-if="people(item).length > 0" class="people-avatars">
               <image v-for="person in people(item)" :key="s(person, 'id')" class="person-avatar"
                 :src="personAvatar(person)" mode="aspectFill" />
-              <text v-if="type == 'sent' && n(item, 'recipientCount') > people(item).length" class="app-font people-more">+{{ n(item, 'recipientCount') - people(item).length }}</text>
+              <view v-if="type == 'sent' && n(item, 'recipientCount') > people(item).length" class="people-more">
+                <text class="app-font people-more-label">+{{ n(item, 'recipientCount') - people(item).length }}</text>
+              </view>
             </view>
             <UiIcon v-else name="people" :size="17" />
             <text class="app-font muted">
@@ -333,9 +335,10 @@ onHide(stop);
 onUnload(stop);
 </script>
 <style scoped>
-.people-avatars { flex-direction: row; align-items: center; flex-shrink: 0; margin-right: 6px; }
-.person-avatar { width: 24px; height: 24px; border-radius: 8px; margin-right: 4px; background-color: #eef2ff; }
-.people-more { min-width: 22px; padding: 0 3px; color: #71809e; text-align: center; font-size: 12px; line-height: 24px; flex-shrink: 0; }
+.people-avatars { flex-direction: row; align-items: center; flex-shrink: 0; padding-left: 4px; padding-right: 9px; border-right: 1px solid #e5eaf4; }
+.person-avatar { width: 30px; height: 30px; border-radius: 15px; border: 2px solid #ffffff; margin-left: -4px; background-color: #eef2ff; }
+.people-more { min-width: 30px; height: 30px; padding: 0 3px; border-radius: 15px; border: 2px solid #ffffff; margin-left: -2px; background-color: #eff3ff; align-items: center; justify-content: center; flex-shrink: 0; }
+.people-more-label { color: #7886a4; text-align: center; font-size: 11px; line-height: 20px; }
 
 .filters {
   padding: 0 16px;

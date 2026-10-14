@@ -32,3 +32,5 @@ npx --yes --package @playwright/cli playwright-cli -s=visual run-code --filename
 2026-10-14 / 131：启动本机 5175 Web 预览，在独立 Playwright CLI 会话中依次执行 `social131-fixture.js`、`social131.js`、`social131-notification.js`、`social131-drawer-auth.js`。最后一个脚本模拟登录失效并退出测试登录；再次运行需重载 fixture。覆盖空 name / 非空 realName、四头像及剩余人数、左右切换/纵向手势、抽屉关闭、320px 布局、通知入口和登录失效。接口均为浏览器拦截的本地测试数据。截图在 `output/playwright/social131-*.png`。
 
 2026-10-14 / 132：先运行 `social131-fixture.js`，再运行 `reminder132.js`。检查六人显示四头像和 `+2`、四种配色与说明、空分组只保留标题、320px 卡片布局、纵向滚动与左滑收回。截图在 `output/playwright/reminder132-*.png`。
+
+2026-10-14 / 133：先运行 `social131-fixture.js`，再运行 `reminder133.js`。检查圆形头像与 `+N`、90% 宽抽屉、点击右侧空白收回且不触发底层页面、320px 头像行及筛选按钮布局、纵向滚动与左滑收回。截图在 `output/playwright/reminder133-*.png`。
