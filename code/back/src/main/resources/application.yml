@@ -250,6 +250,7 @@ blade:
   xss:
     enabled: true
     skip-url:
+      - /blade-smart/admin/releases/download-page/save
       - /blade-chat/weixin
       - /blade-bizNotice/bizNotice/addNotice
       - /blade-flow/model/submit
@@ -270,6 +271,9 @@ blade:
   secure:
     #接口放行
     skip-url:
+      - /app/download/config
+      - /app/download/qr
+      - /app/download/android.apk
       - /blade-test/**
       - /blade-system/param/login-page-param
       - /blade-system/param/favicon

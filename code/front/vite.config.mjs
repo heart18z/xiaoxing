@@ -82,7 +82,17 @@ export default ({
         },
       },
     },
-    plugins: createVitePlugins(env, command === 'build'),
+    plugins: [...createVitePlugins(env, command === 'build'), {
+      name: 'public-download-entry',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (/^\/download\/?(?:\?|$)/.test(req.url || '')) {
+            req.url = req.url.replace(/^\/download\/?/, '/download/index.html');
+          }
+          next();
+        });
+      },
+    }],
     build: buildConfig,
     optimizeDeps: {
       esbuildOptions: {
