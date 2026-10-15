@@ -31,13 +31,30 @@ function officialLink(value, hosts) {
     return url.protocol === 'https:' && !url.username && !url.password && (!url.port || url.port === '443') && hosts.includes(url.hostname) ? url.href : '';
   } catch { return ''; }
 }
+function channelEnabled(platform) {
+  if (!config) return false;
+  const s = config.settings, harmony = s.harmonyEnabled !== false;
+  if (platform === 'android') return s.androidEnabled === true;
+  if (platform === 'ios') return s.iosEnabled === true;
+  if (platform === 'harmony') return harmony;
+  if (platform === 'harmony-apk') return harmony && s.harmonyApkEnabled === true;
+  if (platform === 'harmony-native') return harmony && s.harmonyNativeEnabled === true;
+  return false;
+}
+function renderChannels() {
+  document.querySelectorAll('[data-platform]').forEach(button => {
+    const enabled = channelEnabled(button.dataset.platform);
+    button.disabled = !enabled;
+    button.setAttribute('aria-disabled', String(!enabled));
+    button.title = enabled ? '' : config ? '该下载渠道暂未开放' : '正在获取下载信息';
+  });
+}
 function download(platform) {
-  if (!config) { message('暂时无法获取下载信息，请检查网络后点击重新加载。'); return; }
+  // Also guard programmatic calls; disabled channels never navigate or open a dialog.
+  if (!channelEnabled(platform)) return;
   if (platform === 'harmony') { show('harmony', '选择鸿蒙版本'); return; }
   const s = config.settings;
   if (platform === 'android' || platform === 'harmony-apk') {
-    const enabled = platform === 'android' ? s.androidEnabled : s.harmonyApkEnabled;
-    if (!enabled) { message('该平台版本正在适配中，敬请期待。'); return; }
     if (!config.androidAvailable) { message('安卓版本暂未发布，请稍后再试。'); return; }
     if (/MicroMessenger/i.test(navigator.userAgent)) {
       message('请点击右上角菜单，选择「在浏览器中打开」，再下载安装包。'); return;
@@ -48,9 +65,6 @@ function download(platform) {
     return;
   }
   const ios = platform === 'ios';
-  if (!(ios ? s.iosEnabled : s.harmonyNativeEnabled)) {
-    message(ios ? 'iOS 版本正在适配中，敬请期待。' : 'HarmonyOS 5 及以上版本正在适配中，敬请期待。'); return;
-  }
   const url = ios ? (s.iosMode === 'appstore'
     ? officialLink(s.appStoreUrl, ['apps.apple.com'])
     : officialLink(s.testflightUrl, ['testflight.apple.com']))
@@ -60,6 +74,7 @@ function download(platform) {
 }
 async function load() {
   config = null;
+  renderChannels();
   $('load-error').hidden = true;
   $('version-label').textContent = '正在获取版本信息…';
   const controller = new AbortController();
@@ -84,7 +99,7 @@ async function load() {
     config = null;
     $('load-error').hidden = false;
     $('version-label').textContent = '下载信息暂不可用';
-  } finally { clearTimeout(timeout); }
+  } finally { clearTimeout(timeout); renderChannels(); }
 }
 document.querySelectorAll('[data-platform]').forEach(button => button.addEventListener('click', () => download(button.dataset.platform)));
 document.querySelectorAll('[data-dialog]').forEach(button => button.addEventListener('click', () => {

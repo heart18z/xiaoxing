@@ -6,14 +6,20 @@
       <div class="settings-layout">
         <el-form label-width="145px" class="download-form">
           <el-form-item label="统一下载页网址"><el-input v-model="downloadForm.pageUrl" maxlength="1000" placeholder="https://你的域名/download/" /><span class="field-hint">填写实际可访问的 HTTPS 下载页网址，二维码将使用这个地址。</span></el-form-item>
-          <el-form-item label="Android 下载"><el-switch v-model="downloadForm.androidEnabled" /><span class="inline-hint">自动下载最新已发布 APK</span></el-form-item>
-          <el-form-item label="iOS 下载"><el-switch v-model="downloadForm.iosEnabled" /><span class="inline-hint">关闭时显示「适配中」</span></el-form-item>
+          <el-form-item label="下载渠道">
+            <div class="channel-switches">
+              <label class="channel-switch"><span>Android</span><el-switch v-model="downloadForm.androidEnabled" aria-label="Android 下载渠道" /></label>
+              <label class="channel-switch"><span>iOS</span><el-switch v-model="downloadForm.iosEnabled" aria-label="iOS 下载渠道" /></label>
+              <label class="channel-switch"><span>鸿蒙</span><el-switch v-model="downloadForm.harmonyEnabled" aria-label="鸿蒙下载渠道" /></label>
+            </div>
+            <span class="field-hint">开启的渠道可点击下载；关闭后入口仍显示，但置灰且不可点击。Android 自动下载最新已发布 APK。</span>
+          </el-form-item>
           <el-form-item label="iOS 下载方式"><el-radio-group v-model="downloadForm.iosMode"><el-radio value="testflight">TestFlight 邀请</el-radio><el-radio value="appstore">App Store</el-radio></el-radio-group></el-form-item>
           <el-form-item v-if="downloadForm.iosMode==='testflight'" label="TestFlight 邀请链接"><el-input v-model="downloadForm.testflightUrl" maxlength="1000" placeholder="https://testflight.apple.com/join/邀请码" /></el-form-item>
           <el-form-item v-else label="App Store 链接"><el-input v-model="downloadForm.appStoreUrl" maxlength="1000" placeholder="https://apps.apple.com/…" /></el-form-item>
-          <el-form-item label="鸿蒙 APK 兼容版"><el-switch v-model="downloadForm.harmonyApkEnabled" /><span class="inline-hint">HarmonyOS 4.x 及更早版本，下载安卓 APK</span></el-form-item>
-          <el-form-item label="原生鸿蒙下载"><el-switch v-model="downloadForm.harmonyNativeEnabled" /><span class="inline-hint">HarmonyOS 5 及以上 / NEXT</span></el-form-item>
-          <el-form-item label="鸿蒙应用市场链接"><el-input v-model="downloadForm.harmonyStoreUrl" maxlength="1000" placeholder="华为应用市场官方分享链接" /><span class="field-hint">开启原生鸿蒙下载前需填写已上架应用的链接；关闭时显示「适配中」。</span></el-form-item>
+          <el-form-item label="鸿蒙 APK 兼容版"><el-switch v-model="downloadForm.harmonyApkEnabled" :disabled="!downloadForm.harmonyEnabled" aria-label="鸿蒙 APK 兼容版" /><span class="inline-hint">HarmonyOS 4.x 及更早版本，下载安卓 APK</span></el-form-item>
+          <el-form-item label="原生鸿蒙下载"><el-switch v-model="downloadForm.harmonyNativeEnabled" :disabled="!downloadForm.harmonyEnabled" aria-label="原生鸿蒙下载" /><span class="inline-hint">HarmonyOS 5 及以上 / NEXT</span></el-form-item>
+          <el-form-item label="鸿蒙应用市场链接"><el-input v-model="downloadForm.harmonyStoreUrl" maxlength="1000" placeholder="华为应用市场官方分享链接" /><span class="field-hint">开启原生鸿蒙下载前需填写已上架应用的链接。关闭鸿蒙总开关会停用两个入口，并保留原配置。</span></el-form-item>
           <el-form-item><el-button type="primary" :loading="configSaving" :disabled="!configReady" @click="saveDownload">保存下载配置</el-button><span class="inline-hint">保存后立即生效</span></el-form-item>
         </el-form>
         <aside class="qr-panel"><h4>统一下载二维码</h4><template v-if="configReady"><img :src="qrUrl" alt="统一下载页二维码" width="160" height="160" /><p class="qr-address">{{ savedPageUrl }}</p><el-button @click="copyPage">复制网址</el-button><el-button @click="saveQr">下载二维码</el-button></template><p v-else>加载配置后显示二维码</p><p class="field-hint">二维码指向下载页；更新版本或切换商店链接，无需重新印制。</p></aside>
@@ -50,7 +56,7 @@ let file=null;
 const choose=e=>{file=e.target.files[0]||null;};
 const endpoint='/api/blade-smart/admin/releases';
 const configLoading=ref(false), configSaving=ref(false), configReady=ref(false), savedPageUrl=ref(''), qrUrl=ref('/api/app/download/qr');
-const downloadForm=reactive({pageUrl:'',androidEnabled:true,iosEnabled:false,iosMode:'testflight',appStoreUrl:'',testflightUrl:'',harmonyApkEnabled:true,harmonyNativeEnabled:false,harmonyStoreUrl:''});
+const downloadForm=reactive({pageUrl:'',androidEnabled:true,iosEnabled:false,harmonyEnabled:true,iosMode:'testflight',appStoreUrl:'',testflightUrl:'',harmonyApkEnabled:true,harmonyNativeEnabled:false,harmonyStoreUrl:''});
 async function loadDownload(){configLoading.value=true;try{const data=(await request({url:endpoint+'/download-page',method:'post'})).data.data;Object.assign(downloadForm,data);savedPageUrl.value=data.pageUrl;qrUrl.value='/api/app/download/qr?v='+Date.now();configReady.value=true;}finally{configLoading.value=false;}}
 function validHttps(value,hosts){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&(!hosts||hosts.includes(u.hostname));}catch{return false;}}
 async function saveDownload(){
@@ -58,7 +64,7 @@ async function saveDownload(){
  if(!validHttps(downloadForm.pageUrl)){ElMessage.warning('请填写有效的 HTTPS 下载页网址');return;}
  const iosUrl=downloadForm.iosMode==='appstore'?downloadForm.appStoreUrl:downloadForm.testflightUrl;
  if(downloadForm.iosEnabled&&!validHttps(iosUrl,[downloadForm.iosMode==='appstore'?'apps.apple.com':'testflight.apple.com'])){ElMessage.warning('开启 iOS 下载前，请填写对应的官方链接');return;}
- if(downloadForm.harmonyNativeEnabled&&!validHttps(downloadForm.harmonyStoreUrl,['appgallery.huawei.com','appgallery.cloud.huawei.com'])){ElMessage.warning('开启原生鸿蒙下载前，请填写华为应用市场链接');return;}
+ if(downloadForm.harmonyEnabled&&downloadForm.harmonyNativeEnabled&&!validHttps(downloadForm.harmonyStoreUrl,['appgallery.huawei.com','appgallery.cloud.huawei.com'])){ElMessage.warning('开启原生鸿蒙下载前，请填写华为应用市场链接');return;}
  configSaving.value=true;try{await request({url:endpoint+'/download-page/save',method:'post',data:{...downloadForm}});await loadDownload();ElMessage.success('下载配置已保存');}finally{configSaving.value=false;}
 }
 function previewPage(){if(validHttps(savedPageUrl.value))window.open(savedPageUrl.value,'_blank','noopener,noreferrer');}
@@ -87,5 +93,6 @@ async function remove(row){
 onMounted(()=>{load();loadDownload();});
 </script>
 <style scoped>
+.channel-switches{display:flex;flex-wrap:wrap;gap:12px;width:100%}.channel-switch{display:flex;align-items:center;justify-content:space-between;gap:20px;min-width:145px;padding:8px 14px;background:#fff;border:1px solid #e1e8f6;border-radius:12px;color:#374c75}
 .hint{color:#8791a2;margin-left:12px;font-size:12px}p{color:#68758a;margin-bottom:24px}.download-settings{border:1px solid #e7ebf4;border-radius:16px;padding:24px;background:linear-gradient(125deg,#f8fbff,#fff);margin:24px 0 32px}.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.section-heading h3{margin:0 0 10px;font-size:20px}.section-heading p{font-size:14px;margin:0 0 24px}.settings-layout{display:flex;gap:40px;align-items:flex-start}.download-form{flex:1;max-width:820px;min-width:0}.field-hint{display:block;width:100%;font-size:12px;color:#8791a2;line-height:1.8;margin-top:6px}.inline-hint{font-size:12px;color:#8791a2;margin-left:12px}.qr-panel{width:235px;flex-shrink:0;text-align:center;border:1px solid #e5ebf6;border-radius:14px;background:#fff;padding:16px}.qr-panel h4{margin:0 0 12px;color:#374c75}.qr-panel img{display:block;margin:0 auto;width:160px;height:160px}.qr-address{font-size:12px;overflow-wrap:anywhere;user-select:all;margin:12px 0}.qr-panel .el-button{margin:4px;font-size:12px}.qr-panel .field-hint{margin:12px 0 0;text-align:left}@media(max-width:1100px){.settings-layout{flex-direction:column;gap:16px}.download-form{width:100%}.qr-panel{width:100%;max-width:350px}}@media(max-width:600px){.download-settings{padding:16px}.section-heading{flex-direction:column}.download-form :deep(.el-form-item){display:block}.download-form :deep(.el-form-item__content){margin-left:0!important}.download-form :deep(.el-form-item__label){float:none;justify-content:flex-start}.inline-hint{margin-left:8px}}
 </style>

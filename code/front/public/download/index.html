@@ -34,9 +34,9 @@
           <p class="lead">理解你的计划，在合适的时候重新判断</p>
           <p class="description">通过自然语言创建与调整提醒，<span>让提醒随计划进展而变化。</span></p>
           <div id="downloads" class="downloads" aria-label="选择下载平台">
-            <button class="platform" data-platform="android"><svg aria-hidden="true"><use href="#android"/></svg><span>Android</span></button>
-            <button class="platform" data-platform="ios"><svg aria-hidden="true"><use href="#apple"/></svg><span>iOS</span></button>
-            <button class="platform" data-platform="harmony"><svg aria-hidden="true"><use href="#harmony"/></svg><span>鸿蒙</span></button>
+            <button class="platform" data-platform="android" disabled><svg aria-hidden="true"><use href="#android"/></svg><span>Android</span></button>
+            <button class="platform" data-platform="ios" disabled><svg aria-hidden="true"><use href="#apple"/></svg><span>iOS</span></button>
+            <button class="platform" data-platform="harmony" disabled><svg aria-hidden="true"><use href="#harmony"/></svg><span>鸿蒙</span></button>
           </div>
           <p id="version-label" class="version-label" role="status">正在获取版本信息…</p>
           <button class="qr-button" data-dialog="qr"><svg aria-hidden="true"><use href="#qr"/></svg>扫码下载 / 分享</button>
@@ -57,7 +57,7 @@
   <dialog id="download-dialog" aria-labelledby="dialog-title">
     <div class="dialog-heading"><h2 id="dialog-title"></h2><button id="dialog-close" aria-label="关闭">×</button></div>
     <section id="qr-content" hidden><img id="qr-image" alt="AI小醒统一下载页二维码" width="220" height="220"><p>手机扫码，选择适合你的版本</p><a id="page-link" target="_blank" rel="noopener"></a><div class="share-actions"><button id="copy-link">复制链接</button><a id="save-qr" href="/api/app/download/qr" download="AI小醒下载二维码.png">保存二维码</a></div><p class="small">如无法直接保存，可长按二维码保存图片。</p></section>
-    <section id="harmony-content" hidden><p class="dialog-intro">请在「设置 → 关于手机」查看系统版本</p><button class="choice" data-platform="harmony-apk"><span><b>HarmonyOS 4.x 及更早版本</b><small>支持 APK 的鸿蒙手机，下载安卓兼容版</small></span><span class="choice-arrow">›</span></button><button class="choice" data-platform="harmony-native"><span><b>HarmonyOS 5 及以上 / NEXT</b><small>下载原生鸿蒙版，前往华为应用市场</small></span><span class="choice-arrow">›</span></button></section>
+    <section id="harmony-content" hidden><p class="dialog-intro">请在「设置 → 关于手机」查看系统版本</p><button class="choice" data-platform="harmony-apk" disabled><span><b>HarmonyOS 4.x 及更早版本</b><small>支持 APK 的鸿蒙手机，下载安卓兼容版</small></span><span class="choice-arrow">›</span></button><button class="choice" data-platform="harmony-native" disabled><span><b>HarmonyOS 5 及以上 / NEXT</b><small>下载原生鸿蒙版，前往华为应用市场</small></span><span class="choice-arrow">›</span></button></section>
     <section id="version-content" hidden><dl><dt>安卓最新版本</dt><dd id="version-number"></dd><dt>安装包大小</dt><dd id="version-size"></dd><dt>更新说明</dt><dd id="version-notes"></dd></dl><p class="small">iOS 与原生鸿蒙版本以对应商店或测试页面为准。</p></section>
     <section id="help-content" hidden><p><b>Android / 旧版鸿蒙</b><br>下载 APK 后打开安装。若系统询问安装来源，请确认来自本下载页后按系统提示操作。</p><p><b>iOS</b><br>按页面配置前往 App Store 或 TestFlight；使用 TestFlight 时，先安装苹果官方 TestFlight，再接受测试邀请。</p><p><b>HarmonyOS 5 及以上</b><br>前往华为应用市场获取原生鸿蒙版。安卓 APK 的兼容性取决于系统提供的服务，推荐选择原生鸿蒙版本。</p><p class="small">微信等应用内浏览器可能限制下载或商店跳转，请使用右上角菜单选择「在浏览器中打开」。若显示适配中，请稍后再来。</p></section>
     <section id="message-content" hidden><p id="dialog-message"></p><button id="message-ok" class="primary-action">知道了</button></section>

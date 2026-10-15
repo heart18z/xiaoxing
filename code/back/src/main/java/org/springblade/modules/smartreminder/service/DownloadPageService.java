@@ -19,19 +19,21 @@ public class DownloadPageService {
 
     public record Settings(String pageUrl, boolean androidEnabled, boolean iosEnabled,
         String iosMode, String appStoreUrl, String testflightUrl, boolean harmonyApkEnabled,
-        boolean harmonyNativeEnabled, String harmonyStoreUrl) {}
+        boolean harmonyNativeEnabled, String harmonyStoreUrl, Boolean harmonyEnabled) {}
 
     public Settings settings() {
         var rows = jdbc.queryForList("select * from blade_app_download_page where id=1");
-        if(rows.isEmpty()) return new Settings(defaultPageUrl, true, false, "testflight", "", "", true, false, "");
+        if(rows.isEmpty()) return new Settings(defaultPageUrl, true, false, "testflight", "", "", true, false, "", true);
         var r=rows.get(0);
         return new Settings(text(r,"page_url"),flag(r,"android_enabled"),flag(r,"ios_enabled"),
             text(r,"ios_mode"),text(r,"app_store_url"),text(r,"testflight_url"),
-            flag(r,"harmony_apk_enabled"),flag(r,"harmony_native_enabled"),text(r,"harmony_store_url"));
+            flag(r,"harmony_apk_enabled"),flag(r,"harmony_native_enabled"),text(r,"harmony_store_url"),flag(r,"harmony_enabled"));
     }
 
     public void save(Settings input) {
         if(input==null) throw new ServiceException("请填写下载配置");
+        // An already-open older admin page must not reset the new master switch on save.
+        boolean harmonyEnabled=input.harmonyEnabled()==null?settings().harmonyEnabled():input.harmonyEnabled();
         String page=link(input.pageUrl(),"统一下载页网址",true,null);
         if(!Set.of("appstore","testflight").contains(Objects.toString(input.iosMode(),"")))
             throw new ServiceException("请选择 App Store 或 TestFlight 下载方式");
@@ -43,11 +45,11 @@ public class DownloadPageService {
             Set.of("appgallery.huawei.com","appgallery.cloud.huawei.com"));
         if(input.iosEnabled() && ("appstore".equals(input.iosMode())?store:flight).isEmpty())
             throw new ServiceException("开启 iOS 下载前，请填写对应的下载链接");
-        if(input.harmonyNativeEnabled()&&harmony.isEmpty())
+        if(harmonyEnabled&&input.harmonyNativeEnabled()&&harmony.isEmpty())
             throw new ServiceException("开启 HarmonyOS 5 及以上下载前，请填写应用市场链接");
-        jdbc.update("insert into blade_app_download_page(id,page_url,android_enabled,ios_enabled,ios_mode,app_store_url,testflight_url,harmony_apk_enabled,harmony_native_enabled,harmony_store_url) values(1,?,?,?,?,?,?,?,?,?) on duplicate key update page_url=values(page_url),android_enabled=values(android_enabled),ios_enabled=values(ios_enabled),ios_mode=values(ios_mode),app_store_url=values(app_store_url),testflight_url=values(testflight_url),harmony_apk_enabled=values(harmony_apk_enabled),harmony_native_enabled=values(harmony_native_enabled),harmony_store_url=values(harmony_store_url)",
+        jdbc.update("insert into blade_app_download_page(id,page_url,android_enabled,ios_enabled,ios_mode,app_store_url,testflight_url,harmony_apk_enabled,harmony_native_enabled,harmony_store_url,harmony_enabled) values(1,?,?,?,?,?,?,?,?,?,?) on duplicate key update page_url=values(page_url),android_enabled=values(android_enabled),ios_enabled=values(ios_enabled),ios_mode=values(ios_mode),app_store_url=values(app_store_url),testflight_url=values(testflight_url),harmony_apk_enabled=values(harmony_apk_enabled),harmony_native_enabled=values(harmony_native_enabled),harmony_store_url=values(harmony_store_url),harmony_enabled=values(harmony_enabled)",
             page,input.androidEnabled()?1:0,input.iosEnabled()?1:0,input.iosMode(),store,flight,
-            input.harmonyApkEnabled()?1:0,input.harmonyNativeEnabled()?1:0,harmony);
+            input.harmonyApkEnabled()?1:0,input.harmonyNativeEnabled()?1:0,harmony,harmonyEnabled?1:0);
     }
 
     public Map<String,Object> publicConfig() {
@@ -61,7 +63,7 @@ public class DownloadPageService {
 
     public File publicApk() {
         var s=settings();
-        if(!s.androidEnabled()&&!s.harmonyApkEnabled()) throw new ServiceException("安卓兼容版本正在适配中");
+        if(!s.androidEnabled()&&!(s.harmonyEnabled()&&s.harmonyApkEnabled())) throw new ServiceException("安卓兼容版本下载暂未开放");
         var latest=releases.latest();
         if(latest.isEmpty()) throw new ServiceException("安卓版本暂未发布，请稍后再试");
         // Resolve the currently published file on every request: withdrawn/draft releases stay private.

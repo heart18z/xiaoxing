@@ -13,20 +13,25 @@
       transform: tip.visible ? 'translateY(0px) scale(1)' : 'translateY(-20px) scale(0.96)',
     }"
   >
-    <view :class="['tip-mark', 'mark-' + tip.tone]">
-      <UiIcon
-        :name="tip.tone == 'success' ? 'tipSuccess' : tip.tone == 'error' ? 'tipError' : 'tipInfo'"
-        :tone="'white'"
-        :size="19"
-      />
+    <view :class="['tip-halo', 'halo-' + tip.tone]">
+      <view :class="['tip-mark', 'mark-' + tip.tone]">
+        <UiIcon
+          :name="tip.tone == 'success' ? 'check' : tip.tone == 'error' ? 'close' : 'tipInfo'"
+          tone="white"
+          :size="22"
+        />
+      </view>
     </view>
     <text class="app-font tip-text">{{ tip.text }}</text>
+    <view class="tip-close" role="button" aria-label="关闭提示" @click.stop="hideTip()">
+      <UiIcon name="close" tone="muted" :size="20" />
+    </view>
   </view>
 </template>
 <script setup lang="uts">
 import StartupMask from './StartupMask.uvue';
 import UiIcon from './UiIcon.uvue';
-import { tip as _tip, TipState } from '@/store/tip.uts';
+import { tip as _tip, TipState, hideTip } from '@/store/tip.uts';
 const tip: TipState = _tip;
 const info = uni.getWindowInfo();
 const side = Math.max(24, (info.windowWidth - 360) / 2);
@@ -38,53 +43,64 @@ topStyle = 'max(' + top + 'px, calc(env(safe-area-inset-top, 0px) + 8px))';
 </script>
 <style scoped>
 .top-tip {
-  pointer-events: none;
   position: fixed;
   z-index: 9999;
   flex-direction: row;
   align-items: center;
-  min-height: 58px;
-  padding: 13px 16px;
-  border-radius: 17px;
-  background-color: #243556;
-  border: 1px solid #6984b8;
-  box-shadow: 0 10px 28px #14234055;
+  min-height: 60px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 20px;
+  background-color: #f5f9ff;
+  background-image: linear-gradient(to right, #f8fcff, #eaf1ff);
+  border: 1px solid #ffffff;
+  box-shadow: 0 10px 28px #4d73d94d;
   transition-property: opacity, transform;
   transition-duration: 240ms;
   transition-timing-function: ease-out;
 }
-.tip-mark {
-  width: 32px;
-  height: 32px;
+.tip-halo {
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: 21px;
   align-items: center;
   justify-content: center;
-  margin-right: 10px;
+  margin-right: 12px;
+}
+.halo-info { background-color: #dde7ff; }
+.halo-success { background-color: #dcf7ec; }
+.halo-error { background-color: #ffeaed; }
+.tip-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  align-items: center;
+  justify-content: center;
 }
 .mark-info {
-  background-color: #4778ff;
+  background-color: #6083ef;
 }
 .mark-success {
-  background-color: #1fa879;
+  background-color: #28c58d;
 }
 .mark-error {
-  background-color: #e36b78;
+  background-color: #ed8495;
 }
 .tip-text {
   flex: 1;
-  color: #ffffff;
+  min-width: 0;
+  color: #192c4d;
   font-size: 15px;
   font-weight: 600;
   line-height: 23px;
 }
-.tip-success {
-  background-color: #193f38;
-  border-color: #4c9b82;
-}
-.tip-error {
-  background-color: #552e3b;
-  border-color: #b67186;
+.tip-close {
+  width: 36px;
+  height: 40px;
+  flex-shrink: 0;
+  margin-left: 6px;
+  align-items: center;
+  justify-content: center;
 }
 /* #ifdef WEB */
 .tip-text {

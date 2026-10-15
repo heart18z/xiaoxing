@@ -12,7 +12,7 @@ import java.util.*;
 public class DownloadPageRegression {
     static void check(boolean value,String name){if(!value)throw new AssertionError(name);System.out.println("PASS "+name);}
     static void rejected(Runnable action,String name){try{action.run();}catch(org.springblade.core.log.exception.ServiceException expected){check(true,name);return;}throw new AssertionError(name);}
-    static DownloadPageService.Settings settings(boolean android,boolean ios,String mode,String store,String flight,boolean apk,boolean nativeHarmony,String harmony){return new DownloadPageService.Settings("https://47.100.172.149/download/",android,ios,mode,store,flight,apk,nativeHarmony,harmony);}
+    static DownloadPageService.Settings settings(boolean android,boolean ios,String mode,String store,String flight,boolean apk,boolean nativeHarmony,String harmony){return new DownloadPageService.Settings("https://47.100.172.149/download/",android,ios,mode,store,flight,apk,nativeHarmony,harmony,null);}
     public static void main(String[] args)throws Exception {
         // MySQL CHAR casts infer the ID length; H2 CHAR defaults to a single character.
         var db=new JdbcTemplate(new DriverManagerDataSource("jdbc:h2:mem:download;MODE=MySQL;DB_CLOSE_DELAY=-1","sa","")) {
@@ -39,12 +39,15 @@ public class DownloadPageRegression {
             rejected(()->service.save(settings(true,true,"appstore","javascript:alert(1)","",true,false,"")),"script link rejected");
             rejected(()->service.save(settings(true,false,"other","","",true,false,"")),"unsupported iOS mode rejected");
             rejected(()->service.save(settings(true,false,"testflight","","",true,true,"")),"native HarmonyOS requires store link");
-            rejected(()->service.save(new DownloadPageService.Settings("http://example.com",true,false,"testflight","","",true,false,"")),"insecure landing URL rejected");
+            rejected(()->service.save(new DownloadPageService.Settings("http://example.com",true,false,"testflight","","",true,false,"",null)),"insecure landing URL rejected");
             check(service.settings().testflightUrl().endsWith("AbCd1234"),"invalid saves do not overwrite configuration");
             String store="https://apps.apple.com/cn/app/id12345678", harmony="https://appgallery.huawei.com/app/C12345678";
             service.save(settings(true,true,"appstore",store,"https://testflight.apple.com/join/AbCd1234",true,true,harmony));
             var fresh=new DownloadPageService(db,release);
             check(fresh.settings().iosMode().equals("appstore")&&fresh.settings().testflightUrl().endsWith("AbCd1234")&&fresh.settings().harmonyNativeEnabled(),"switch mode retains alternate link and survives new service");
+            db.execute("alter table blade_app_download_page drop column harmony_enabled");
+            schema.migrate();schema.migrate();
+            check(service.settings().harmonyEnabled()&&service.settings().harmonyStoreUrl().equals(harmony),"existing configuration migrates idempotently without losing links");
             Files.createDirectories(directory.resolve("app-releases"));
             long oldId=930000000000000001L,newId=930000000000000002L,draftId=930000000000000003L;
             for(long id:List.of(oldId,newId,draftId))Files.writeString(directory.resolve("app-releases").resolve(id+".apk"),"apk:"+id);
@@ -65,6 +68,15 @@ public class DownloadPageRegression {
             rejected(()->service.publicApk(),"all APK switches off blocks public download");
             service.save(settings(false,false,"testflight","","",true,false,""));
             check(service.publicApk().exists(),"legacy HarmonyOS can download independently of Android switch");
+            service.save(new DownloadPageService.Settings(defaults.pageUrl(),false,false,"testflight","","",true,true,harmony,false));
+            check(!service.settings().harmonyEnabled()&&service.settings().harmonyApkEnabled()&&service.settings().harmonyNativeEnabled()&&service.settings().harmonyStoreUrl().equals(harmony),"master switch persists without erasing HarmonyOS choices or URL");
+            rejected(()->service.publicApk(),"closed HarmonyOS master blocks APK even when compatibility choice is retained");
+            service.save(settings(false,false,"testflight","","",true,true,harmony));
+            check(!service.settings().harmonyEnabled(),"older admin save missing new field preserves closed channel");
+            service.save(new DownloadPageService.Settings(defaults.pageUrl(),true,false,"testflight","","",true,true,harmony,false));
+            check(service.publicApk().exists(),"Android stays independent of closed HarmonyOS channel");
+            service.save(new DownloadPageService.Settings(defaults.pageUrl(),false,false,"testflight","","",true,true,harmony,true));
+            check(service.publicApk().exists(),"reopening master restores compatible download");
             release.publish(oldId,false);
             rejected(()->service.publicApk(),"all releases withdrawn cannot download");
         } finally {try(var paths=Files.walk(directory)){for(var path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}

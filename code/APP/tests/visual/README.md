@@ -38,3 +38,5 @@ npx --yes --package @playwright/cli playwright-cli -s=visual run-code --filename
 2026-10-14 / 134：先运行 `social131-fixture.js`，再运行 `applications134.js`。验证好友申请合并列表、双向待处理/已通过状态、准确接受/拒绝、已处理记录保留、待处理计数、权限内容、320px 布局及头像弹窗已恢复原样。截图在 `output/playwright/applications134-requests.png`、`applications134-320.png`。`social131-notification.js` 的目标标签改为「好友申请」。
 
 2026-10-15 / 135：在 5175 Web 预览下先运行 `social131-fixture.js`，再运行 `polish135.js`。覆盖事件双列表并行预取、切换不请求、独立滚动、横滑不刷新、单组失败隔离、紧凑申请行、备注固定弹窗、深色成功提示，以及注销/确认登录按钮等宽且等高（含 320px）。脚本最后清除模拟登录；再测抽屉需重载 fixture 后执行 `reminder133.js`。截图在 `output/playwright/polish135-*.png`。所有接口使用本地拦截，不能在真实登录会话执行；原生键盘避让仍需新安装包真机复测。
+
+2026-10-15 / 136：在 5175 预览中先运行 `social131-fixture.js`，再运行 `tips136.js`，检查浅色提示的成功/普通/错误状态、手动关闭、自动消失和 320px 长文本。截图在 `output/playwright/tip136-*.png`；仅浏览器注入模拟安全区，不改产品布局。`polish135.js` 的提示背景断言已随新版浅色风格更新。

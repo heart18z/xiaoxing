@@ -11,7 +11,7 @@
 - iOS：独立开关，可选 App Store 官方链接或 TestFlight 公开邀请链接；两种链接分别保存，切换方式不会丢失另一种链接。
 - 鸿蒙 APK 兼容版：独立开关，面向支持 APK 的 HarmonyOS 4.x 及更早版本，使用同一个最新已发布 APK。
 - 原生鸿蒙：独立开关，面向 HarmonyOS 5 及以上 / NEXT，通过配置的华为应用市场链接下载。启用前必须提供链接。
-- 关闭的平台仍保留按钮，点击显示「适配中」。没有已发布 APK、网络不可用或微信内下载被限制时均有对应说明。
+- 关闭的平台仍保留按钮，置灰且不可点击。鸿蒙另有总开关，关闭后同时停用兼容版与原生版入口，但保留配置。没有已发布 APK、网络不可用或微信内下载被限制时均有对应说明。
 
 默认开放 Android 与鸿蒙 APK 兼容版，iOS 和原生鸿蒙关闭，商店链接留空。不会猜测或创建未经提供的 App Store、TestFlight、AppGallery 地址。
 
@@ -24,7 +24,7 @@
 - `POST /blade-smart/admin/releases/download-page`：管理员读取配置。
 - `POST /blade-smart/admin/releases/download-page/save`：管理员保存配置。
 - `GET /app/download/config`：公开平台配置和已发布版本的必要元数据。
-- `GET /app/download/android.apk`：无需登录，实时解析当前最新已发布 APK。安卓与旧版鸿蒙开关都关闭时禁止下载；草稿或全部下架时禁止下载。
+- `GET /app/download/android.apk`：无需登录，实时解析当前最新已发布 APK。仅 Android 开启或“鸿蒙总开关 + APK 兼容版”同时开启时开放；草稿或全部下架时禁止下载。
 - `GET /app/download/qr`：公开 PNG，600×600，编码后台配置的统一下载页网址。
 
 现有 APP 更新接口仍保留原角色认证。仅三个明确的公开路由加入认证放行列表，管理员路由不放行。保存链接只接受 HTTPS；苹果/鸿蒙商店域名有精确白名单，不接受伪造子域名、用户名密码、脚本协议、非标准端口。TestFlight 校验 `/join/邀请码` 格式。公开页面使用 `textContent` 显示更新说明，跳转再次校验官方域名。二维码在服务器生成，不使用外部二维码服务。

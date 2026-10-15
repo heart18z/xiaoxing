@@ -56,7 +56,7 @@ async page => {
  await page.getByText('保存备注',{exact:true}).click();await page.locator('.friend-edit-mask').waitFor({state:'detached'});
  await page.getByText('备注已保存',{exact:true}).waitFor();
  const tip=page.locator('.top-tip');assert((await tip.getAttribute('class')).includes('tip-success'),'saved remark uses success feedback');
- assert(await tip.evaluate(el=>getComputedStyle(el).backgroundColor)==='rgb(25, 63, 56)','tip uses contrasting background');
+ assert(await tip.evaluate(el=>getComputedStyle(el).backgroundColor)==='rgb(245, 249, 255)','tip uses the light app palette');
  await page.screenshot({path:'output/playwright/polish135-tip.png'});
  await page.locator('.toolbar-button').last().click();await safe();await page.getByText('注销账号',{exact:true}).click();
  const equal=async()=>{await page.waitForTimeout(240);const buttons=page.locator('.mask .login-submit');const a=await buttons.nth(0).boundingBox(),b=await buttons.nth(1).boundingBox();assert(Math.abs(a.width-b.width)<1&&Math.abs(a.height-b.height)<1&&a.height===48,'dialog actions have equal width and 48px height');};
