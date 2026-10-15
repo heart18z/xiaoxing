@@ -140,7 +140,7 @@ public class SmartReminderService {
 		reversed.removeIf(row -> "FEEDBACK".equals(row.get("messageType")) && row.get("eventId") != null
 			&& !createdEventIds.contains(Objects.toString(row.get("eventId"))));
 		for (Map<String, Object> row : reversed) {
-			ConflictPrivacy.sanitize(row);
+			ConflictPrivacy.sanitizePersonal(row,userId);
 			eventContent.personalizeAssignment(row, userId);
 			normalizeMapIds(row);
 			String payload = Objects.toString(row.get("payloadJson"), "");
@@ -539,6 +539,7 @@ public class SmartReminderService {
 				}
 			}
 			List<Long> ids=createCandidateEvents(userId,candidateId);
+			notifyAssignedConflicts(userId,ids,conflicts);
 			log.info("Candidate confirm candidateId={} persistenceMs={}",candidateId,(System.nanoTime()-createStarted)/1_000_000);
 			return Map.of("eventIds",ids);
 		}catch(ServiceException ex){throw ex;}catch(Exception ex){throw new ServiceException("确认事件失败，请刷新后重试："+ex.getMessage());}
@@ -547,8 +548,56 @@ public class SmartReminderService {
 
 	private List<Map<String,String>> reviewCandidate(ArrayNode events) {
 		List<Map<String,String>> conflicts=scheduleService.review(events,Set.of());
-		if(!events.isEmpty())((ObjectNode)events.get(0)).set("scheduleConflicts",objectMapper.valueToTree(conflicts));
+		if(!events.isEmpty())((ObjectNode)events.get(0)).set("scheduleConflicts",objectMapper.valueToTree(scheduleService.publicConflicts(conflicts)));
 		return conflicts;
+	}
+
+	/** Runs in the confirmation transaction: the recipient sees conflicts immediately, not at evaluation time. */
+	private void notifyAssignedConflicts(Long creatorId,List<Long> created,List<Map<String,String>> conflicts) {
+		if(conflicts.isEmpty())return;
+		for(int index=0;index<created.size();index++) {
+			Long eventId=created.get(index);
+			for(Map<String,Object> branch:jdbcTemplate.queryForList("select id,recipient_user_id,task_content from blade_smart_event_branch where event_id=? and branch_status='ACTIVE'",eventId)) {
+				Long recipientId=((Number)branch.get("recipient_user_id")).longValue();
+				Set<Long> related=new LinkedHashSet<>();
+				for(Map<String,String> conflict:conflicts) {
+					if(!recipientId.toString().equals(conflict.get("recipientId")))continue;
+					int proposed=Integer.parseInt(conflict.get("proposedIndex"));
+					if("batch".equals(conflict.get("otherEventId"))) {
+						int other=Integer.parseInt(conflict.get("otherProposedIndex"));
+						if(index==proposed)related.add(created.get(other));
+						if(index==other)related.add(created.get(proposed));
+					} else if(index==proposed)related.add(Long.valueOf(conflict.get("otherEventId")));
+				}
+				List<Map<String,String>> details=new ArrayList<>();
+				for(Long other:related) {
+					// Re-read only this recipient's active branch, never a parent's multi-person summary.
+					for(Map<String,Object> row:jdbcTemplate.queryForList("""
+						select e.id,e.event_no,coalesce(nullif(b.task_content,''),e.event_summary) as task,
+						case when b.task_time_scoped=1 then b.task_event_time else e.event_time end as event_time
+						from blade_smart_event e join blade_smart_event_branch b on b.event_id=e.id
+						where e.id=? and b.recipient_user_id=? and e.event_status='ACTIVE' and b.branch_status='ACTIVE'
+						""",other,recipientId)) {
+						details.add(Map.of("eventId",other.toString(),"eventNo",Objects.toString(row.get("event_no"),""),
+							"summary",Objects.toString(row.get("task"),""),"eventTime",Objects.toString(row.get("event_time"),"")));
+					}
+				}
+				if(details.isEmpty())continue;
+				Long branchId=((Number)branch.get("id")).longValue();
+				String task=Objects.toString(branch.get("task_content"),"");
+				String names=String.join("；",details.stream().map(item->"「"+item.get("summary")+"」"+(item.get("eventTime").isBlank()?"":"（"+item.get("eventTime")+"）")).toList());
+				String message="新下发的任务「"+task+"」与您的安排："+names+"可能冲突（结合事项性质、预计耗时和出行安排判断）。发起人已选择继续下发，请及时协调或调整时间。";
+				Map<String,Object> payload=new LinkedHashMap<>();
+				payload.put("eventId",eventId.toString());payload.put("branchId",branchId.toString());
+				payload.put("eventSummary",task);payload.put("timeConflict",true);
+				payload.put("conflictOwnerId",recipientId.toString());payload.put("conflictingEvents",details);
+				payload.put("conflictStage","ASSIGNMENT");
+				insertChat(recipientId,"assistant","CONFLICT",message,toJson(payload),eventId,null,false);
+				// Shared timeline stores only availability, not the recipient's other task details.
+				insertTimeline(eventId,branchId,creatorId,"TIME_CONFLICT_DETECTED",ConflictPrivacy.NOTICE,
+					toJson(Map.of("eventId",eventId.toString(),"branchId",branchId.toString(),"timeConflict",true)));
+			}
+		}
 	}
 
 	private List<Long> createCandidateEvents(Long userId, Long candidateId) {
@@ -1890,7 +1939,7 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 				and m.message_type in ('REMINDER','QUESTION','CONFLICT','EVENT_ASSIGNED')
 				order by m.create_time,m.id limit 30
 				""".formatted(ChatContext.VISIBLE), userId, sourceMessageId, userId, sourceMessageId);
-			rows.forEach(ConflictPrivacy::sanitize);
+			rows.forEach(row -> ConflictPrivacy.sanitizePersonal(row,userId));
 			rows.forEach(this::normalizeMapIds);
 			return objectMapper.writeValueAsString(rows);
 		} catch (Exception e) {
@@ -1924,7 +1973,7 @@ List<Map<String, Object>> matches = resolvePerson(userId, name);
 		Collections.reverse(rows);
 		List<String> lines=new ArrayList<>();
 		for (Map<String, Object> row : rows) {
-			ConflictPrivacy.sanitize(row);
+			ConflictPrivacy.sanitizePersonal(row,userId);
 			StringBuilder value = new StringBuilder();
 			value.append(row.get("message_role")).append('[').append(row.get("message_type"));
 			if (row.get("event_id") != null) value.append(",事件ID=").append(row.get("event_id"));

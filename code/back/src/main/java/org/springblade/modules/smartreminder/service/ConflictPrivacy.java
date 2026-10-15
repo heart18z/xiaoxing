@@ -11,6 +11,15 @@ public final class ConflictPrivacy {
     public static final String NOTICE = "该时段已有其他安排，可能无法同时参加。请确认本事件是否继续或调整时间；其他安排的内容不予展示。";
     private static final ObjectMapper JSON = new ObjectMapper();
     private ConflictPrivacy() { }
+    /** Only the authenticated owner of a personal inbox may see the referenced tasks. */
+    public static void sanitizePersonal(Map<String,Object> row,Long inboxOwner) {
+        try {
+            JsonNode payload=JSON.readTree(Objects.toString(row.getOrDefault("payloadJson",row.get("payload_json")),"{}"));
+            if(inboxOwner!=null && payload!=null && inboxOwner.toString().equals(payload.path("conflictOwnerId").asText())
+                && "ASSIGNMENT".equals(payload.path("conflictStage").asText()) && payload.path("conflictingEvents").isArray()) return;
+        } catch(Exception ignored) { }
+        sanitize(row);
+    }
     public static void sanitize(Map<String,Object> row) {
         String type = Objects.toString(row.getOrDefault("messageType", row.get("message_type")), "");
         String node = Objects.toString(row.get("nodeType"), "");
