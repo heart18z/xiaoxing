@@ -1,0 +1,9 @@
+export function normalizeLanguage(value: string): string {
+  return value.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en-us';
+}
+export function systemLanguage(): string {
+  return normalizeLanguage(uni.getSystemInfoSync().osLanguage ?? 'en-US');
+}
+export function effectiveLanguage(mode: string): string {
+  return mode == 'zh-cn' || mode == 'en-us' ? mode : systemLanguage();
+}

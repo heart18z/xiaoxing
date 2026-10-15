@@ -123,9 +123,10 @@
   </scroll-view>
 </template>
 <script setup lang="uts">
-import { asset, openEvent } from '@/core/ui.uts';
+import { asset, openEvent as _openEvent } from '@/core/ui.uts';
 import { arr, firstText, s as _s, n as _n } from '@/core/json.uts';
 import UiIcon from './UiIcon.uvue';
+function openEvent(id: string): void { _openEvent(id); }
 import { latestProgress } from '@/core/events.uts';
 import { t as _t } from '@/core/locale.uts';
 import { statusText as _statusText, displayTime as _displayTime } from '@/core/time.uts';

@@ -1,5 +1,6 @@
 <script setup lang="uts">
 import { watch } from 'vue';
+import { syncLanguage } from '@/api/request.uts';
 import { restoreSession, session } from '@/store/session.uts';
 import { pauseChat, resume, resetChat } from '@/services/chat.uts';
 import {
@@ -21,6 +22,7 @@ onLaunch(() => {
 });
 onShow(() => {
   session.visible = true;
+  void syncLanguage().catch(() => {});
   if (session.userId.length > 0) {
     void resume().catch(() => {});
     void syncPush();

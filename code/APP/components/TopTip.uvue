@@ -31,7 +31,8 @@
 <script setup lang="uts">
 import StartupMask from './StartupMask.uvue';
 import UiIcon from './UiIcon.uvue';
-import { tip as _tip, TipState, hideTip } from '@/store/tip.uts';
+import { tip as _tip, TipState, hideTip as _hideTip } from '@/store/tip.uts';
+function hideTip(): void { _hideTip(); }
 const tip: TipState = _tip;
 const info = uni.getWindowInfo();
 const side = Math.max(24, (info.windowWidth - 360) / 2);

@@ -78,27 +78,11 @@
       <text class="app-font latest-text">{{ t('回到最新') }}</text>
     </view>
     <view class="composer" :style="{ marginBottom: keyboard > 0 ? '0px' : '10px' }">
-      <scroll-view v-if="files.length > 0" :scroll-x="true" class="file-strip">
-        <view class="row">
-          <view v-for="file in files" :key="file.key" class="file">
-            <image v-if="file.image" :src="file.path" class="file-image" />
-            <text class="app-font muted">
-              {{ file.name }} ·
-              {{
-                file.state == 'loading'
-                  ? t('解析中')
-                  : file.state == 'ready'
-                    ? t('已就绪')
-                    : t('失败')
-              }}
-            </text>
-            <text class="app-font link" v-if="file.state == 'error'" @click="uploadOne(file)">
-              {{ t('重试') }}
-            </text>
-            <text class="app-font link" @click="removeFile(file.key)">×</text>
-          </view>
-        </view>
-      </scroll-view>
+      <view v-if="files.length > 0" class="file-grid">
+        <AttachmentTile v-for="file in files" :key="file.key" :source="file.path"
+          :state="file.state" :visible="pageShown && session.visible"
+          @remove="removeFile(file.key)" @retry="uploadOne(file)" />
+      </view>
       <view class="composer-box">
         <view class="input-row">
           <image class="orb" src="/static/icons/input-orb.png" mode="aspectFit" />
@@ -193,6 +177,7 @@
 import { messageKey } from '@/core/messages.uts';
 import { pickImages, prepareChatImage } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
+import AttachmentTile from '@/components/AttachmentTile.uvue';
 import VoiceInputStatus from '@/components/VoiceInputStatus.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { onMounted, onUnmounted, ref, reactive, watch, nextTick, computed } from 'vue';
@@ -1232,24 +1217,7 @@ watch((): string => s(chat.pending, 'requestId'), scrollLatest);
   justify-content: center;
   box-shadow: 0 2px 8px #7183ad17;
 }
-.file-strip {
-  height: 58px;
-  margin-bottom: 8px;
-}
-.file {
-  flex-direction: row;
-  align-items: center;
-  background-color: #f3f6fc;
-  border-radius: 12px;
-  padding: 4px 7px;
-  margin-right: 8px;
-}
-.file-image {
-  width: 35px;
-  height: 35px;
-  border-radius: 7px;
-  margin-right: 5px;
-}
+.file-grid { flex-direction: row; flex-wrap: wrap; padding-top: 2px; flex-shrink: 0; }
 .clear-copy {
   font-size: 14px;
   line-height: 25px;

@@ -1,3 +1,4 @@
+import { effectiveLanguage } from '@/core/language.uts';
 import { reactive } from 'vue';
 import { secureRead, secureWrite, randomHex } from '@/uni_modules/xiaoxing-native';
 import { s, n, obj, parseObject } from '@/core/json.uts';
@@ -11,6 +12,7 @@ export type SessionState = {
   profile: UTSJSONObject;
   summary: UTSJSONObject;
   language: string;
+  languageMode: string;
 };
 export const session = reactive<SessionState>({
   token: '',
@@ -22,11 +24,23 @@ export const session = reactive<SessionState>({
   profile: {} as UTSJSONObject,
   summary: {} as UTSJSONObject,
   language: 'zh-cn',
+  languageMode: 'system',
 });
 export function persist(key: string, value: string): void {
   if (!secureWrite(key, value)) throw new Error('无法安全保存数据，请重试');
 }
+export function refreshLanguage(): void {
+  session.language = effectiveLanguage(session.languageMode);
+}
+export function setLanguageMode(mode: string): void {
+  uni.setStorageSync('xiaoxing-language-mode', mode);
+  session.languageMode = mode;
+  refreshLanguage();
+}
 export function restoreSession(): void {
+  const mode = uni.getStorageSync('xiaoxing-language-mode');
+  session.languageMode = mode == 'zh-cn' || mode == 'en-us' ? (mode as string) : 'system';
+  refreshLanguage();
   try {
     const data = parseObject(secureRead('session'));
     session.token = s(data, 'token');
@@ -67,7 +81,7 @@ export function clearSession(): void {
 export function applyBootstrap(data: UTSJSONObject): void {
   session.profile = obj(data, 'user');
   session.summary = data;
-  session.language = s(data, 'language', 'zh-cn');
+  refreshLanguage();
 }
 export function requestId(): string {
   return randomHex(20);

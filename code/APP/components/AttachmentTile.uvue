@@ -1,0 +1,41 @@
+<template>
+  <view class="tile">
+    <image class="tile-image" :src="source" mode="aspectFill" @click="preview()" />
+    <view class="tile-controls">
+      <view v-if="state == 'loading'" class="tile-progress">
+        <view class="orbit" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
+      </view>
+      <view class="tile-remove" @click="emit('remove')"><text class="remove-text">×</text></view>
+    </view>
+    <view v-if="state == 'error'" class="tile-retry" @click="emit('retry')">
+      <text class="retry-text app-font">{{ t('重试') }}</text>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onUnmounted } from 'vue';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
+const props = defineProps<{ source: string; state: string; visible: boolean }>();
+const emit = defineEmits(['remove', 'retry']);
+const angle = ref(0);
+let timer: number = 0;
+function stop() { if (timer > 0) clearInterval(timer); timer = 0; }
+watch((): boolean => props.visible && props.state == 'loading', (active: boolean) => {
+  stop();
+  if (active) timer = setInterval(() => { angle.value = (angle.value + 24) % 360; }, 80);
+}, { immediate: true });
+function preview() { uni.previewImage({ urls: [props.source] }); }
+onUnmounted(stop);
+</script>
+<style scoped>
+.tile { width: 76px; height: 76px; margin: 0 8px 8px 0; position: relative; flex-shrink: 0; border-radius: 12px; overflow: hidden; background-color: #edf1ff; border: 1px solid #dfe5f5; }
+.tile-image { width: 76px; height: 76px; }
+.tile-controls { position: absolute; top: 3px; right: 3px; flex-direction: row; align-items: center; }
+.tile-progress { width: 23px; height: 23px; border-radius: 12px; background-color: #fffffff0; align-items: center; justify-content: center; margin-right: 3px; }
+.orbit { width: 14px; height: 14px; border-radius: 7px; border: 2px solid #dce5fb; border-top-color: #5a6df0; border-right-color: #65bfdb; }
+.tile-remove { width: 23px; height: 23px; border-radius: 12px; background-color: #293755bd; align-items: center; justify-content: center; }
+.remove-text { color: #ffffff; font-size: 20px; line-height: 22px; }
+.tile-retry { position: absolute; bottom: 0; left: 0; right: 0; height: 25px; align-items: center; justify-content: center; background-color: #b83f60d9; }
+.retry-text { color: #ffffff; font-size: 11px; }
+</style>

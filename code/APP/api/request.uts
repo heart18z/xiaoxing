@@ -1,5 +1,5 @@
 import { BASE_URL, BASIC_AUTH, TENANT, SM2_PUBLIC_KEY } from '@/config/environment.uts';
-import { session, saveSession, clearSession, applyBootstrap } from '@/store/session.uts';
+import { session, saveSession, clearSession, applyBootstrap, refreshLanguage } from '@/store/session.uts';
 import { sm2Encrypt, sm2EncryptResponsive } from '@/core/sm2.uts';
 import { randomHex } from '@/uni_modules/xiaoxing-native';
 import { s, n, obj, parseObject } from '@/core/json.uts';
@@ -185,9 +185,20 @@ export async function reminder(
   const body = await post('/app/reminder/' + action, data, params, timeout);
   return { value: body['data'] };
 }
+let syncedLanguage = '';
+export async function syncLanguage(): Promise<void> {
+  refreshLanguage();
+  if (session.userId.length == 0) return;
+  const owner = session.userId, language = session.language;
+  const key = owner + ':' + session.revision + ':' + language;
+  if (key == syncedLanguage) return;
+  await reminder('settings/language', { language: language });
+  if (owner == session.userId && language == session.language) syncedLanguage = key;
+}
 export async function bootstrap(): Promise<void> {
   const result = await reminder('bootstrap');
   applyBootstrap((result['value'] as UTSJSONObject) ?? {});
+  void syncLanguage().catch(() => {});
 }
 function encryptPassword(password: string): Promise<string> {
   // Native UTS runs on the UI thread. Keep expensive curve arithmetic off it.
@@ -302,6 +313,7 @@ async function finishLogin(result: UTSJSONObject): Promise<void> {
     // bootstrap failure: preserve the login screen so it can explain the error.
     const body = await raw('/app/reminder/bootstrap', null, {}, 15000);
     applyBootstrap((body['data'] as UTSJSONObject) ?? {});
+    void syncLanguage().catch(() => {});
     console.info("[login] bootstrap ms=" + (Date.now() - bootstrapStarted));
   } catch (error) {
     clearSession();

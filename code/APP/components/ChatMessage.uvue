@@ -34,13 +34,11 @@
           <rich-text v-else :nodes="markdown(replyText(item))" />
         </view>
         <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
-        <ChatImage
-          v-for="(fileId, index) in strings(payload(item), 'fileIds')"
-          :key="fileId"
-          :file-id="fileId"
-          :name="strings(payload(item), 'fileNames')[index] ?? ''"
-          @layout="emit('layout')"
-        />
+        <view v-if="strings(payload(item), 'fileIds').length > 0" class="message-images">
+          <ChatImage v-for="(fileId, index) in strings(payload(item), 'fileIds')" :key="fileId"
+            :file-id="fileId" :name="strings(payload(item), 'fileNames')[index] ?? ''"
+            :size="Math.min(102, Math.floor((messageWidth - 42) / 2))" @layout="emit('layout')" />
+        </view>
         <text
           class="app-font"
           v-if="strings(payload(item), 'fileNames').length > 0 && strings(payload(item), 'fileIds').length == 0"
@@ -150,20 +148,21 @@
               s(event, 'firstEvaluateTime')
             }}
           </text>
-          <view v-if="s(item, 'messageType') == 'CANDIDATE'" class="alarm-choice">
+          <view v-if="s(item, 'messageType') == 'CANDIDATE' && alarmAvailable(event)" class="alarm-choice">
             <view
               :class="['alarm-checkbox', alarms.includes(index) ? 'alarm-checked' : '']"
               @click="toggleAlarm(index)"
             >
               <text v-if="alarms.includes(index)" class="app-font alarm-tick">✓</text>
             </view>
-            <text class="app-font alarm-copy">{{ t('同时设置本机系统闹铃（iOS 26+）') }}</text>
+            <text class="app-font alarm-copy">{{ t('同时设置本机闹铃') }}</text>
           </view>
           <text
-            v-if="s(item, 'messageType') == 'CANDIDATE' && alarms.includes(index)"
+            v-if="s(item, 'messageType') == 'CANDIDATE' && alarmAvailable(event) && alarms.includes(index)"
             class="app-font alarm-hint"
           >
-            {{ t('仅为自己接收的任务设置，需系统授权；其他手机不会自动设置。') }}
+            {{ t('建议响铃') }}：{{ s(event, 'alarmTime', s(event, 'eventTime')) }}
+            {{ s(event, 'alarmReason') }}
           </text>
         </view>
         <view v-if="s(item, 'messageType') != 'CANDIDATE'" class="confirmed">
@@ -191,7 +190,9 @@ import ThinkingPanel from './ThinkingPanel.uvue';
 import ReplyProgress from './ReplyProgress.uvue';
 import ChatImage from './ChatImage.uvue';
 import { timeOf, dayOf } from '@/core/time.uts';
-import { ref, computed, watch, nextTick } from 'vue';
+import { candidateAlarmAvailable } from '@/core/alarms.uts';
+import { alarmState, alarmList } from '@/services/native.uts';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { SessionState, session as _session } from '@/store/session.uts';
 import {
   firstText,
@@ -355,6 +356,10 @@ function recipients(event: UTSJSONObject): string {
     )
     .join('、');
 }
+function alarmAvailable(event: UTSJSONObject): boolean {
+  return alarmState.supported && candidateAlarmAvailable(event, session.userId);
+}
+onMounted(() => { if (s(props.item, 'messageType') == 'CANDIDATE') void alarmList().catch(() => {}); });
 function toggleAlarm(index: number) {
   alarms.value = alarms.value.includes(index)
     ? alarms.value.filter((i: number): boolean => i != index)
@@ -362,11 +367,11 @@ function toggleAlarm(index: number) {
 }
 
 watch(
-  (): string => s(props.item, 'id'),
+  (): string => s(props.item, 'id') + ':' + JSON.stringify(arr(payload(props.item), 'events')) + ':' + alarmState.supported,
   () => {
     alarms.value = arr(payload(props.item), 'events')
       .map((event: UTSJSONObject, index: number): number =>
-        b(event, 'alarmRequested') ? index : -1,
+        b(event, 'alarmRequested') && alarmAvailable(event) ? index : -1,
       )
       .filter((index: number): boolean => index >= 0);
   },
@@ -387,6 +392,7 @@ watch((): string => (reason.value.length > 0 ? 'reason:' : '') + s(props.item, '
 watch((): boolean => expanded.value, () => { nextTick(() => { emit('layout'); }); });
 </script>
 <style scoped>
+.message-images { flex-direction: row; flex-wrap: wrap; margin-top: 8px; max-width: 220px; }
 .message {
   flex-direction: row;
   align-items: flex-start;

@@ -1,5 +1,5 @@
 <template>
-  <view class="alarm">
+  <view v-if="ready && supported && (eligible || active || ringing)" class="alarm">
     <view class="alarm-row">
       <UiIcon name="clock" :size="18" tone="muted" />
       <view class="alarm-copy">
@@ -19,7 +19,7 @@
                   ? scheduledTime.length > 0
                     ? scheduledTime + ' ' + t('响铃 · 北京时间')
                     : t('已开启 · 时间读取中')
-                  : t('未开启 · 按我的任务时间响铃')
+                  : t('未开启 · 按建议时间响铃')
           }}
         </text>
       </view>
@@ -52,7 +52,8 @@
 import { t as _t } from '@/core/locale.uts';
 import Popup from './Popup.uvue';
 import UiIcon from './UiIcon.uvue';
-import { alarmTime } from '@/core/alarms.uts';
+import { session } from '@/store/session.uts';
+import { alarmTime, canSetAlarm } from '@/core/alarms.uts';
 import { ref, computed, onMounted, watch } from 'vue';
 import { alarmList, setAlarm, cancelAlarm, alarmState, refreshRingingAlarm, openAlarmScreenPermission } from '@/services/native.uts';
 import { s as _s, b, obj, arr, message } from '@/core/json.uts';
@@ -84,6 +85,7 @@ const activeItem = computed(
 );
 const active = computed(() => s(activeItem.value, 'id').length > 0);
 const ringing = computed((): boolean => alarmState.ringing && alarmState.eventId == s(obj(props.detail, 'event'), 'id'));
+const eligible = computed((): boolean => canSetAlarm(props.detail, session.userId));
 const scheduledTime = computed(() => alarmTime(activeItem.value));
 async function screenPermission() {
   try { await openAlarmScreenPermission(); } catch(e) { toast(message(e)); }

@@ -85,8 +85,8 @@
           <view class="card">
             <text class="app-font label">{{ t('界面语言') }}</text>
             <SelectField
-              :options="['中文', 'English']"
-              :value="language == 'en-us' ? 1 : 0"
+              :options="[t('跟随系统'), '中文', 'English']"
+              :value="language == 'system' ? 0 : language == 'zh-cn' ? 1 : 2"
               @change="selectLanguage"
             />
             <text class="app-font muted">{{ t('选择后自动保存，历史消息保持原文。') }}</text>
@@ -168,7 +168,8 @@ import LoginButton from '@/components/LoginButton.uvue';
 import ModelSettings from '@/components/ModelSettings.uvue';
 import { ModelForm, blankModel } from '@/core/models.uts';
 import { reminder, post } from '@/api/request.uts';
-import { requireSession, session } from '@/store/session.uts';
+import { effectiveLanguage } from '@/core/language.uts';
+import { requireSession, session, setLanguageMode } from '@/store/session.uts';
 import { s, b, obj, arr, message, parseObject } from '@/core/json.uts';
 import { toast } from '@/core/ui.uts';
 import {
@@ -238,13 +239,13 @@ async function confirmClosure() {
 }
 async function selectLanguage(index: number) {
   if (languageSaving.value) return;
-  const next = index == 1 ? 'en-us' : 'zh-cn',
+  const next = index == 0 ? 'system' : index == 1 ? 'zh-cn' : 'en-us',
     previous = language.value;
   languageSaving.value = true;
   language.value = next;
   try {
-    await reminder('settings/language', { language: next });
-    session.language = next;
+    await reminder('settings/language', { language: effectiveLanguage(next) });
+    setLanguageMode(next);
     error.value = '';
     toast('语言已保存');
     void syncPush();
@@ -272,7 +273,7 @@ function applyModel(form: ModelForm, data: UTSJSONObject, key: string) {
 }
 function apply(data: UTSJSONObject) {
   models.value = arr(data, 'models');
-  language.value = s(data, 'language', 'zh-cn');
+  language.value = session.languageMode;
   applyModel(llm, data, 'llm');
   applyModel(speech, data, 'speech');
 }
@@ -331,7 +332,7 @@ async function save() {
   saving.value = true;
   try {
     const result = await reminder('settings/models/save', {
-      language: language.value,
+      language: effectiveLanguage(language.value),
       llmConfigId: llm.configId.length > 0 ? llm.configId : null,
       speechConfigId: speech.configId.length > 0 ? speech.configId : null,
       llmMode: llm.mode,
@@ -340,7 +341,7 @@ async function save() {
       speech: personal(speech),
     });
     apply(obj(result, 'value'));
-    session.language = language.value;
+    setLanguageMode(language.value);
     toast('设置已保存');
     void syncPush();
   } catch (e) {
@@ -427,9 +428,6 @@ onShow(() => {
     void syncPush();
   }
 });
-function languageChanged(event: UniPickerChangeEvent) {
-  language.value = parseInt(`${event.detail.value}`) == 1 ? 'en-us' : 'zh-cn';
-}
 </script>
 <style scoped>
 .update-dot {

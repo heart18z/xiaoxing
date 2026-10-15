@@ -53,8 +53,8 @@ function read(key: string): UTSJSONObject {
 }
 let serial: Promise<void> = Promise.resolve(),
   pushTimer: number = 0;
-export type AlarmState = { ringing: boolean; id: string; eventId: string; title: string; fullScreenAllowed: boolean };
-export const alarmState = reactive<AlarmState>({ ringing: false, id: '', eventId: '', title: '', fullScreenAllowed: true });
+export type AlarmState = { supported: boolean; ringing: boolean; id: string; eventId: string; title: string; fullScreenAllowed: boolean };
+export const alarmState = reactive<AlarmState>({ supported: false, ringing: false, id: '', eventId: '', title: '', fullScreenAllowed: true });
 let alarmTimer: number = 0;
 let checkingAlarm = false;
 export async function refreshRingingAlarm(): Promise<void> {
@@ -230,7 +230,8 @@ export async function startNative(): Promise<void> {
 }
 export async function alarmList(): Promise<UTSJSONObject> {
   const state = await callNative('alarm.activate', { owner: session.userId });
-  if (!b(state, 'supported')) return state;
+  alarmState.supported = b(state, 'supported');
+  if (!alarmState.supported) return state;
   return await callNative('alarm.list', { owner: session.userId });
 }
 export async function setAlarm(detail: UTSJSONObject): Promise<void> {

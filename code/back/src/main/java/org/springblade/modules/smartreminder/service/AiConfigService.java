@@ -295,6 +295,7 @@ public class AiConfigService {
 		java.net.URI uri=java.net.URI.create(url);
 		if(!java.util.Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null)throw new IllegalArgumentException("接口地址格式不正确");
 		if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+		if ("SPEECH".equals(type) && org.springblade.modules.smartreminder.support.DashScopeSpeech.matches(url)) return url;
 		String endpoint="SPEECH".equals(type)?"/audio/transcriptions":"/chat/completions";
 		if (!url.endsWith(endpoint)) {
 			url += url.endsWith("/v1") ? endpoint : "/v1"+endpoint;
