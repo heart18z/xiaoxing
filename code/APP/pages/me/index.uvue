@@ -61,7 +61,8 @@
           :class="['segment-item', tab == 1 ? 'selected' : '']"
           @click="tab = 1"
         >
-          {{ t('好友申请') }} {{ arr(requests, 'incoming').length > 0 ? arr(requests, 'incoming').length : '' }}
+          {{ t('好友申请') }}
+          {{ arr(requests, 'incoming').length > 0 ? arr(requests, 'incoming').length : '' }}
         </text>
       </view>
       <view v-if="error.length > 0" class="card">
@@ -118,22 +119,59 @@
         </view>
       </view>
       <view v-else class="requests-area">
-        <scroll-view :scroll-y="true" :show-scrollbar="false" class="applications-scroll" :bounces="false">
+        <scroll-view
+          :scroll-y="true"
+          :show-scrollbar="false"
+          class="applications-scroll"
+          :bounces="false"
+        >
           <view class="applications-card">
             <view v-if="requestItems.length == 0" class="application-empty">
               <text class="app-font application-name">{{ t('暂无好友申请') }}</text>
-              <text class="app-font application-description">{{ t('收到和发出的申请会显示在这里') }}</text>
+              <text class="app-font application-description">
+                {{ t('收到和发出的申请会显示在这里') }}
+              </text>
             </view>
             <view v-for="item in requestItems" :key="s(item, 'id')" class="application-row">
-              <image class="application-avatar" :src="asset(s(item, 'avatar').length > 0 ? s(item, 'avatar') : '/avatars/user/B1.png')" mode="aspectFill" />
+              <image
+                class="application-avatar"
+                :src="
+                  asset(s(item, 'avatar').length > 0 ? s(item, 'avatar') : '/avatars/user/B1.png')
+                "
+                mode="aspectFill"
+              />
               <view class="application-person">
                 <text class="app-font application-name">{{ name(item) }}</text>
-                <text class="app-font application-description">{{ t(requestDescription(item)) }}</text>
-                <text v-if="s(item, 'requestType') == 'PERMISSION' && s(item, 'requestStatus') == 'PENDING'" class="app-font application-permission">{{ t(permission(s(item, 'permissionMode'), s(item, 'direction') == 'incoming')) }}</text>
+                <text class="app-font application-description">
+                  {{ t(requestDescription(item)) }}
+                </text>
+                <text
+                  v-if="
+                    s(item, 'requestType') == 'PERMISSION' && s(item, 'requestStatus') == 'PENDING'
+                  "
+                  class="app-font application-permission"
+                >
+                  {{ t(permission(s(item, 'permissionMode'), s(item, 'direction') == 'incoming')) }}
+                </text>
               </view>
-              <view v-if="s(item, 'direction') == 'incoming' && s(item, 'requestStatus') == 'PENDING'" class="application-actions">
-                <button class="app-font application-reject" :disabled="saving" @click="reply(s(item, 'id'), false)">{{ t('拒绝') }}</button>
-                <button class="app-font application-accept" :disabled="saving" @click="reply(s(item, 'id'), true)">{{ t('接受') }}</button>
+              <view
+                v-if="s(item, 'direction') == 'incoming' && s(item, 'requestStatus') == 'PENDING'"
+                class="application-actions"
+              >
+                <button
+                  class="app-font application-reject"
+                  :disabled="saving"
+                  @click="reply(s(item, 'id'), false)"
+                >
+                  {{ t('拒绝') }}
+                </button>
+                <button
+                  class="app-font application-accept"
+                  :disabled="saving"
+                  @click="reply(s(item, 'id'), true)"
+                >
+                  {{ t('接受') }}
+                </button>
               </view>
               <text v-else class="app-font application-status">{{ t(requestStatus(item)) }}</text>
             </view>
@@ -238,7 +276,19 @@
       </text>
     </view>
   </Popup>
-  <Popup :open="managing" :title="t('好友资料')" :busy="saving" @close="managing = false">
+  <Popup
+    variant="friend-edit"
+    :fixed-footer="true"
+    :panel-height="470"
+    :focus-target="remarkFocused ? 'friend-remark-field' : ''"
+    :open="managing"
+    :title="t('好友资料')"
+    :busy="saving"
+    @close="
+      managing = false;
+      remarkFocused = false;
+    "
+  >
     <view class="friend-info">
       <view class="info-row">
         <text class="app-font info-key">{{ t('姓名') }}</text>
@@ -264,35 +314,42 @@
       </view>
     </view>
     <view class="spacer" />
-    <text class="app-font label">{{ t('备注（昵称）') }}</text>
-    <input
-      class="app-font input"
-      v-model="remark"
-      maxlength="30"
-      :placeholder="t('仅自己可见，最多30字')"
-    />
+    <view id="friend-remark-field">
+      <text class="app-font label">{{ t('备注（昵称）') }}</text>
+      <input
+        class="app-font input"
+        v-model="remark"
+        :adjust-position="false"
+        @focus="remarkFocused = true"
+        @blur="remarkFocused = false"
+        maxlength="30"
+        :placeholder="t('仅自己可见，最多30字')"
+      />
+    </view>
     <text class="app-font muted">
       {{ t('不修改好友本名。可在 AI 对话中使用此备注；留空可清除。') }}
     </text>
     <text v-if="formError.length > 0" class="app-font error">{{ formError }}</text>
-    <button
-      class="app-font primary remark-save"
-      :disabled="saving"
-      :loading="saving"
-      @click="saveRemark()"
-    >
-      {{ t('保存备注') }}
-    </button>
-    <button
-      class="app-font secondary remark-permission"
-      :disabled="saving"
-      @click="
-        managing = false;
-        permissionOpen = true;
-      "
-    >
-      {{ t('权限设定') }}
-    </button>
+    <template #footer>
+      <button
+        class="app-font primary remark-save"
+        :disabled="saving"
+        :loading="saving"
+        @click="saveRemark()"
+      >
+        {{ t('保存备注') }}
+      </button>
+      <button
+        class="app-font secondary remark-permission"
+        :disabled="saving"
+        @click="
+          managing = false;
+          permissionOpen = true;
+        "
+      >
+        {{ t('权限设定') }}
+      </button>
+    </template>
   </Popup>
   <Popup
     :open="permissionOpen"
@@ -301,7 +358,9 @@
     :busy="saving"
     @close="permissionOpen = false"
   >
-    <text class="app-font body-text permission-intro">{{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}</text>
+    <text class="app-font body-text permission-intro">
+      {{ t('与') }} {{ name(selected) }} {{ t('的提醒方向') }}
+    </text>
     <view
       v-for="mode in modes"
       :key="mode"
@@ -386,7 +445,11 @@ import { updates, checkUpdates } from '@/services/updates.uts';
 // #ifdef WEB
 import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
 // #endif
-import { NavigationState, navigation as _navigation, consumeFriendRequests } from '@/store/navigation.uts';
+import {
+  NavigationState,
+  navigation as _navigation,
+  consumeFriendRequests,
+} from '@/store/navigation.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed, watch } from 'vue';
@@ -442,6 +505,7 @@ const searchOpen = ref(false),
   searching = ref(false),
   searched = ref(false),
   searchError = ref('');
+const remarkFocused = ref(false);
 const managing = ref(false),
   selected = ref<UTSJSONObject>({}),
   remark = ref(''),
@@ -456,22 +520,42 @@ const requestItems = computed<UTSJSONObject[]>(() => {
   // Older servers still supply only pending requests during a staged upgrade.
   const rows: UTSJSONObject[] = [];
   for (const direction of ['incoming', 'outgoing']) {
-    for (const row of arr(requests.value, direction)) rows.push({ ...row, direction: direction, requestStatus: 'PENDING' });
+    for (const row of arr(requests.value, direction))
+      rows.push({ ...row, direction: direction, requestStatus: 'PENDING' });
   }
   return rows;
 });
 function requestDescription(item: UTSJSONObject): string {
-  const incoming=s(item,'direction') == 'incoming', status=s(item,'requestStatus'), permissionRequest=s(item,'requestType') == 'PERMISSION';
-  if (status == 'PENDING') return permissionRequest ? (incoming ? '请求调整提醒权限' : '你申请调整提醒权限') : (incoming ? '请求添加你为好友' : '你申请添加对方');
-  if (status == 'ACCEPTED') return permissionRequest ? (incoming ? '你已接受对方的权限申请' : '对方已通过你的权限申请') : (incoming ? '你已接受对方的申请' : '对方已通过你的申请');
+  const incoming = s(item, 'direction') == 'incoming',
+    status = s(item, 'requestStatus'),
+    permissionRequest = s(item, 'requestType') == 'PERMISSION';
+  if (status == 'PENDING')
+    return permissionRequest
+      ? incoming
+        ? '请求调整提醒权限'
+        : '你申请调整提醒权限'
+      : incoming
+        ? '请求添加你为好友'
+        : '你申请添加对方';
+  if (status == 'ACCEPTED')
+    return permissionRequest
+      ? incoming
+        ? '你已接受对方的权限申请'
+        : '对方已通过你的权限申请'
+      : incoming
+        ? '你已接受对方的申请'
+        : '对方已通过你的申请';
   if (status == 'REJECTED') return incoming ? '你已拒绝对方的申请' : '对方已拒绝你的申请';
   if (status == 'CANCELLED') return '申请已取消';
   return '已处理';
 }
 function requestStatus(item: UTSJSONObject): string {
-  const status=s(item,'requestStatus');
+  const status = s(item, 'requestStatus');
   if (status == 'PENDING') return '等待对方通过';
-  if (status == 'ACCEPTED') return s(item,'requestType') != 'PERMISSION' && item['friendActive'] == true ? '已添加' : '已通过';
+  if (status == 'ACCEPTED')
+    return s(item, 'requestType') != 'PERMISSION' && item['friendActive'] == true
+      ? '已添加'
+      : '已通过';
   if (status == 'REJECTED') return '已拒绝';
   if (status == 'CANCELLED') return '已取消';
   return '已处理';
@@ -651,6 +735,7 @@ function manage(person: UTSJSONObject) {
   remark.value = s(person, 'friendRemark');
   permissionMode.value = s(person, 'permissionMode', 'MUTUAL');
   formError.value = '';
+  remarkFocused.value = false;
   managing.value = true;
 }
 function choosePermission(person: UTSJSONObject) {
@@ -669,8 +754,10 @@ async function saveRemark() {
       remark: remark.value.trim(),
     });
     await load();
+    uni.hideKeyboard();
     managing.value = false;
-    toast('备注已保存');
+    remarkFocused.value = false;
+    toast('备注已保存', 'success');
   } catch (e) {
     formError.value = message(e);
   } finally {
@@ -747,9 +834,12 @@ function stopTimer() {
   ticket++;
   clearInterval(timer);
 }
-watch((): string => navigation.friendRequestsOwner, (owner: string) => {
-  if (owner.length > 0 && consumeFriendRequests()) tab.value = 1;
-});
+watch(
+  (): string => navigation.friendRequestsOwner,
+  (owner: string) => {
+    if (owner.length > 0 && consumeFriendRequests()) tab.value = 1;
+  },
+);
 onShow(() => {
   if (consumeFriendRequests()) tab.value = 1;
   void checkUpdates().catch(() => {});
@@ -766,7 +856,15 @@ function openSettings() {
 }
 </script>
 <style scoped>
-.update-dot { position: absolute; right: 3px; top: 3px; width: 8px; height: 8px; border-radius: 4px; background-color: #ef4d64; }
+.update-dot {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #ef4d64;
+}
 .me-toolbar {
   min-height: 36px;
   margin-bottom: 8px;
@@ -1161,19 +1259,82 @@ function openSettings() {
 .permission-note {
   margin-bottom: 6px;
 }
-.requests-area { flex: 1; min-height: 0; }
-.applications-scroll { flex: 1; min-height: 0; }
-.applications-card { background-color: #ffffffcc; border: 1px solid #ffffff; border-radius: 22px; overflow: hidden; }
-.application-row { flex-direction: row; align-items: center; padding: 18px 14px; min-height: 84px; border-bottom: 1px solid #e8edf580; }
-.application-avatar { width: 44px; height: 44px; border-radius: 13px; margin-right: 12px; flex-shrink: 0; }
-.application-person { flex: 1; min-width: 0; }
-.application-name { font-size: 16px; font-weight: 600; line-height: 23px; color: #142341; }
-.application-description { font-size: 12px; line-height: 18px; color: #919bb0; margin-top: 3px; }
-.application-permission { font-size: 11px; line-height: 17px; color: #7484b0; }
-.application-actions { flex-direction: row; align-items: center; margin-left: 8px; flex-shrink: 0; }
-.application-reject, .application-accept { width: 58px; min-height: 32px; height: 32px; line-height: 30px; padding: 0; margin: 0; border-radius: 13px; font-size: 13px; font-weight: 500; }
-.application-reject { border: 1px solid #e1e6f3; background-color: #f8faff; color: #939db2; }
-.application-accept { margin-left: 6px; color: #ffffff; background-color: #315bff;
+.requests-area {
+  flex: 1;
+  min-height: 0;
+}
+.applications-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.applications-card {
+  background-color: #ffffffcc;
+  border: 1px solid #ffffff;
+  border-radius: 22px;
+  overflow: hidden;
+}
+.application-row {
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 14px;
+  min-height: 70px;
+  border-bottom: 1px solid #e8edf580;
+}
+.application-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.application-person {
+  flex: 1;
+  min-width: 0;
+}
+.application-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 23px;
+  color: #142341;
+}
+.application-description {
+  font-size: 12px;
+  line-height: 18px;
+  color: #919bb0;
+  margin-top: 3px;
+}
+.application-permission {
+  font-size: 11px;
+  line-height: 17px;
+  color: #7484b0;
+}
+.application-actions {
+  flex-direction: row;
+  align-items: center;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.application-reject,
+.application-accept {
+  width: 58px;
+  min-height: 32px;
+  height: 32px;
+  line-height: 30px;
+  padding: 0;
+  margin: 0;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.application-reject {
+  border: 1px solid #e1e6f3;
+  background-color: #f8faff;
+  color: #939db2;
+}
+.application-accept {
+  margin-left: 6px;
+  color: #ffffff;
+  background-color: #315bff;
   /* #ifdef WEB */
   background-image: linear-gradient(125deg, #204eff, #326aff);
   /* #endif */
@@ -1181,10 +1342,23 @@ function openSettings() {
   background-image: linear-gradient(to bottom right, #204eff, #326aff);
   /* #endif */
 }
-.application-status { color: #939db1; font-size: 12px; line-height: 19px; margin-left: 8px; text-align: right; max-width: 80px; flex-shrink: 0; }
-.application-empty { padding: 28px 16px; align-items: center; }
+.application-status {
+  color: #939db1;
+  font-size: 12px;
+  line-height: 19px;
+  margin-left: 8px;
+  text-align: right;
+  max-width: 80px;
+  flex-shrink: 0;
+}
+.application-empty {
+  padding: 28px 16px;
+  align-items: center;
+}
 /* #ifdef APP-IOS */
-.application-name { font-family: 'PingFangSC-Semibold'; }
+.application-name {
+  font-family: 'PingFangSC-Semibold';
+}
 /* #endif */
 .search-person {
   background-color: #ffffff;
@@ -1318,10 +1492,24 @@ function openSettings() {
   font-family: 'PingFangSC-Semibold';
 }
 /* #endif */
-.permission-intro, .permission-title, .permission-submit { font-weight: 600; }
-.permission-option .muted, .permission-note { font-weight: 500; }
+.permission-intro,
+.permission-title,
+.permission-submit {
+  font-weight: 600;
+}
+.permission-option .muted,
+.permission-note {
+  font-weight: 500;
+}
 /* #ifdef APP-IOS */
-.permission-intro, .permission-title, .permission-submit { font-family: 'PingFangSC-Semibold'; }
-.permission-option .muted, .permission-note { font-family: 'PingFangSC-Medium'; }
+.permission-intro,
+.permission-title,
+.permission-submit {
+  font-family: 'PingFangSC-Semibold';
+}
+.permission-option .muted,
+.permission-note {
+  font-family: 'PingFangSC-Medium';
+}
 /* #endif */
 </style>

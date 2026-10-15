@@ -50,225 +50,120 @@
         />
       </view>
     </view>
-    <scroll-view
-      :scroll-y="true"
-      class="scroll"
-      refresher-enabled
-      :refresher-triggered="refreshing"
-      refresher-default-style="none"
-      @refresherrefresh="refresh()"
-      @touchstart="swipeStart"
-      @touchmove="swipeMove"
-      @touchend="swipeEnd"
-      @touchcancel="swipe.cancel()"
+    <swiper
+      class="event-pager"
+      :current="type == 'sent' ? 0 : 1"
+      :duration="260"
+      @change="pageChanged"
     >
-      <view slot="refresher" class="refresh-status">
-        <view
-          v-if="refreshing && !refreshComplete"
-          class="refresh-orbit"
-          :style="{ transform: 'rotate(' + refreshAngle + 'deg)' }"
+      <swiper-item class="event-page">
+        <EventList
+          type="sent"
+          :rows="filteredSent"
+          :loading="loading"
+          :error="sentError"
+          :refreshing="refreshing && refreshType == 'sent'"
+          :refresh-complete="refreshComplete"
+          :refresh-angle="refreshAngle"
+          @refresh="refresh('sent')"
+          @retry="load()"
         />
-        <text class="app-font refresh-label">
-          {{
-            refreshing
-              ? refreshComplete
-                ? error.length > 0
-                  ? t('更新失败，请重试')
-                  : t('事件已更新')
-                : t('正在更新事件…')
-              : t('下拉刷新，松开更新')
-          }}
-        </text>
-      </view>
-      <view class="padded">
-        <view v-if="error.length > 0" class="card">
-          <text class="app-font error">{{ error }}</text>
-          <button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
-        </view>
-        <view v-if="!loading && filtered.length == 0" class="empty">
-          <text class="app-font muted">{{ t('当前筛选下还没有事件') }}</text>
-        </view>
-        <view
-          v-for="item in filtered"
-          :key="s(item, 'id')"
-          class="card event-card"
-          @click="openEvent(s(item, 'id'))"
-        >
-          <view class="event-top">
-            <view
-              :class="[
-                'status',
-                s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE'
-                  ? ''
-                  : 'status-inactive',
-              ]"
-            >
-              <view
-                :class="[
-                  'status-dot',
-                  s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE' ? '' : 'dot-inactive',
-                ]"
-              />
-              <text
-                class="app-font"
-                :class="[
-                  'status-text',
-                  s(item, 'branchStatus', s(item, 'eventStatus')) == 'ACTIVE'
-                    ? ''
-                    : 'text-inactive',
-                ]"
-              >
-                {{ statusText(s(item, 'branchStatus', s(item, 'eventStatus'))) }}
-              </text>
-            </view>
-            <text class="app-font event-number">{{ s(item, 'eventNo') }}</text>
-            <UiIcon name="chevron" :size="16" />
-          </view>
-          <text class="app-font event-title">{{ s(item, 'eventSummary') }}</text>
-          <view class="people">
-            <view v-if="people(item).length > 0" class="people-avatars">
-              <image v-for="person in people(item)" :key="s(person, 'id')" class="person-avatar"
-                :src="personAvatar(person)" mode="aspectFill" />
-              <view v-if="type == 'sent' && n(item, 'recipientCount') > people(item).length" class="people-more">
-                <text class="app-font people-more-label">+{{ n(item, 'recipientCount') - people(item).length }}</text>
-              </view>
-            </view>
-            <UiIcon v-else name="people" :size="17" />
-            <text class="app-font muted">
-              {{
-                type == 'received'
-                  ? creatorLabel(item)
-                  : t('接收人 ') +
-                    n(item, 'recipientCount') +
-                    t(' 人 · 进行中 ') +
-                    n(item, 'activeBranchCount') +
-                    t(' 人')
-              }}
-            </text>
-          </view>
-          <view class="progress">
-            <UiIcon name="note" tone="blue" :size="19" />
-            <text class="app-font progress-label">{{ t('最新进展') }}</text>
-            <text class="app-font progress-text">
-              {{ progressText(item) }}
-            </text>
-          </view>
-          <view class="event-dates">
-            <view class="date-row">
-              <UiIcon name="clock" :size="17" />
-              <text class="app-font muted">
-                {{ t('创建时间') }}　{{ displayTime(s(item, 'createTime')) }}
-              </text>
-            </view>
-            <view class="date-row">
-              <UiIcon name="calendar" :size="17" />
-              <text class="app-font muted">
-                {{ t('下次评估') }}　{{ s(item, 'nextEvaluateTime', t('无')) }}
-              </text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </scroll-view>
+      </swiper-item>
+      <swiper-item class="event-page">
+        <EventList
+          type="received"
+          :rows="filteredReceived"
+          :loading="loading"
+          :error="receivedError"
+          :refreshing="refreshing && refreshType == 'received'"
+          :refresh-complete="refreshComplete"
+          :refresh-angle="refreshAngle"
+          @refresh="refresh('received')"
+          @retry="load()"
+        />
+      </swiper-item>
+    </swiper>
   </AppFrame>
 </template>
 <script setup lang="uts">
-import { HorizontalSwipe } from '@/core/swipe.uts';
-import { asset } from '@/core/ui.uts';
-import { arr, firstText } from '@/core/json.uts';
-import UiIcon from '@/components/UiIcon.uvue';
-import { latestProgress } from '@/core/events.uts';
-import { t as _t } from '@/core/locale.uts';
 import { ref, computed } from 'vue';
+import UiIcon from '@/components/UiIcon.uvue';
+import EventList from '@/components/EventList.uvue';
 import AppFrame from '@/components/AppFrame.uvue';
+import { t as _t } from '@/core/locale.uts';
 import { reminder, bootstrap } from '@/api/request.uts';
 import { SessionState, session as _session, requireSession } from '@/store/session.uts';
 import { s as _s, n as _n, message } from '@/core/json.uts';
-import { openEvent as _openEvent } from '@/core/ui.uts';
-import { statusText as _statusText, displayTime as _displayTime } from '@/core/time.uts';
 const session: SessionState = _session;
 function t(value: string): string {
   return _t(value);
 }
-function progressText(item: UTSJSONObject): string {
-  return _t(latestProgress(item));
-}
-function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
-  return _s(row, key, fallback);
-}
 function n(row: UTSJSONObject, key: string): number {
   return _n(row, key);
 }
-function displayTime(value: string): string {
-  return _displayTime(value);
-}
-function statusText(value: string): string {
-  return _statusText(value);
-}
-let ignoreClickUntil = 0;
-function openEvent(id: string): void {
-  if (Date.now() < ignoreClickUntil) return;
-  return _openEvent(id);
-}
-const swipe = new HorizontalSwipe();
 const type = ref('sent'),
   all = ref(false),
-  keyword = ref(''),
-  rows = ref<UTSJSONObject[]>([]),
-  loading = ref(false),
+  keyword = ref('');
+const sentRows = ref<UTSJSONObject[]>([]),
+  receivedRows = ref<UTSJSONObject[]>([]);
+const sentError = ref(''),
+  receivedError = ref('');
+const loading = ref(false),
   refreshing = ref(false),
-  refreshComplete = ref(false),
-  refreshAngle = ref(0),
-  error = ref('');
+  refreshType = ref('sent');
+const refreshComplete = ref(false),
+  refreshAngle = ref(0);
 let ticket = 0,
   timer: number = 0,
   refreshAnimation: number = 0,
-  refreshRun = 0,
-  loadingRequest = false;
-const filtered = computed(() =>
-  rows.value.filter((row: UTSJSONObject): boolean =>
-    [
-      s(row, 'eventSummary'),
-      s(row, 'eventNo'),
-      s(row, 'creatorName'),
-      s(row, 'creatorRealName'),
-      s(row, 'latestFact'),
-    ]
-      .join(' ')
-      .toLowerCase()
-      .includes(keyword.value.toLowerCase()),
-  ),
-);
-function creatorLabel(item: UTSJSONObject): string { return _t('发起人：') + firstText(item, ['creatorName', 'creatorRealName']); }
-function people(item: UTSJSONObject): UTSJSONObject[] { return arr(item, 'people').slice(0, 4); }
-function personAvatar(person: UTSJSONObject): string {
-  const url = s(person, 'avatar').trim();
-  return asset(url.length > 0 ? url : '/avatars/user/B1.png');
+  refreshRun = 0;
+let loadingRequest = false,
+  loaded = false,
+  owner = '';
+function matches(row: UTSJSONObject): boolean {
+  return ['eventSummary', 'eventNo', 'creatorName', 'creatorRealName', 'latestFact']
+    .map((key: string): string => _s(row, key))
+    .join(' ')
+    .toLowerCase()
+    .includes(keyword.value.toLowerCase());
 }
-function swipeStart(e: UniTouchEvent): void {
-  if (e.touches.length != 1) { swipe.cancel(); return; }
-  swipe.start(e.touches[0].clientX, e.touches[0].clientY);
-}
-function swipeMove(e: UniTouchEvent): void {
-  if (e.touches.length != 1) { swipe.cancel(); return; }
-  if (Math.abs(swipe.move(e.touches[0].clientX, e.touches[0].clientY)) > 12) ignoreClickUntil = Date.now() + 400;
+const filteredSent = computed((): UTSJSONObject[] => sentRows.value.filter(matches));
+const filteredReceived = computed((): UTSJSONObject[] => receivedRows.value.filter(matches));
+async function loadKind(kind: string, status: string, current: number, requestOwner: string) {
+  try {
+    const response = await reminder('events', null, { type: kind, status: status });
+    if (current != ticket || requestOwner != session.userId) return;
+    const value = (response['value'] as UTSJSONObject[]) ?? [];
+    if (kind == 'sent') {
+      sentRows.value = value;
+      sentError.value = '';
+    } else {
+      receivedRows.value = value;
+      receivedError.value = '';
+    }
+  } catch (e) {
+    if (current != ticket || requestOwner != session.userId) return;
+    if (kind == 'sent') sentError.value = message(e);
+    else receivedError.value = message(e);
+  }
 }
 async function load(silent: boolean = false) {
   if (silent && (loadingRequest || refreshing.value)) return;
-  const current = ++ticket;
+  const current = ++ticket,
+    requestOwner = session.userId,
+    status = all.value ? '' : 'ACTIVE';
   loadingRequest = true;
-  if (!silent) loading.value = true;
+  // Keep both lists mounted, including their scroll positions. A tab switch performs no I/O.
+  if (!silent && !loaded) loading.value = true;
   try {
-    const response = await reminder('events', null, {
-      type: type.value,
-      status: all.value ? '' : 'ACTIVE',
-    });
-    if (current != ticket) return;
-    rows.value = (response['value'] as UTSJSONObject[]) ?? [];
-    error.value = '';
-    void bootstrap().catch(() => {});
-  } catch (e) {
-    if (current == ticket && !silent) error.value = message(e);
+    await Promise.all([
+      loadKind('sent', status, current, requestOwner),
+      loadKind('received', status, current, requestOwner),
+    ]);
+    if (current == ticket && requestOwner == session.userId) {
+      loaded = true;
+      void bootstrap().catch(() => {});
+    }
   } finally {
     if (current == ticket) {
       loading.value = false;
@@ -276,10 +171,11 @@ async function load(silent: boolean = false) {
     }
   }
 }
-async function refresh() {
+async function refresh(kind: string) {
   if (refreshing.value) return;
   const run = ++refreshRun,
     start = Date.now();
+  refreshType.value = kind;
   refreshing.value = true;
   refreshComplete.value = false;
   refreshAnimation = setInterval(() => {
@@ -288,44 +184,48 @@ async function refresh() {
   try {
     await load();
   } finally {
-    const remaining = Math.max(0, 850 - (Date.now() - start));
     await new Promise<void>((resolve) => {
-      setTimeout(() => resolve(), remaining);
+      setTimeout(() => resolve(), Math.max(0, 650 - (Date.now() - start)));
     });
     if (run == refreshRun) {
       clearInterval(refreshAnimation);
       refreshComplete.value = true;
       await new Promise<void>((resolve) => {
-        setTimeout(() => resolve(), 400);
+        setTimeout(() => resolve(), 300);
       });
       if (run == refreshRun) refreshing.value = false;
     }
   }
 }
 function changeType(value: string) {
-  if (type.value == value) return;
-  rows.value = [];
   type.value = value;
-  void load();
 }
-function swipeEnd(e: UniTouchEvent): void {
-  if (e.changedTouches.length == 0) return;
-  const direction = swipe.end(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-  if (direction != 0) {
-    ignoreClickUntil = Date.now() + 400;
-    changeType(direction < 0 ? 'received' : 'sent');
-  }
+function pageChanged(e: UniSwiperChangeEvent): void {
+  type.value = e.detail.current == 0 ? 'sent' : 'received';
 }
 function stop() {
   ticket++;
   refreshRun++;
   refreshing.value = false;
+  loading.value = false;
   loadingRequest = false;
   clearInterval(refreshAnimation);
   clearInterval(timer);
 }
 onShow(() => {
   if (!requireSession()) return;
+  if (owner != session.userId) {
+    owner = session.userId;
+    loaded = false;
+    type.value = 'sent';
+    keyword.value = '';
+    all.value = false;
+    sentRows.value = [];
+    receivedRows.value = [];
+    sentError.value = '';
+    receivedError.value = '';
+  }
+  clearInterval(timer);
   void load();
   timer = setInterval(() => {
     void load(true);
@@ -335,11 +235,14 @@ onHide(stop);
 onUnload(stop);
 </script>
 <style scoped>
-.people-avatars { flex-direction: row; align-items: center; flex-shrink: 0; padding-left: 4px; padding-right: 9px; border-right: 1px solid #e5eaf4; }
-.person-avatar { width: 30px; height: 30px; border-radius: 15px; border: 2px solid #ffffff; margin-left: -4px; background-color: #eef2ff; }
-.people-more { min-width: 30px; height: 30px; padding: 0 3px; border-radius: 15px; border: 2px solid #ffffff; margin-left: -2px; background-color: #eff3ff; align-items: center; justify-content: center; flex-shrink: 0; }
-.people-more-label { color: #7886a4; text-align: center; font-size: 11px; line-height: 20px; }
-
+.event-pager {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+}
+.event-page {
+  height: 100%;
+}
 .filters {
   padding: 0 16px;
 }
@@ -423,149 +326,4 @@ onUnload(stop);
   margin-left: 16px;
   color: #35415c;
 }
-.padded {
-  padding: 0 17px 4px;
-}
-.event-card {
-  padding: 16px 17px 18px;
-  border-radius: 22px;
-  margin-bottom: 13px;
-}
-.event-top {
-  flex-direction: row;
-  align-items: center;
-}
-.status {
-  flex-direction: row;
-  align-items: center;
-  padding: 5px 9px;
-  border-radius: 11px;
-  background-color: #eeefff;
-}
-.status-dot {
-  width: 7px;
-  height: 7px;
-  background-color: #315bff;
-  border-radius: 4px;
-  margin-right: 6px;
-}
-.status-text {
-  font-size: 12px;
-  line-height: 18px;
-  font-weight: 600;
-  color: #315bff;
-}
-.status-inactive {
-  background-color: #f0f2f7;
-}
-.dot-inactive {
-  background-color: #9ba5b7;
-}
-.text-inactive {
-  color: #8f96a5;
-}
-.event-number {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-  color: #9295a1;
-  margin-left: 12px;
-  padding-left: 12px;
-  border-left: 1px solid #e1e6f0;
-}
-.event-title {
-  font-size: 16px;
-  line-height: 25px;
-  font-weight: 700;
-  color: #182138;
-  margin: 12px 0 9px;
-}
-.people {
-  flex-direction: row;
-  align-items: center;
-}
-.progress {
-  flex-direction: row;
-  align-items: center;
-  padding: 11px 10px;
-  margin: 13px 0 11px;
-  /* #ifdef WEB */
-  background-image: linear-gradient(100deg, #f1f3ff, #f7f7fc);
-  /* #endif */
-  /* #ifndef WEB */
-  background-image: linear-gradient(to right, #f1f3ff, #f7f7fc);
-  /* #endif */
-  border-radius: 12px;
-}
-.progress-label {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #2856e4;
-  margin-left: 8px;
-  margin-right: 8px;
-}
-.progress-text {
-  flex: 1;
-  min-width: 0;
-  font-weight: 500;
-  lines: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-left: 1px solid #ccd5e7;
-  padding-left: 9px;
-  font-size: 12px;
-  line-height: 19px;
-  color: #35415c;
-}
-.event-dates {
-  border-top: 1px solid #edf0f6;
-  padding-top: 7px;
-}
-.date-row {
-  flex-direction: row;
-  align-items: center;
-  margin-top: 4px;
-}
-.muted {
-  color: #9699a5;
-}
-.people .muted {
-  flex: 1;
-  min-width: 0;
-  margin-left: 9px;
-}
-.date-row .muted {
-  font-size: 12px;
-  margin-left: 9px;
-}
-.refresh-status {
-  height: 58px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-}
-.refresh-orbit {
-  width: 15px;
-  height: 15px;
-  border: 2px solid #dce6ff;
-  border-top-color: #537cff;
-  border-radius: 9px;
-  margin-right: 8px;
-  transition-property: transform;
-  transition-duration: 50ms;
-  transition-timing-function: linear;
-}
-.refresh-label {
-  color: #7189bc;
-  font-size: 12px;
-  background-color: #edf3ff;
-  border-radius: 15px;
-  padding: 7px 18px;
-}
-/* #ifdef APP-IOS */
-.filter-label {
-  font-family: 'PingFangSC-Semibold';
-}
-/* #endif */
 </style>

@@ -1,0 +1,76 @@
+async page => {
+ const assert=(v,m)=>{if(!v)throw Error(m)};
+ const calls=[], errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const event=(kind,i)=>({id:String((kind==='sent'?200:600)+i),eventNo:'SR-'+kind+'-'+i,eventSummary:(kind==='sent'?'我发起的':'我收到的')+'会议安排 '+i,eventStatus:'ACTIVE',creatorName:'陈颖',recipientCount:6,activeBranchCount:5,people:[1,2,3,4].map(n=>({id:String(n),avatar:'/avatars/user/B'+n+'.png'})),latestFact:'已阅读提醒',createTime:'2026-10-15 09:00:00',nextEvaluateTime:'2026-10-16 10:00:00'});
+ let failReceived=false;
+ await page.route('**/api/app/reminder/events?**',async route=>{
+  const u=new URL(route.request().url()),kind=u.searchParams.get('type');calls.push({kind,time:Date.now()});
+  await new Promise(resolve=>setTimeout(resolve,200));
+  if(failReceived&&kind==='received')return route.fulfill({status:500,json:{code:500,msg:'接收列表暂时不可用'}});
+  return route.fulfill({json:{code:200,data:Array.from({length:12},(_,i)=>event(kind,i))}});
+ });
+ const safe=()=>page.addStyleTag({content:'.frame>uni-view:nth-child(2){height:62px!important;flex-shrink:0}.dock{height:102px!important;padding-bottom:34px!important}.brand{margin-top:62px!important}.drawer-safe-top{height:34px!important;flex-shrink:0}'});
+ await page.goto('http://localhost:5175/#/pages/events/index');await page.reload();await safe();await page.locator('.event-page').nth(1).locator('.event-card').first().waitFor();
+ assert(calls.some(c=>c.kind==='sent')&&calls.some(c=>c.kind==='received'),'both lists prefetched');
+ assert(Math.abs(calls[0].time-calls[1].time)<180,'lists requested in parallel');
+ const before=calls.length;
+ await page.locator('.event-tab').nth(1).click();await page.waitForTimeout(300);
+ assert((await page.locator('.event-tab.selected').textContent()).includes('我收到的'),'tap selects cached received list');
+ await page.locator('.event-tab').nth(0).click();await page.waitForTimeout(300);
+ assert(calls.length===before,'tab selection performs no request');
+ const sentScroll=page.locator('.event-page').nth(0).locator('.uni-scroll-view').nth(1);
+ await sentScroll.evaluate(el=>el.scrollTop=250);
+ await page.locator('.event-tab').nth(1).click();await page.waitForTimeout(300);
+ await page.locator('.event-tab').nth(0).click();await page.waitForTimeout(300);
+ assert(await sentScroll.evaluate(el=>el.scrollTop)>=240,'each list retains scroll position');
+ await sentScroll.evaluate(el=>el.scrollTop=0);
+ const swipe=async(dx,dy)=>page.locator('.event-page').nth(0).locator('.event-list').evaluate((el,{dx,dy})=>{
+  const send=(type,x,y)=>{const t=new Touch({identifier:1,target:el,clientX:x,clientY:y,pageX:x,pageY:y});el.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches:type==='touchend'?[]:[t],changedTouches:[t]}));};
+  send('touchstart',300,420);send('touchmove',300+dx/2,420+dy/2);send('touchmove',300+dx,420+dy);send('touchend',300+dx,420+dy);
+ },{dx,dy});
+ await swipe(-200,3);await page.waitForTimeout(350);
+ assert((await page.locator('.event-tab.selected').textContent()).includes('我收到的'),'horizontal swipe selects received');
+ assert(!await page.locator('.refresh-orbit').count(),'horizontal swipe never starts refresh');
+ await page.screenshot({path:'output/playwright/polish135-events.png'});
+ // One list failing must not discard the other or force requests on tab selection.
+ failReceived=true;await page.reload();await safe();await page.locator('.event-page').nth(0).locator('.event-card').first().waitFor();
+ await page.locator('.event-tab').nth(1).click();await page.waitForTimeout(300);
+ await page.locator('.event-page').nth(1).getByText('接收列表暂时不可用',{exact:true}).waitFor();
+ await page.locator('.event-tab').nth(0).click();await page.waitForTimeout(300);
+ assert(await page.locator('.event-page').nth(0).locator('.event-card').count()===12,'received failure preserves sent data');
+ failReceived=false;
+ // Compact combined applications, friend remark and high-contrast tip.
+ const applications=[{id:'501',userId:'9101',name:'涞涞',avatar:'/avatars/user/B3.png',direction:'incoming',requestStatus:'PENDING',requestType:'FRIEND'},{id:'502',userId:'9102',name:'陈通',avatar:'/avatars/user/B4.png',direction:'outgoing',requestStatus:'PENDING',requestType:'FRIEND'},{id:'503',userId:'9103',name:'小王',avatar:'/avatars/user/B5.png',direction:'incoming',requestStatus:'ACCEPTED',requestType:'FRIEND',friendActive:true}];
+ await page.route('**/api/app/reminder/friends/requests',route=>route.fulfill({json:{code:200,data:{incoming:[applications[0]],outgoing:[applications[1]],items:applications}}}));
+ await page.locator('.dock').getByText('我的',{exact:true}).click();await safe();
+ await page.getByText('好友申请 1',{exact:true}).click();await page.locator('.application-row').first().waitFor();
+ const row=await page.locator('.application-row').first().boundingBox();assert(row.height>=64&&row.height<=76,'application row is compact but retains touch space');
+ await page.screenshot({path:'output/playwright/polish135-applications.png'});
+ await page.getByText('我的好友 10',{exact:true}).click();await page.getByText('管理',{exact:true}).first().click();
+ await page.locator('.friend-edit-panel').waitFor();await page.waitForTimeout(300);
+ const initial=await page.locator('.friend-edit-panel').boundingBox();
+ await page.locator('#friend-remark-field input').fill('小谢的新备注');await page.waitForTimeout(300);
+ const after=await page.locator('.friend-edit-panel').boundingBox();assert(Math.abs(initial.height-after.height)<1,'editing does not resize panel');
+ assert(await page.locator('.popup-footer .remark-save').isVisible(),'remark actions stay in footer');
+ await page.screenshot({path:'output/playwright/polish135-remark.png'});
+ await page.getByText('保存备注',{exact:true}).click();await page.locator('.friend-edit-mask').waitFor({state:'detached'});
+ await page.getByText('备注已保存',{exact:true}).waitFor();
+ const tip=page.locator('.top-tip');assert((await tip.getAttribute('class')).includes('tip-success'),'saved remark uses success feedback');
+ assert(await tip.evaluate(el=>getComputedStyle(el).backgroundColor)==='rgb(25, 63, 56)','tip uses contrasting background');
+ await page.screenshot({path:'output/playwright/polish135-tip.png'});
+ await page.locator('.toolbar-button').last().click();await safe();await page.getByText('注销账号',{exact:true}).click();
+ const equal=async()=>{await page.waitForTimeout(240);const buttons=page.locator('.mask .login-submit');const a=await buttons.nth(0).boundingBox(),b=await buttons.nth(1).boundingBox();assert(Math.abs(a.width-b.width)<1&&Math.abs(a.height-b.height)<1&&a.height===48,'dialog actions have equal width and 48px height');};
+ await equal();await page.screenshot({path:'output/playwright/polish135-closure.png'});
+ await page.getByText('取消',{exact:true}).click();await page.locator('.mask').waitFor({state:'detached'});
+ await page.evaluate(()=>sessionStorage.removeItem('xiaoxing:session'));
+ await page.goto('http://localhost:5175/?polish-login=1#/pages/login/index');await safe();
+ await page.route('**/api/blade-auth/oauth/token**',route=>route.fulfill({status:401,json:{error:'need_confirm_login',error_description:'账号已在其他设备登录'}}));
+ await page.locator('.login-panel input').nth(0).fill('fixture-user');await page.locator('.login-panel input').nth(1).fill('fixture-password');await page.locator('.login-panel .login-submit').click();
+ await page.getByText('确认在此设备登录？',{exact:true}).waitFor();await equal();await page.screenshot({path:'output/playwright/polish135-login-confirm.png'});
+ await page.setViewportSize({width:320,height:700});await equal();
+ assert(await page.locator('.mask .panel').evaluate(el=>el.getBoundingClientRect().right)<=320,'confirmation fits narrow screens');
+ await page.screenshot({path:'output/playwright/polish135-login-narrow.png'});
+ await page.getByText('取消',{exact:true}).click();
+ assert(errors.length===0,'no runtime errors: '+errors.join(';'));
+ return {checks:'parallel preload; request-free tab changes; independent scroll; swipe without refresh; partial failure; compact applications; stable remark; high-contrast tip; equal login/closure actions',calls:calls.length};
+}

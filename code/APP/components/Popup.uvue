@@ -4,12 +4,20 @@
     :class="[
       'mask',
       sheet ? 'sheet-mask' : '',
+      variant == 'friend-edit' ? 'friend-edit-mask' : '',
       variant == 'conversation' ? 'conversation-mask' : '',
     ]"
     :style="{
       opacity: visible ? 1 : 0,
+      bottom: variant == 'friend-edit' ? keyboardInset + 'px' : '0px',
       paddingTop:
-        variant == 'conversation' ? info.windowHeight * 0.08 + 'px' : sheet ? '0px' : '20px',
+        variant == 'friend-edit'
+          ? Math.max(info.safeAreaInsets.top, info.statusBarHeight) + 12 + 'px'
+          : variant == 'conversation'
+            ? info.windowHeight * 0.08 + 'px'
+            : sheet
+              ? '0px'
+              : '20px',
     }"
     @click="close()"
   >
@@ -19,13 +27,16 @@
         sheet ? 'sheet-panel' : '',
         variant == 'conversation' ? 'conversation-panel' : '',
         variant == 'account' ? 'account-panel' : '',
+        variant == 'friend-edit' ? 'friend-edit-panel' : '',
         variant == 'friend-search' ? 'friend-search-panel' : '',
         variant == 'personal-qr' ? 'personal-qr-panel' : '',
       ]"
       @click.stop="noop"
       :style="{
         maxHeight: (fixedFooter ? info.windowHeight - info.safeAreaInsets.top - info.safeAreaInsets.bottom - 48 : maxHeight) + 'px',
-        height: fixedFooter ? Math.min(maxHeight, panelHeight) + 'px' : 'auto',
+        height: fixedFooter
+          ? (variant == 'friend-edit' ? editHeight : Math.min(maxHeight, panelHeight)) + 'px'
+          : 'auto',
         transform: visible ? 'translateY(0px)' : 'translateY(16px)',
       }"
     >
@@ -36,7 +47,13 @@
         </view>
       </view>
       <view v-if="variant == 'conversation'" class="popup-body"><slot /></view>
-      <scroll-view v-else :scroll-y="true" class="popup-scroll">
+      <scroll-view
+        v-else
+        :scroll-y="true"
+        :scroll-into-view="scrollTarget"
+        :scroll-with-animation="true"
+        class="popup-scroll"
+      >
         <view class="popup-body"><slot /></view>
       </scroll-view>
       <view v-if="fixedFooter" class="popup-footer"><slot name="footer" /></view>
@@ -44,7 +61,7 @@
   </view>
 </template>
 <script setup lang="uts">
-import { ref, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import UiIcon from './UiIcon.uvue';
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -54,16 +71,55 @@ const props = defineProps({
   variant: { type: String, default: '' },
   fixedFooter: { type: Boolean, default: false },
   panelHeight: { type: Number, default: 640 },
+  focusTarget: { type: String, default: '' },
 });
 const emit = defineEmits(['close', 'opened']);
 const rendered = ref(false),
   visible = ref(false);
-let animationTimer: number = 0;
+const info = uni.getWindowInfo();
+const maxHeight = ref(
+  info.windowHeight - info.safeAreaInsets.top - info.safeAreaInsets.bottom - 48,
+);
+const keyboardHeight = ref(0),
+  scrollTarget = ref('');
+const keyboardInset = computed((): number => {
+  const resized = Math.max(0, info.windowHeight - uni.getWindowInfo().windowHeight);
+  return Math.max(0, keyboardHeight.value - resized);
+});
+const editHeight = computed((): number =>
+  Math.min(
+    props.panelHeight,
+    Math.max(
+      180,
+      info.windowHeight -
+        Math.max(info.safeAreaInsets.top, info.statusBarHeight) -
+        (keyboardHeight.value > 0 ? keyboardHeight.value : info.safeAreaInsets.bottom) -
+        24,
+    ),
+  ),
+);
+let animationTimer: number = 0,
+  focusTimer: number = 0;
+function revealFocus() {
+  clearTimeout(focusTimer);
+  scrollTarget.value = '';
+  if (props.focusTarget.length > 0)
+    focusTimer = setTimeout(() => {
+      if (props.open) scrollTarget.value = props.focusTarget;
+    }, 240);
+}
+watch(
+  (): string => props.focusTarget,
+  () => revealFocus(),
+);
 watch(
   (): boolean => props.open,
   (open: boolean) => {
     clearTimeout(animationTimer);
     if (open) {
+      keyboardHeight.value = 0;
+      maxHeight.value =
+        info.windowHeight - info.safeAreaInsets.top - info.safeAreaInsets.bottom - 48;
       rendered.value = true;
       animationTimer = setTimeout(() => {
         visible.value = true;
@@ -72,6 +128,8 @@ watch(
         }, 180);
       }, 30);
     } else {
+      clearTimeout(focusTimer);
+      scrollTarget.value = '';
       visible.value = false;
       animationTimer = setTimeout(() => {
         rendered.value = false;
@@ -80,18 +138,25 @@ watch(
   },
   { immediate: true },
 );
-onUnmounted(() => clearTimeout(animationTimer));
-const info = uni.getWindowInfo(),
-  maxHeight = ref(info.windowHeight - info.safeAreaInsets.top - info.safeAreaInsets.bottom - 48);
+onUnmounted(() => {
+  clearTimeout(animationTimer);
+  clearTimeout(focusTimer);
+});
 const keyboard = (e: OnKeyboardHeightChangeCallbackResult) => {
+  if (!props.open) return;
+  keyboardHeight.value = Math.max(0, e.height);
   maxHeight.value = Math.max(160, info.windowHeight - info.safeAreaInsets.top - e.height - 48);
+  if (props.variant == 'friend-edit') revealFocus();
 };
 // #ifdef APP
 const keyboardId = uni.onKeyboardHeightChange(keyboard);
 onUnmounted(() => uni.offKeyboardHeightChange(keyboardId));
 // #endif
 function close() {
-  if (!props.busy) emit('close');
+  if (!props.busy) {
+    if (props.variant == 'friend-edit') uni.hideKeyboard();
+    emit('close');
+  }
 }
 function noop() {}
 </script>
@@ -156,7 +221,8 @@ function noop() {}
   flex-shrink: 0;
   padding: 0 18px 18px;
 }
-.account-panel .popup-scroll {
+.account-panel .popup-scroll,
+.friend-edit-panel .popup-scroll {
   flex: 1;
   height: 0;
 }
@@ -212,6 +278,15 @@ function noop() {}
   /* #endif */
   border: 1px solid #ffffff;
   border-radius: 26px;
+}
+.friend-edit-mask {
+  transition-property: opacity, bottom;
+  transition-duration: 240ms;
+  padding-bottom: 12px;
+}
+.friend-edit-panel {
+  transition-property: height, transform;
+  transition-duration: 240ms;
 }
 /* #ifdef APP-IOS */
 .account-panel {

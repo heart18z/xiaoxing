@@ -19,8 +19,12 @@
         }"
       >
         <view class="login-modes">
-          <text class="app-font mode" :class="{ active: !codeMode }" @click="switchMode(false)">{{ t('密码登录') }}</text>
-          <text class="app-font mode" :class="{ active: codeMode }" @click="switchMode(true)">{{ t('邮箱验证码登录') }}</text>
+          <text class="app-font mode" :class="{ active: !codeMode }" @click="switchMode(false)">
+            {{ t('密码登录') }}
+          </text>
+          <text class="app-font mode" :class="{ active: codeMode }" @click="switchMode(true)">
+            {{ t('邮箱验证码登录') }}
+          </text>
         </view>
         <text class="app-font label">{{ t(codeMode ? '邮箱' : '账号 / 邮箱') }}</text>
         <view class="login-input">
@@ -33,23 +37,25 @@
           />
         </view>
         <view v-if="!codeMode">
-        <text class="app-font label password-label">{{ t('密码') }}</text>
-        <view class="login-input">
-          <UiIcon name="lock" tone="purple" :size="19" />
-          <input
-            class="app-font field"
-            v-model="password"
-            :password="!show"
-            :placeholder="t('请输入密码')"
-            :disabled="busy"
-            @confirm="submit()"
-          />
-          <view class="eye" @click="show = !show">
-            <UiIcon :name="show ? 'eye' : 'eyeOff'" tone="purple" :size="20" />
+          <text class="app-font label password-label">{{ t('密码') }}</text>
+          <view class="login-input">
+            <UiIcon name="lock" tone="purple" :size="19" />
+            <input
+              class="app-font field"
+              v-model="password"
+              :password="!show"
+              :placeholder="t('请输入密码')"
+              :disabled="busy"
+              @confirm="submit()"
+            />
+            <view class="eye" @click="show = !show">
+              <UiIcon :name="show ? 'eye' : 'eyeOff'" tone="purple" :size="20" />
+            </view>
           </view>
         </view>
+        <view v-else class="code-section">
+          <EmailCodeField v-model="emailCode" :email="account" :disabled="busy" />
         </view>
-        <view v-else class="code-section"><EmailCodeField v-model="emailCode" :email="account" :disabled="busy" /></view>
         <view v-if="captchaEnabled && !codeMode" class="row">
           <input
             class="app-font input"
@@ -110,8 +116,11 @@ import { toast } from '@/core/ui.uts';
 function t(value: string): string {
   return _t(value);
 }
-const codeMode = ref(false), emailCode = ref('');
-function openRegister() { uni.navigateTo({ url: '/pages/register/index' }); }
+const codeMode = ref(false),
+  emailCode = ref('');
+function openRegister() {
+  uni.navigateTo({ url: '/pages/register/index' });
+}
 const entered = ref(false);
 let entryTimer: number = 0;
 onUnmounted(() => clearTimeout(entryTimer));
@@ -127,7 +136,12 @@ const forgotOpen = ref(false),
   pendingAccount = ref(''),
   confirmError = ref('');
 let pendingPassword = '';
-function switchMode(value: boolean) { if (busy.value) return; codeMode.value = value; emailCode.value = ''; error.value = ''; }
+function switchMode(value: boolean) {
+  if (busy.value) return;
+  codeMode.value = value;
+  emailCode.value = '';
+  error.value = '';
+}
 
 function cancelLogin() {
   if (busy.value) return;
@@ -171,14 +185,22 @@ async function submit(confirmed: boolean = false) {
     return;
   }
   if (
-    !codeMode.value && captchaEnabled.value &&
+    !codeMode.value &&
+    captchaEnabled.value &&
     (captchaCode.value.trim().length == 0 || captchaKey.value.length == 0)
   ) {
     error.value = t('请输入验证码');
     toast(error.value);
     return;
   }
-  if (codeMode.value && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.value.trim()) || !/^[0-9]{6}$/.test(emailCode.value))) { toast('请输入正确的邮箱和6位验证码'); return; }
+  if (
+    codeMode.value &&
+    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.value.trim()) ||
+      !/^[0-9]{6}$/.test(emailCode.value))
+  ) {
+    toast('请输入正确的邮箱和6位验证码');
+    return;
+  }
   busy.value = true;
   error.value = '';
   try {
@@ -187,15 +209,17 @@ async function submit(confirmed: boolean = false) {
       setTimeout(() => resolve(), 32);
     });
     if (codeMode.value) await emailLogin(account.value.trim(), emailCode.value, confirmed);
-    else await login(
-      account.value.trim(),
-      password.value,
-      captchaEnabled.value ? captchaKey.value : '',
-      captchaCode.value.trim(),
-      confirmed,
-    );
+    else
+      await login(
+        account.value.trim(),
+        password.value,
+        captchaEnabled.value ? captchaKey.value : '',
+        captchaCode.value.trim(),
+        confirmed,
+      );
     uni.setStorageSync('last-account', account.value.trim());
-    password.value = ''; emailCode.value = '';
+    password.value = '';
+    emailCode.value = '';
     confirmOpen.value = false;
     pendingAccount.value = '';
     pendingPassword = '';
@@ -227,7 +251,10 @@ async function submit(confirmed: boolean = false) {
   }
 }
 async function continueLogin() {
-  if (account.value.trim() != pendingAccount.value || (codeMode.value ? emailCode.value : password.value) != pendingPassword) {
+  if (
+    account.value.trim() != pendingAccount.value ||
+    (codeMode.value ? emailCode.value : password.value) != pendingPassword
+  ) {
     cancelLogin();
     return;
   }
@@ -395,7 +422,7 @@ onReady(() => {
 }
 .dialog-actions {
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
 }
 .dialog-cancel {
   padding: 0;
@@ -414,13 +441,32 @@ onReady(() => {
   box-shadow: none;
 }
 .dialog-continue {
+  height: 48px;
   flex: 1;
   width: 0;
   min-width: 0;
 }
-.dialog-cancel-wrap { margin-right: 10px; }
-.login-modes { flex-direction: row; margin-bottom: 24px; }
-.mode { flex: 1; text-align: center; font-size: 14px; padding-bottom: 12px; color: #949bb0; border-bottom: 2px solid #edf0f8; }
-.active { color: #425bff; border-bottom-color: #425bff; font-weight: 600; }
-.code-section { margin-top: 22px; }
+.dialog-cancel-wrap {
+  margin-right: 10px;
+}
+.login-modes {
+  flex-direction: row;
+  margin-bottom: 24px;
+}
+.mode {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  padding-bottom: 12px;
+  color: #949bb0;
+  border-bottom: 2px solid #edf0f8;
+}
+.active {
+  color: #425bff;
+  border-bottom-color: #425bff;
+  font-weight: 600;
+}
+.code-section {
+  margin-top: 22px;
+}
 </style>

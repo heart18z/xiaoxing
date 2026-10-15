@@ -19,7 +19,10 @@
         </view>
         <view class="card">
           <view class="between" @click="openClosure">
-            <view class="grow"><text class="app-font body-text closure-link">{{ t('注销账号') }}</text><text class="app-font muted">{{ t('永久停用账号并解除邮箱、手机号绑定') }}</text></view>
+            <view class="grow">
+              <text class="app-font body-text closure-link">{{ t('注销账号') }}</text>
+              <text class="app-font muted">{{ t('永久停用账号并解除邮箱、手机号绑定') }}</text>
+            </view>
             <UiIcon name="chevron" tone="blue" :size="22" />
           </view>
         </view>
@@ -34,17 +37,47 @@
           <text v-if="pushState.error.length > 0" class="app-font error">
             {{ pushState.error }}
           </text>
-          <button class="app-font primary notification-button" :disabled="checkingNotification || pushState.busy" :loading="checkingNotification || pushState.busy" @click="checkNotification()">
+          <button
+            class="app-font primary notification-button"
+            :disabled="checkingNotification || pushState.busy"
+            :loading="checkingNotification || pushState.busy"
+            @click="checkNotification()"
+          >
             {{ t(checkingNotification || pushState.busy ? '正在检查通知…' : '开启 / 检查通知') }}
           </button>
-          <text v-if="notificationFeedback.length > 0" class="app-font notification-copy notification-feedback">{{ notificationFeedback }}</text>
+          <text
+            v-if="notificationFeedback.length > 0"
+            class="app-font notification-copy notification-feedback"
+          >
+            {{ notificationFeedback }}
+          </text>
         </view>
         <view v-if="updates.supported" class="card">
-          <view class="row"><text class="app-font heading">应用更新</text><view v-if="updates.available" class="update-dot" /></view>
+          <view class="row">
+            <text class="app-font heading">应用更新</text>
+            <view v-if="updates.available" class="update-dot" />
+          </view>
           <text class="app-font notification-copy">{{ '当前版本 ' + updates.current }}</text>
           <text class="app-font notification-copy">{{ updates.feedback }}</text>
-          <text v-if="updates.available" class="app-font notification-copy">{{ updateNotes() }}</text>
-          <button class="app-font primary notification-button" :disabled="updates.checking || updates.installing" :loading="updates.checking || updates.installing" @click="updateAction()">{{ updates.installing ? '正在下载安装…' : updates.checking ? '正在检查…' : updates.available ? '下载安装更新' : '检查更新' }}</button>
+          <text v-if="updates.available" class="app-font notification-copy">
+            {{ updateNotes() }}
+          </text>
+          <button
+            class="app-font primary notification-button"
+            :disabled="updates.checking || updates.installing"
+            :loading="updates.checking || updates.installing"
+            @click="updateAction()"
+          >
+            {{
+              updates.installing
+                ? '正在下载安装…'
+                : updates.checking
+                  ? '正在检查…'
+                  : updates.available
+                    ? '下载安装更新'
+                    : '检查更新'
+            }}
+          </button>
         </view>
         <text v-if="loading" class="app-font muted">{{ t('正在读取设置…') }}</text>
         <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
@@ -76,17 +109,43 @@
       </view>
     </scroll-view>
   </AppFrame>
-  <Popup :open="closureStep > 0" :title="t(closureStep == 1 ? '注销账号' : '最后确认注销')" :busy="closing" @close="cancelClosure">
-    <text class="app-font closure-copy">{{ t('注销后账号无法恢复，邮箱和手机号将解绑；个人聊天、好友关系和模型配置将移除，相关提醒停止。其他参与人的共享事件历史会保留。') }}</text>
+  <Popup
+    :open="closureStep > 0"
+    :title="t(closureStep == 1 ? '注销账号' : '最后确认注销')"
+    :busy="closing"
+    @close="cancelClosure"
+  >
+    <text class="app-font closure-copy">
+      {{
+        t(
+          '注销后账号无法恢复，邮箱和手机号将解绑；个人聊天、好友关系和模型配置将移除，相关提醒停止。其他参与人的共享事件历史会保留。',
+        )
+      }}
+    </text>
     <text v-if="closureStep == 1" class="app-font closure-copy">{{ t('确定要继续注销吗？') }}</text>
     <view v-else>
       <text class="app-font label">{{ t('请输入当前密码确认身份') }}</text>
-      <input class="app-font input" :password="true" v-model="closurePassword" :disabled="closing" maxlength="128" />
+      <input
+        class="app-font input"
+        :password="true"
+        v-model="closurePassword"
+        :disabled="closing"
+        maxlength="128"
+      />
       <text v-if="closureError.length > 0" class="app-font error">{{ closureError }}</text>
     </view>
     <view class="closure-actions">
-      <view class="closure-action closure-cancel"><LoginButton :secondary="true" :label="t('取消')" @click="cancelClosure" /></view>
-      <view class="closure-action"><LoginButton :busy="closing" :label="t(closureStep == 1 ? '继续注销' : '确认注销')" :busy-label="t('正在注销…')" @click="confirmClosure" /></view>
+      <view class="closure-action closure-cancel">
+        <LoginButton :secondary="true" :label="t('取消')" @click="cancelClosure" />
+      </view>
+      <view class="closure-action">
+        <LoginButton
+          :busy="closing"
+          :label="t(closureStep == 1 ? '继续注销' : '确认注销')"
+          :busy-label="t('正在注销…')"
+          @click="confirmClosure"
+        />
+      </view>
     </view>
   </Popup>
   <AccountForm
@@ -137,35 +196,74 @@ const passwordOpen = ref(false),
   models = ref<UTSJSONObject[]>([]),
   llm = reactive(blankModel()),
   speech = reactive(blankModel());
-const languageSaving = ref(false), closureStep = ref(0), closing = ref(false), closurePassword = ref(''), closureError = ref('');
-function openClosure() { closurePassword.value = ''; closureError.value = ''; closureStep.value = 1; }
-function cancelClosure() { if (!closing.value) { closureStep.value = 0; closurePassword.value = ''; } }
+const languageSaving = ref(false),
+  closureStep = ref(0),
+  closing = ref(false),
+  closurePassword = ref(''),
+  closureError = ref('');
+function openClosure() {
+  closurePassword.value = '';
+  closureError.value = '';
+  closureStep.value = 1;
+}
+function cancelClosure() {
+  if (!closing.value) {
+    closureStep.value = 0;
+    closurePassword.value = '';
+  }
+}
 async function confirmClosure() {
   if (closing.value) return;
-  if (closureStep.value == 1) { closureStep.value = 2; return; }
-  if (closurePassword.value.length == 0) { closureError.value = t('请输入当前密码'); return; }
-  closing.value = true; closureError.value = '';
+  if (closureStep.value == 1) {
+    closureStep.value = 2;
+    return;
+  }
+  if (closurePassword.value.length == 0) {
+    closureError.value = t('请输入当前密码');
+    return;
+  }
+  closing.value = true;
+  closureError.value = '';
   try {
     await post('/app/account/close', { password: closurePassword.value, confirmed: true });
-    closurePassword.value = ''; closureStep.value = 0;
-    await logout(); toast('账号已注销');
-  } catch (e) { closureError.value = message(e); } finally { closing.value = false; }
+    closurePassword.value = '';
+    closureStep.value = 0;
+    await logout();
+    toast('账号已注销');
+  } catch (e) {
+    closureError.value = message(e);
+  } finally {
+    closing.value = false;
+  }
 }
 async function selectLanguage(index: number) {
   if (languageSaving.value) return;
-  const next = index == 1 ? 'en-us' : 'zh-cn', previous = language.value;
-  languageSaving.value = true; language.value = next;
+  const next = index == 1 ? 'en-us' : 'zh-cn',
+    previous = language.value;
+  languageSaving.value = true;
+  language.value = next;
   try {
     await reminder('settings/language', { language: next });
-    session.language = next; error.value = ''; toast('语言已保存'); void syncPush();
-  } catch (e) { language.value = previous; toast(message(e)); }
-  finally { languageSaving.value = false; }
+    session.language = next;
+    error.value = '';
+    toast('语言已保存');
+    void syncPush();
+  } catch (e) {
+    language.value = previous;
+    toast(message(e));
+  } finally {
+    languageSaving.value = false;
+  }
 }
 function applyModel(form: ModelForm, data: UTSJSONObject, key: string) {
   const personal = obj(data, key);
   form.mode = s(data, key + 'Mode', 'SYSTEM');
   form.configId = s(data, key + 'ConfigId');
-  if (form.mode == 'SYSTEM' && !models.value.some((model: UTSJSONObject): boolean => s(model, 'id') == form.configId)) form.configId = '';
+  if (
+    form.mode == 'SYSTEM' &&
+    !models.value.some((model: UTSJSONObject): boolean => s(model, 'id') == form.configId)
+  )
+    form.configId = '';
   form.baseUrl = s(personal, 'baseUrl');
   form.modelName = s(personal, 'modelName');
   form.apiKey = '';
@@ -285,22 +383,39 @@ async function checkNotification(): Promise<void> {
   try {
     if (pushState.permission == 'denied') {
       const result = await callNative('settings');
-      notificationFeedback.value = t(result['supported'] == false ? '请在手机 App 中管理通知权限' : '请在系统设置中允许通知，返回后将重新检查');
+      notificationFeedback.value = t(
+        result['supported'] == false
+          ? '请在手机 App 中管理通知权限'
+          : '请在系统设置中允许通知，返回后将重新检查',
+      );
     } else {
       await syncPush(true);
-      notificationFeedback.value = pushState.error.length > 0 ? pushState.error : t(
-        pushState.registered ? '检查完成，通知已开启，设备已绑定' :
-        pushState.permission == 'denied' ? '通知未获允许，请在系统设置中开启' :
-        pushState.supported ? '检查完成，设备尚未完成绑定，请稍后重试' : '请在手机 App 中开启通知');
+      notificationFeedback.value =
+        pushState.error.length > 0
+          ? pushState.error
+          : t(
+              pushState.registered
+                ? '检查完成，通知已开启，设备已绑定'
+                : pushState.permission == 'denied'
+                  ? '通知未获允许，请在系统设置中开启'
+                  : pushState.supported
+                    ? '检查完成，设备尚未完成绑定，请稍后重试'
+                    : '请在手机 App 中开启通知',
+            );
     }
   } catch (e) {
     notificationFeedback.value = message(e);
   } finally {
     checkingNotification.value = false;
-    toast(notificationFeedback.value, notificationFeedback.value == t('检查完成，通知已开启，设备已绑定') ? 'success' : 'info');
+    toast(
+      notificationFeedback.value,
+      notificationFeedback.value == t('检查完成，通知已开启，设备已绑定') ? 'success' : 'info',
+    );
   }
 }
-function updateNotes(): string { return s(updates.release, 'notes'); }
+function updateNotes(): string {
+  return s(updates.release, 'notes');
+}
 function updateAction() {
   if (updates.available) void installUpdate();
   else void checkUpdates(true);
@@ -317,7 +432,14 @@ function languageChanged(event: UniPickerChangeEvent) {
 }
 </script>
 <style scoped>
-.update-dot { width: 8px; height: 8px; border-radius: 4px; background-color: #ef4d64; margin-left: 8px; margin-bottom: 20px; }
+.update-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #ef4d64;
+  margin-left: 8px;
+  margin-bottom: 20px;
+}
 .language {
   padding: 14px;
   background-color: #f8faff;
@@ -352,9 +474,13 @@ function languageChanged(event: UniPickerChangeEvent) {
   margin-bottom: 0;
   font-weight: 600;
 }
-.notification-feedback { margin-top: 10px; }
+.notification-feedback {
+  margin-top: 10px;
+}
 /* #ifdef APP-IOS */
-.notification-button { font-family: 'PingFangSC-Semibold'; }
+.notification-button {
+  font-family: 'PingFangSC-Semibold';
+}
 /* #endif */
 .label {
   margin-bottom: 14px;
@@ -362,9 +488,26 @@ function languageChanged(event: UniPickerChangeEvent) {
 .settings-fields {
   overflow: visible;
 }
-.closure-link { color: #d94b65; }
-.closure-copy { font-size: 14px; line-height: 24px; color: #778199; margin-bottom: 20px; }
-.closure-actions { flex-direction: row; margin-top: 12px; }
-.closure-action { flex: 1; width: 0; min-width: 0; }
-.closure-cancel { margin-right: 10px; }
+.closure-link {
+  color: #d94b65;
+}
+.closure-copy {
+  font-size: 14px;
+  line-height: 24px;
+  color: #778199;
+  margin-bottom: 20px;
+}
+.closure-actions {
+  flex-direction: row;
+  margin-top: 12px;
+}
+.closure-action {
+  height: 48px;
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+.closure-cancel {
+  margin-right: 10px;
+}
 </style>

@@ -1,14 +1,16 @@
 <template>
   <view
     class="login-submit"
-    :class="{ secondary: secondary }"
+    :class="{ 'login-submit-secondary': secondary }"
     role="button"
     :aria-label="busy ? busyLabel : label"
     :aria-disabled="busy"
     @click="activate()"
   >
     <view v-if="busy" class="login-spinner" :style="{ transform: 'rotate(' + angle + 'deg)' }" />
-    <text class="app-font login-submit-label" :class="{ secondaryLabel: secondary }">{{ busy ? busyLabel : label }}</text>
+    <text class="app-font login-submit-label" :class="{ secondaryLabel: secondary }">
+      {{ busy ? busyLabel : label }}
+    </text>
   </view>
 </template>
 <script setup lang="uts">
@@ -41,7 +43,12 @@ function activate() {
 </script>
 <style scoped>
 .login-submit {
+  width: 100%;
   height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  padding: 0;
+  margin: 0;
   flex-shrink: 0;
   flex-direction: row;
   align-items: center;
@@ -66,6 +73,12 @@ function activate() {
   border-radius: 9px;
   margin-right: 9px;
 }
-.secondary { background-color: #eef0ff; background-image: none; box-shadow: none; }
-.secondaryLabel { color: #4960e8; }
+.login-submit-secondary {
+  background-color: #eef0ff;
+  background-image: none;
+  box-shadow: none;
+}
+.secondaryLabel {
+  color: #4960e8;
+}
 </style>

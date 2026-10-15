@@ -10,13 +10,13 @@
       left: side + 'px',
       right: side + 'px',
       opacity: tip.visible ? 1 : 0,
-      transform: tip.visible ? 'translateY(0px)' : 'translateY(-6px)',
+      transform: tip.visible ? 'translateY(0px) scale(1)' : 'translateY(-20px) scale(0.96)',
     }"
   >
     <view :class="['tip-mark', 'mark-' + tip.tone]">
       <UiIcon
         :name="tip.tone == 'success' ? 'tipSuccess' : tip.tone == 'error' ? 'tipError' : 'tipInfo'"
-        :tone="tip.tone == 'success' ? 'green' : tip.tone == 'error' ? 'red' : 'blue'"
+        :tone="'white'"
         :size="19"
       />
     </view>
@@ -43,18 +43,19 @@ topStyle = 'max(' + top + 'px, calc(env(safe-area-inset-top, 0px) + 8px))';
   z-index: 9999;
   flex-direction: row;
   align-items: center;
-  padding: 11px 14px;
+  min-height: 58px;
+  padding: 13px 16px;
   border-radius: 17px;
-  background-color: #fafcff;
-  border: 1px solid #e4eaf5;
-  box-shadow: 0 6px 20px #26395916;
+  background-color: #243556;
+  border: 1px solid #6984b8;
+  box-shadow: 0 10px 28px #14234055;
   transition-property: opacity, transform;
-  transition-duration: 180ms;
+  transition-duration: 240ms;
   transition-timing-function: ease-out;
 }
 .tip-mark {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 10px;
   align-items: center;
@@ -62,27 +63,28 @@ topStyle = 'max(' + top + 'px, calc(env(safe-area-inset-top, 0px) + 8px))';
   margin-right: 10px;
 }
 .mark-info {
-  background-color: #eaf0ff;
+  background-color: #4778ff;
 }
 .mark-success {
-  background-color: #dff5ec;
+  background-color: #1fa879;
 }
 .mark-error {
-  background-color: #ffe9e9;
+  background-color: #e36b78;
 }
 .tip-text {
   flex: 1;
-  color: #43516a;
-  font-size: 14px;
-  line-height: 21px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 23px;
 }
 .tip-success {
-  background-color: #f1fbf6;
-  border-color: #d9eee3;
+  background-color: #193f38;
+  border-color: #4c9b82;
 }
 .tip-error {
-  background-color: #fff8f7;
-  border-color: #f3e0de;
+  background-color: #552e3b;
+  border-color: #b67186;
 }
 /* #ifdef WEB */
 .tip-text {
