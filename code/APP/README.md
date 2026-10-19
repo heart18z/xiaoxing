@@ -5,6 +5,11 @@
 
 工程已按以下对接规范实现。运行方式、平台限制及验收记录见 [DEVELOPMENT.md](./DEVELOPMENT.md)。本文保留原接口与验收约定。
 
+当前准备发布版本：**1.0.139（versionCode=139）**，以 `manifest.json` 为准。138 是此前的后端补丁编号。线上已部署 `groups139-20261019`，支持旧版 APP 和本次新版；下方原始对接约定与历史验收记录保留。
+
+- 新版群组提醒请求携带 `supportsGroupRecipients:true`；旧版未传或传 null 时沿用个人、好友提醒流程。服务端按能力兼容，不按固定 APP 版本号阻断旧版。
+- 本次只递增版本号，沿用原应用标识和打包签名。版本号须重新打包安装后才会显示；正式 APK 上传后台时填写版本名称 `1.0.139`、版本代码 `139`，并使用原 Android 包名及签名证书。
+
 ## 1. 目录与边界
 
 ```text
@@ -56,7 +61,7 @@ App 只连接现有 HTTP API，不直连数据库、Redis、模型供应商或 A
 |---|---|
 | 注册/推荐账号/改密码 | `/app/account/register` J `{account,name,password,phone,email}`；`/app/account/suggest-account`；`/app/account/password` J `{oldPassword,password,confirmation}`。这组密码按现有账户接口传原字符串，仅走 HTTPS，不套用 OAuth 的 SM2 密文 |
 | 初始化/资料 | `bootstrap`；`profile/update` J `{name,phone,email,avatar,aiAvatar}`（按需提交） |
-| 聊天与恢复 | `chat/jobs/submit` J `{requestId,content,fileIds}`；`chat/jobs/status`、`chat/jobs/watch` J `{requestId}`；`chat/stop` J `{requestId}` |
+| 聊天与恢复 | `chat/jobs/submit` J `{requestId,content,fileIds,supportsGroupRecipients:true}`（新版开启群组能力，旧版可省略该字段）；`chat/jobs/status`、`chat/jobs/watch` J `{requestId}`；`chat/stop` J `{requestId}` |
 | 历史/已读/清上下文 | `chat/messages` Q `limit`；`chat/sync` Q `limit,revision`；`chat/read` J `{messageIds}`；`chat/context/clear` |
 | 文件/语音 | `files/upload` F `file`；`audio/transcriptions` F `file`；头像为 `/blade-resource/oss/endpoint/put-file` F `file` |
 | 确认事件卡 | `candidate/confirm` J `{candidateId,acceptConflicts:false}`；出现冲突询问后，由用户明确确认才传 `true` |
