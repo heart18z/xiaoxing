@@ -86,7 +86,7 @@ public class Stage1Regression {
     db.update("insert into blade_friendship(id,owner_user_id,friend_user_id) values(1,1,2),(2,1,3)");
     db.update("insert into blade_smart_chat_message(id,user_id,message_role,content) values(91,1,'user','陈颖进场，包诗琴准备付款'),(92,1,'user','无关闲聊'),(93,1,'assistant','是否合并为一个事件？'),(101,1,'user','是的'),(999,2,'user','其他人的私密聊天')");
     FakeAi ai=new FakeAi();content=new SmartEventContentService(db,mapper,ai);
-    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     Class<?> type=Class.forName("org.springblade.modules.smartreminder.service.SmartReminderService$PreparedChat");
     prepared=type.getDeclaredConstructors()[0];prepared.setAccessible(true);
     complete=SmartReminderService.class.getDeclaredMethod("completeChat",type,String.class,String.class);complete.setAccessible(true);

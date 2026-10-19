@@ -15,7 +15,7 @@ public class ProfileRegression {
     db.execute("create table blade_smart_user_preference(user_id bigint,ai_avatar varchar(1000))");
     db.update("insert into blade_user values(-1,'fixture','原姓名','原姓名','13800138000','old@example.com','/avatars/original.png',-1,now(),0),(2,'other','其他用户','其他用户','','','',2,now(),0)");
     var social=new SmartSocialService(db);
-    var service=new SmartReminderService(db,new ObjectMapper(),null,null,null,null,social,null);
+    var service=new SmartReminderService(db,new ObjectMapper(),null,null,null,null,social,null,null);
     var input=new ProfileUpdateRequest();input.setName(" 新姓名 ");input.setPhone("13900139000");input.setEmail("new@example.com");
     var result=service.updateProfile(input);
     check("新姓名".equals(result.get("name"))&&"新姓名".equals(result.get("realName")),"name updates both display and real name");

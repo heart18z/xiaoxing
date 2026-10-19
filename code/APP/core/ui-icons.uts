@@ -1,0 +1,57 @@
+// Generated from Lucide. Rebuild with tests/build-ui-icons.py.
+const glyphs: UTSJSONObject = {
+  arrowUp: '\ue04a',
+  arrowDown: '\ue042',
+  calendar: '\ue2b9',
+  camera: '\ue064',
+  check: '\ue06c',
+  chevron: '\ue06f',
+  clock: '\ue250',
+  close: '\ue1b2',
+  down: '\ue06d',
+  edit: '\ue172',
+  eraser: '\ue28f',
+  eye: '\ue0ba',
+  eyeOff: '\ue0bb',
+  filter: '\ue0dc',
+  layers: '\ue529',
+  list: '\ue106',
+  lock: '\ue531',
+  logout: '\ue10e',
+  menu: '\ue115',
+  microphone: '\ue118',
+  note: '\ue0cc',
+  people: '\ue46e',
+  plus: '\ue13d',
+  qr: '\ue1df',
+  reset: '\ue148',
+  scan: '\ue258',
+  search: '\ue151',
+  settings: '\ue154',
+  spark: '\ue412',
+  tag: '\ue17f',
+  tipInfo: '\ue0f9',
+  tipSuccess: '\ue226',
+  tipError: '\ue077',
+  trash: '\ue18e',
+  user: '\ue468',
+  userMinus: '\ue46b',
+  userPlus: '\ue46c',
+};
+export function uiIconGlyph(name: string): string {
+  return (glyphs[name] as string) ?? (glyphs['note'] as string);
+}
+export function uiIconColor(tone: string): string {
+  const colors: UTSJSONObject = {
+    blue: '#3267ed',
+    purple: '#8a63d8',
+    ink: '#243550',
+    green: '#19ad88',
+    red: '#ef6675',
+    white: '#ffffff',
+    muted: '#8e9ab0',
+    violet: '#885bdd',
+    amber: '#d99b37',
+  };
+  return (colors[tone] as string) ?? '#8e9ab0';
+}

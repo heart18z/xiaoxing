@@ -32,7 +32,7 @@ public class OriginalWordingRegression extends Stage1Regression {
     check(!content.refreshEventOverview(701L),"unchanged original evidence does not call model again");
     db.update("insert into blade_smart_chat_message(id,user_id,message_role,message_type,content) values(7020,-1,'user','TEXT','改到下午5点')");content.link(701L,-1L,7020L);
     check(!content.latestEventSummary(701L,"").equals("通知陈颖9月11日下午6点见客户"),"new linked creator message invalidates cached wording");
-    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     var feedback=SmartReminderService.class.getDeclaredMethod("applyFeedback",Long.class,com.fasterxml.jackson.databind.node.ObjectNode.class,String.class,Long.class);feedback.setAccessible(true);
     var node=mapper.createObjectNode().put("eventId","701").put("fact","同意执行、没有任何冲突，并已完成").put("stopBranch",true);
     tx.execute(s->{try{return feedback.invoke(service,2L,node,"ok",701L);}catch(Exception e){throw new RuntimeException(e);}});

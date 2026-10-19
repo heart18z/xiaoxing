@@ -519,88 +519,254 @@ english['仅支持公网 HTTPS 地址。密钥加密保存，仅用于自己的�
   'Public HTTPS endpoints only. Keys are encrypted and used only for your model requests.';
 english['关闭 ×'] = 'Close \u00d7';
 english[' · 多个时间'] = ' \u00b7 Multiple times';
-english["密码登录"] = "Password login";
-english["邮箱验证码登录"] = "Email code login";
-english["账号 / 邮箱"] = "Account / Email";
-english["请输入账号或邮箱"] = "Account or email";
-english["请输入邮箱"] = "Enter your email";
-english["邮箱验证码"] = "Email code";
-english["6位验证码"] = "6-digit code";
-english["获取验证码"] = "Send code";
-english["发送中…"] = "Sending\u2026";
-english["验证码已发送，请检查邮箱或垃圾邮件"] = "Code sent. Check your inbox or spam folder.";
-english["创建小醒账号"] = "Create your account";
-english["验证邮箱，开启智能提醒"] = "Verify your email to get started";
-english["欢迎加入小醒"] = "Welcome to Xiaoxing";
-english["邮箱用于登录和找回密码，请使用常用邮箱。"] = "Use an email you can access for login and password recovery.";
-english["已有账号？返回登录"] = "Already registered? Sign in";
-english["请设置自己的密码，至少8位。"] = "Choose your own password, at least 8 characters.";
-english["找回密码"] = "Recover password";
-english["通过邮箱验证，重设登录密码"] = "Verify your email to reset your password";
-english["设置新密码"] = "Set a new password";
-english["请输入注册时使用的邮箱，验证后即可重置密码。"] = "Enter your registered email to receive a reset code.";
-english["请输入正确的邮箱和6位验证码"] = "Enter a valid email and 6-digit code";
-english["请确认两次密码一致，长度为8–64位"] = "Passwords must match and be 8\u201364 characters long";
-english["重置成功后，请使用新密码重新登录。"] = "Sign in with your new password after resetting.";
-english["选择后自动保存，历史消息保持原文。"] = "Saved automatically. Existing messages keep their original language.";
-english["注销账号"] = "Delete account";
-english["永久停用账号并解除邮箱、手机号绑定"] = "Permanently deactivate your account and release your email and phone";
-english["最后确认注销"] = "Confirm account deletion";
-english["注销后账号无法恢复，邮箱和手机号将解绑；个人聊天、好友关系和模型配置将移除，相关提醒停止。其他参与人的共享事件历史会保留。"] = "This cannot be undone. Your email and phone will be released; personal chats, friendships and model settings will be removed, and related reminders will stop. Shared event history remains for other participants.";
-english["确定要继续注销吗？"] = "Continue deleting your account?";
-english["请输入当前密码确认身份"] = "Enter your current password to confirm";
-english["请输入当前密码"] = "Enter your current password";
-english["继续注销"] = "Continue";
-english["确认注销"] = "Delete account";
-english["正在注销…"] = "Deleting\u2026";
-english["语言已保存"] = "Language saved";
-english["账号已注销"] = "Account deleted";
+english['密码登录'] = 'Password login';
+english['邮箱验证码登录'] = 'Email code login';
+english['账号 / 邮箱'] = 'Account / Email';
+english['请输入账号或邮箱'] = 'Account or email';
+english['请输入邮箱'] = 'Enter your email';
+english['邮箱验证码'] = 'Email code';
+english['6位验证码'] = '6-digit code';
+english['获取验证码'] = 'Send code';
+english['发送中…'] = 'Sending\u2026';
+english['验证码已发送，请检查邮箱或垃圾邮件'] = 'Code sent. Check your inbox or spam folder.';
+english['创建小醒账号'] = 'Create your account';
+english['验证邮箱，开启智能提醒'] = 'Verify your email to get started';
+english['欢迎加入小醒'] = 'Welcome to Xiaoxing';
+english['邮箱用于登录和找回密码，请使用常用邮箱。'] =
+  'Use an email you can access for login and password recovery.';
+english['已有账号？返回登录'] = 'Already registered? Sign in';
+english['请设置自己的密码，至少8位。'] = 'Choose your own password, at least 8 characters.';
+english['找回密码'] = 'Recover password';
+english['通过邮箱验证，重设登录密码'] = 'Verify your email to reset your password';
+english['设置新密码'] = 'Set a new password';
+english['请输入注册时使用的邮箱，验证后即可重置密码。'] =
+  'Enter your registered email to receive a reset code.';
+english['请输入正确的邮箱和6位验证码'] = 'Enter a valid email and 6-digit code';
+english['请确认两次密码一致，长度为8–64位'] =
+  'Passwords must match and be 8\u201364 characters long';
+english['重置成功后，请使用新密码重新登录。'] = 'Sign in with your new password after resetting.';
+english['选择后自动保存，历史消息保持原文。'] =
+  'Saved automatically. Existing messages keep their original language.';
+english['注销账号'] = 'Delete account';
+english['永久停用账号并解除邮箱、手机号绑定'] =
+  'Permanently deactivate your account and release your email and phone';
+english['最后确认注销'] = 'Confirm account deletion';
+english[
+  '注销后账号无法恢复，邮箱和手机号将解绑；个人聊天、好友关系和模型配置将移除，相关提醒停止。其他参与人的共享事件历史会保留。'
+] =
+  'This cannot be undone. Your email and phone will be released; personal chats, friendships and model settings will be removed, and related reminders will stop. Shared event history remains for other participants.';
+english['确定要继续注销吗？'] = 'Continue deleting your account?';
+english['请输入当前密码确认身份'] = 'Enter your current password to confirm';
+english['请输入当前密码'] = 'Enter your current password';
+english['继续注销'] = 'Continue';
+english['确认注销'] = 'Delete account';
+english['正在注销…'] = 'Deleting\u2026';
+english['语言已保存'] = 'Language saved';
+english['账号已注销'] = 'Account deleted';
 
-english["查看好友申请 ›"] = "View friend requests ›";
-english["今日需关注的提醒"] = "Due today";
-english["今日已发送的提醒"] = "Sent today";
-english["明天需关注的提醒"] = "Due tomorrow";
-english["过往创建且未到期的提醒"] = "Upcoming reminders";
-english["请求添加你为好友"] = "Wants to add you as a friend";
-english["你申请添加对方"] = "You sent a friend request";
-english["等待对方通过"] = "Awaiting approval";
-english["对方已通过你的申请"] = "Your request was accepted";
-english["你已接受对方的申请"] = "You accepted this request";
-english["你已拒绝对方的申请"] = "You declined this request";
-english["对方已拒绝你的申请"] = "Your request was declined";
-english["申请已取消"] = "Request cancelled";
-english["已通过"] = "Accepted";
-english["已拒绝"] = "Declined";
-english["已取消"] = "Cancelled";
-english["已处理"] = "Processed";
-english["请求调整提醒权限"] = "Requests a reminder permission change";
-english["你申请调整提醒权限"] = "You requested a permission change";
-english["对方已通过你的权限申请"] = "Your permission request was accepted";
-english["你已接受对方的权限申请"] = "You accepted the permission request";
-english["暂无好友申请"] = "No friend requests";
-english["收到和发出的申请会显示在这里"] = "Incoming and outgoing requests appear here";
-english["接受"] = "Accept";
-english["已添加"] = "Added";
+english['查看好友申请 ›'] = 'View friend requests ›';
+english['今日需关注的提醒'] = 'Due today';
+english['今日已发送的提醒'] = 'Sent today';
+english['明天需关注的提醒'] = 'Due tomorrow';
+english['过往创建且未到期的提醒'] = 'Upcoming reminders';
+english['请求添加你为好友'] = 'Wants to add you as a friend';
+english['你申请添加对方'] = 'You sent a friend request';
+english['等待对方通过'] = 'Awaiting approval';
+english['对方已通过你的申请'] = 'Your request was accepted';
+english['你已接受对方的申请'] = 'You accepted this request';
+english['你已拒绝对方的申请'] = 'You declined this request';
+english['对方已拒绝你的申请'] = 'Your request was declined';
+english['申请已取消'] = 'Request cancelled';
+english['已通过'] = 'Accepted';
+english['已拒绝'] = 'Declined';
+english['已取消'] = 'Cancelled';
+english['已处理'] = 'Processed';
+english['请求调整提醒权限'] = 'Requests a reminder permission change';
+english['你申请调整提醒权限'] = 'You requested a permission change';
+english['对方已通过你的权限申请'] = 'Your permission request was accepted';
+english['你已接受对方的权限申请'] = 'You accepted the permission request';
+english['暂无好友申请'] = 'No friend requests';
+english['收到和发出的申请会显示在这里'] = 'Incoming and outgoing requests appear here';
+english['接受'] = 'Accept';
+english['已添加'] = 'Added';
 
-english["跟随系统"] = "Follow system";
-english["手机通知"] = "Phone notifications";
-english["开启 / 检查通知"] = "Enable / check notifications";
-english["正在检查通知…"] = "Checking notifications\u2026";
-english["设备已绑定。实际提醒还受网络、专注模式等系统设置影响。"] = "Device connected. Delivery also depends on your network, Focus mode and system settings.";
-english["通知将显示你的提醒内容，可在系统设置中控制锁屏预览。点击通知查看对应事件。"] = "Notifications show reminder details. Manage lock screen previews in system settings. Tap a notification to view the event.";
-english["后台接收已开启。请保留应用在后台运行，系统限制后台运行时可能延迟接收。"] = "Background delivery is enabled. System restrictions on background activity may delay notifications.";
-english["后台接收尚未开启，请点击下方按钮检查通知。"] = "Background delivery is not enabled. Tap below to check notifications.";
-english["设备尚未完成推送绑定，请点击下方按钮开启或检查通知。"] = "Device not connected for push notifications. Tap below to enable or check notifications.";
-english["请在手机 App 中开启通知。"] = "Enable notifications in the mobile app.";
-english["请在手机 App 中开启通知"] = "Enable notifications in the mobile app";
-english["正在检查通知权限和设备绑定…"] = "Checking permissions and device connection\u2026";
-english["请在手机 App 中管理通知权限"] = "Manage notification permissions in the mobile app";
-english["请在系统设置中允许通知，返回后将重新检查"] = "Allow notifications in system settings. We will check again when you return.";
-english["检查完成，通知已开启，设备已绑定"] = "Notifications enabled and device connected";
-english["通知未获允许，请在系统设置中开启"] = "Allow notifications in system settings";
-english["检查完成，设备尚未完成绑定，请稍后重试"] = "Device connection is incomplete. Please try again shortly.";
-english["图片加载失败，点击重试"] = "Tap to retry";
-english["图片加载中…"] = "Loading\u2026";
-english["同时设置本机闹铃"] = "Set a local alarm too";
-english["建议响铃"] = "Suggested alarm";
-english["未开启 · 按建议时间响铃"] = "Off \u00b7 uses the suggested alarm time";
+english['跟随系统'] = 'Follow system';
+english['手机通知'] = 'Phone notifications';
+english['开启 / 检查通知'] = 'Enable / check notifications';
+english['正在检查通知…'] = 'Checking notifications\u2026';
+english['设备已绑定。实际提醒还受网络、专注模式等系统设置影响。'] =
+  'Device connected. Delivery also depends on your network, Focus mode and system settings.';
+english['通知将显示你的提醒内容，可在系统设置中控制锁屏预览。点击通知查看对应事件。'] =
+  'Notifications show reminder details. Manage lock screen previews in system settings. Tap a notification to view the event.';
+english['后台接收已开启。请保留应用在后台运行，系统限制后台运行时可能延迟接收。'] =
+  'Background delivery is enabled. System restrictions on background activity may delay notifications.';
+english['后台接收尚未开启，请点击下方按钮检查通知。'] =
+  'Background delivery is not enabled. Tap below to check notifications.';
+english['设备尚未完成推送绑定，请点击下方按钮开启或检查通知。'] =
+  'Device not connected for push notifications. Tap below to enable or check notifications.';
+english['请在手机 App 中开启通知。'] = 'Enable notifications in the mobile app.';
+english['请在手机 App 中开启通知'] = 'Enable notifications in the mobile app';
+english['正在检查通知权限和设备绑定…'] = 'Checking permissions and device connection\u2026';
+english['请在手机 App 中管理通知权限'] = 'Manage notification permissions in the mobile app';
+english['请在系统设置中允许通知，返回后将重新检查'] =
+  'Allow notifications in system settings. We will check again when you return.';
+english['检查完成，通知已开启，设备已绑定'] = 'Notifications enabled and device connected';
+english['通知未获允许，请在系统设置中开启'] = 'Allow notifications in system settings';
+english['检查完成，设备尚未完成绑定，请稍后重试'] =
+  'Device connection is incomplete. Please try again shortly.';
+english['图片加载失败，点击重试'] = 'Tap to retry';
+english['图片加载中…'] = 'Loading\u2026';
+english['同时设置本机闹铃'] = 'Set a local alarm too';
+english['建议响铃'] = 'Suggested alarm';
+english['未开启 · 按建议时间响铃'] = 'Off \u00b7 uses the suggested alarm time';
+// Custom reminder groups.
+english['群组'] = 'Groups';
+english['好友'] = 'Friends';
+english['组织'] = 'Organizations';
+english['申请'] = 'Requests';
+english['群组详情'] = 'Group details';
+english['群组资料'] = 'Group profile';
+english['创建群组'] = 'Create group';
+english['群名'] = 'Group name';
+english['群组介绍'] = 'About this group';
+english['设置群头像'] = 'Set group avatar';
+english['例如：校园巡检组'] = 'For example: Campus inspection team';
+english['介绍群组负责的事项，方便 AI 理解你的表达'] =
+  'Describe the group’s work so AI can understand your requests.';
+english['沿用组织'] = 'Use organization';
+english['暂未开放'] = 'Coming soon';
+english['自定义'] = 'Custom';
+english['邀请好友，自定义成员标签'] = 'Invite friends and customize member tags';
+english['请输入群名'] = 'Enter a group name';
+english['我的群组'] = 'My groups';
+english['按成员标签，灵活发起提醒'] = 'Send reminders using member tags';
+english['还没有群组'] = 'No groups yet';
+english['创建群组、邀请好友，为成员设置多个标签'] =
+  'Create a group, invite friends, and add member tags.';
+english['自定义群组'] = 'Custom group';
+english['我创建的'] = 'Created by me';
+english['我管理的'] = 'Managed by me';
+english['我加入的'] = 'Joined';
+english['群主'] = 'Owner';
+english['管理员'] = 'Admin';
+english['群员'] = 'Member';
+english['位成员'] = 'members';
+english['人'] = 'people';
+english['编辑'] = 'Edit';
+english['暂无介绍'] = 'No description yet';
+english['群组用于组织提醒对象，实际发送仍遵循好友提醒权限。'] =
+  'Groups organize recipients. Existing friend reminder permissions still apply.';
+english['邀请好友'] = 'Invite friends';
+english['无需好友再次同意'] = 'No additional acceptance needed';
+english['标签管理'] = 'Manage tags';
+english['一个标签可选择多人'] = 'Assign one tag to multiple people';
+english['我的标签'] = 'My tags';
+english['可以设置多个'] = 'Multiple tags allowed';
+english['群组成员'] = 'Group members';
+english['点击人员查看标签'] = 'Select a member to view tags';
+english['未设置标签'] = 'No tags';
+english['解散群组'] = 'Dissolve group';
+english['退出群组'] = 'Leave group';
+english['只能邀请自己的好友。加入群组不会改变好友提醒权限。'] =
+  'Invite your friends only. Joining a group does not change reminder permissions.';
+english['搜索好友姓名、备注或账号'] = 'Search by name, remark or account';
+english['暂无可邀请好友'] = 'No friends available to invite';
+english['邀请加入'] = 'Invite selected';
+english['成员标签'] = 'Member tags';
+english['选择已有标签，或添加新标签；一个人可以有多个标签。'] =
+  'Choose existing tags or add new ones. Each person can have multiple tags.';
+english['标签仅在当前群组中生效。'] = 'Tags apply only within this group.';
+english['输入新标签'] = 'Enter a new tag';
+english['成员管理'] = 'Member management';
+english['设为群员'] = 'Make member';
+english['设为管理员'] = 'Make admin';
+english['移出群组'] = 'Remove from group';
+english['保存标签'] = 'Save tags';
+english['关闭'] = 'Close';
+english['标签与人员'] = 'Tags and members';
+english['先设置标签，再选择对应的多位成员。标签不会授予管理或提醒权限。'] =
+  'Create a tag and choose its members. Tags do not grant management or reminder permissions.';
+english['暂无标签，点击下方创建'] = 'No tags yet. Create one below.';
+english['例如：消防负责人'] = 'For example: Fire safety lead';
+english['选择拥有该标签的成员'] = 'Select members for this tag';
+english['删除此标签'] = 'Delete this tag';
+english['保存标签与人员'] = 'Save tag and members';
+english['新增标签'] = 'New tag';
+english['群组资料已保存'] = 'Group profile saved';
+english['好友已加入群组'] = 'Friends added to the group';
+english['标签已保存'] = 'Tags saved';
+english['成员角色已更新'] = 'Member role updated';
+english['请输入标签名称'] = 'Enter a tag name';
+english['群组已解散'] = 'Group dissolved';
+english['删除标签'] = 'Delete tag';
+english['此标签将从群组所有成员中移除，人员与历史事件保留。'] =
+  'This tag will be removed from all group members. Members and existing events are kept.';
+english['移出后，该成员不再参与新的群组选人，已创建事件保留。'] =
+  'This member will no longer be selected for new group reminders. Existing events are kept.';
+english[
+  '确定解散这个群组吗？解散后不可恢复，成员不能再通过它发起提醒，已创建事件继续保留和处理。'
+] =
+  'Dissolve this group? This cannot be undone. New group reminders will be unavailable; existing events continue.';
+english['退出后不能再查看该群组或以它发起新提醒，已创建事件保留。'] =
+  'After leaving, you cannot access the group or start new group reminders. Existing events are kept.';
+english['核对提醒人员'] = 'Review recipients';
+english['已选择'] = 'Selected';
+english['人，同一人在多个群组中只接收一次。'] =
+  'people. Members selected from multiple groups receive the reminder only once.';
+english['处理权限'] = 'Manage permission';
+english['尚未添加好友'] = 'Not a friend yet';
+english['尚无提醒权限'] = 'Reminder permission required';
+english['重新核对权限'] = 'Recheck permissions';
+english['保存接收人员'] = 'Save recipients';
+english['申请提醒权限'] = 'Request reminder permission';
+english['将向对方发送好友或提醒权限申请，对方同意后才能提醒。'] =
+  'A friend or reminder permission request will be sent. Reminders become available after acceptance.';
+english['申请已发送，对方同意后请重新核对权限'] =
+  'Request sent. Recheck permissions after acceptance.';
+english['人可提醒'] = 'eligible recipients';
+english['人需处理权限'] = 'need permission';
+english['查看／调整人员'] = 'Review / edit recipients';
+english['没有可提醒人员，请先查看人员并处理权限'] =
+  'No eligible recipients. Review the list and resolve permissions first.';
+english['仅提醒可提醒人员'] = 'Send to eligible recipients only';
+english[
+  '部分成员尚未添加好友或没有提醒权限。本次只向事件卡列出的可提醒人员发送，其他成员不会收到。是否继续？'
+] =
+  'Some members are not friends or have not granted reminder permission. Send only to the eligible recipients shown on this card?';
+english['读取失败，请重试'] = 'Unable to load. Please try again.';
+english['保存失败，请重试'] = 'Unable to save. Please try again.';
+english['操作失败，请重试'] = 'Unable to complete this action. Please try again.';
+
+english['我的组织'] = 'My organizations';
+english['创建组织'] = 'Create organization';
+english['群组头像'] = 'Group avatar';
+english['群组名称'] = 'Group name';
+english['请输入群组名称'] = 'Enter a group name';
+english['请输入群组介绍'] = 'Enter a group introduction';
+english['选择头像'] = 'Choose an avatar';
+english['当前标签'] = 'Current tags';
+english['添加标签'] = 'Add tags';
+english['新建标签'] = 'New tag';
+english['输入标签内容'] = 'Enter tag name';
+english['群组标签'] = 'Group tags';
+english['群员列表'] = 'Members';
+english['成员详情'] = 'Member details';
+english['当前管理员'] = 'Current administrators';
+english['选择群成员'] = 'Select members';
+english['仅可从当前群成员中新增管理员'] =
+  'Administrators can only be selected from current members';
+english['管理员已更新'] = 'Administrators updated';
+english['发送邀请'] = 'Send invitation';
+english['搜索好友名称或账号'] = 'Search friends by name or account';
+english['设置管理员'] = 'Manage administrators';
+english['解散群'] = 'Dissolve group';
+english['点击头像更换'] = 'Tap avatar to upload';
+english['点击头像可更换'] = 'Tap avatar to change';
+english['移除'] = 'Remove';
+english['暂无标签'] = 'No tags';
+english['上传中…'] = 'Uploading\u2026';
+
+english['保存'] = 'Save';
+english['统一设置'] = 'Manage tags';
+english['创建'] = 'Create';
+english['已选择'] = 'Selected';

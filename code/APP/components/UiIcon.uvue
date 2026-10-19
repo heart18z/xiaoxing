@@ -1,20 +1,19 @@
 <template>
-  <image
-    :src="iconSource(name, tone)"
-    :style="{ width: size + 'px', height: size + 'px' }"
+  <text
     class="ui-icon"
-    mode="aspectFit"
-  />
+    :style="{
+      width: size + 'px',
+      height: size + 'px',
+      fontSize: size + 'px',
+      lineHeight: size + 'px',
+      color: uiIconColor(tone),
+    }"
+  >
+    {{ uiIconGlyph(name) }}
+  </text>
 </template>
 <script setup lang="uts">
-function iconSource(name: string, tone: string): string {
-  let extension = '.png';
-  // #ifdef WEB
-  if (['settings', 'scan', 'qr', 'close', 'tipInfo', 'tipSuccess', 'tipError'].includes(name))
-    extension = '.svg';
-  // #endif
-  return '/static/icons/' + name + '-' + tone + extension;
-}
+import { uiIconGlyph, uiIconColor } from '@/core/ui-icons.uts';
 defineProps({
   name: { type: String, default: 'note' },
   tone: { type: String, default: 'muted' },
@@ -22,7 +21,15 @@ defineProps({
 });
 </script>
 <style scoped>
+@font-face {
+  font-family: XiaoxingUI;
+  src: url('/static/fonts/xiaoxing-ui.ttf');
+}
 .ui-icon {
+  font-family: XiaoxingUI;
+  font-weight: 400;
+  font-style: normal;
   flex-shrink: 0;
+  text-align: center;
 }
 </style>

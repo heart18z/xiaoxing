@@ -1,0 +1,256 @@
+<template>
+  <Popup
+    :open="open"
+    :title="t('核对提醒人员')"
+    :busy="saving"
+    variant="group"
+    :fixed-footer="true"
+    :panel-height="Math.min(640, 230 + Math.max(1, people.length) * 92)"
+    @close="emit('close')"
+  >
+    <text class="app-font summary">
+      {{ t('已选择') }} {{ selected.length }} {{ t('人，同一人在多个群组中只接收一次。') }}
+    </text>
+    <text v-if="loading" class="app-font muted">{{ t('正在读取…') }}</text>
+    <view
+      v-for="person in people"
+      :key="s(person, 'id')"
+      class="person-row"
+      @click="toggle(person)"
+    >
+      <image
+        class="person-avatar"
+        :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))"
+        mode="aspectFill"
+      />
+      <view class="person-main">
+        <text class="app-font person-name">{{ groupPersonName(person) }}</text>
+        <text class="app-font person-account">@{{ s(person, 'account') }}</text>
+        <text class="app-font source">{{ groupSources(person) }}</text>
+        <text v-if="!b(person, 'canRemind')" class="app-font issue">
+          {{ t(permissionIssue(person)) }}
+        </text>
+      </view>
+      <view
+        v-if="b(person, 'canRemind')"
+        :class="['check-circle', selected.includes(s(person, 'id')) ? 'check-selected' : '']"
+      >
+        <text v-if="selected.includes(s(person, 'id'))" class="app-font check-mark">✓</text>
+      </view>
+      <button
+        v-else
+        class="app-font permission-action"
+        :disabled="saving"
+        @click.stop="requestAccess(person)"
+      >
+        {{ t('处理权限') }}
+      </button>
+    </view>
+    <text v-if="error.length > 0" class="app-font error">{{ t(error) }}</text>
+    <template #footer>
+      <view class="people-actions">
+        <button
+          class="app-font secondary people-button"
+          :disabled="saving || loading"
+          @click="load()"
+        >
+          {{ t('重新核对权限') }}
+        </button>
+        <button
+          class="app-font primary people-button people-save"
+          :disabled="saving || loading || selected.length == 0"
+          :loading="saving"
+          @click="save()"
+        >
+          {{ t('保存接收人员') }} {{ selected.length }}
+        </button>
+      </view>
+    </template>
+  </Popup>
+</template>
+<script setup lang="uts">
+import { ref, watch } from 'vue';
+import Popup from './Popup.uvue';
+import { t } from '@/core/locale.uts';
+import { s, arr, strings, obj, b, message } from '@/core/json.uts';
+import {
+  groupPersonName,
+  groupSources,
+  permissionIssue,
+  toggleGroupSelection,
+} from '@/core/groups.uts';
+import { reminder } from '@/api/request.uts';
+import { asset, confirm, toast } from '@/core/ui.uts';
+const props = defineProps<{ open: boolean; candidateId: string; eventIndex: number }>();
+const emit = defineEmits(['close', 'saved']);
+const people = ref<UTSJSONObject[]>([]),
+  selected = ref<string[]>([]),
+  loading = ref(false),
+  saving = ref(false),
+  error = ref('');
+let ticket = 0;
+watch(
+  (): boolean => props.open,
+  (value: boolean) => {
+    if (value) {
+      people.value = [];
+      selected.value = [];
+      void load();
+    } else ticket++;
+  },
+);
+async function load() {
+  const current = ++ticket;
+  loading.value = true;
+  error.value = '';
+  try {
+    const result = obj(
+      await reminder('candidate/recipients', {
+        candidateId: props.candidateId,
+        eventIndex: props.eventIndex,
+      }),
+      'value',
+    );
+    if (current != ticket || !props.open) return;
+    people.value = arr(obj(result, 'event'), 'recipientPool');
+    const previous = strings(result, 'selectedUserIds');
+    selected.value = people.value
+      .filter(
+        (person: UTSJSONObject): boolean =>
+          b(person, 'canRemind') && previous.includes(s(person, 'id')),
+      )
+      .map((person: UTSJSONObject): string => s(person, 'id'));
+  } catch (e) {
+    if (current == ticket) error.value = message(e);
+  } finally {
+    if (current == ticket) loading.value = false;
+  }
+}
+function toggle(person: UTSJSONObject): void {
+  if (b(person, 'canRemind') && !saving.value)
+    selected.value = toggleGroupSelection(selected.value, s(person, 'id'));
+}
+async function requestAccess(person: UTSJSONObject) {
+  if (saving.value) return;
+  if (!(await confirm('申请提醒权限', '将向对方发送好友或提醒权限申请，对方同意后才能提醒。')))
+    return;
+  saving.value = true;
+  error.value = '';
+  try {
+    await reminder('friends/request', {
+      targetUserId: s(person, 'id'),
+      permissionMode: 'I_CAN_REMIND',
+      message: '希望向你发起群组事项提醒',
+    });
+    toast('申请已发送，对方同意后请重新核对权限', 'success');
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function save() {
+  if (saving.value || selected.value.length == 0) return;
+  saving.value = true;
+  error.value = '';
+  try {
+    await reminder('candidate/recipients/save', {
+      candidateId: props.candidateId,
+      eventIndex: props.eventIndex,
+      userIds: selected.value,
+    });
+    emit('saved');
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+</script>
+<style scoped>
+.summary {
+  font-size: 12px;
+  line-height: 21px;
+  color: #8995ad;
+  margin-bottom: 12px;
+}
+.person-row {
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0f8;
+}
+.person-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  margin-right: 10px;
+}
+.person-main {
+  flex: 1;
+  min-width: 0;
+}
+.person-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #263652;
+}
+.person-account {
+  font-size: 11px;
+  color: #929bb0;
+  margin-top: 3px;
+}
+.source {
+  font-size: 10px;
+  color: #7087b1;
+  margin-top: 4px;
+}
+.issue {
+  font-size: 11px;
+  color: #d48d4b;
+  margin-top: 4px;
+}
+.check-circle {
+  width: 23px;
+  height: 23px;
+  border-radius: 12px;
+  border: 1px solid #d5ddf0;
+  background-color: #fff;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+.check-selected {
+  background-color: #5269ff;
+  border-color: #5269ff;
+}
+.check-mark {
+  color: #fff;
+  font-size: 14px;
+}
+.permission-action {
+  font-size: 11px;
+  height: 32px;
+  padding: 0 9px;
+  color: #946d38;
+  background-color: #fff4e8;
+  border-radius: 9px;
+  margin-left: 6px;
+}
+.people-actions {
+  align-self: stretch;
+}
+.people-button {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  line-height: 44px;
+  font-size: 14px;
+  padding: 0 12px;
+  margin: 0;
+  border-radius: 13px;
+}
+.people-save {
+  margin-top: 10px;
+}
+</style>

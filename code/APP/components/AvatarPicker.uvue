@@ -1,7 +1,15 @@
 <template>
   <Popup
     :open="kind.length > 0"
-    :title="displayKind == 'ai' ? '设置 AI 头像' : '设置我的头像'"
+    :title="
+      t(
+        displayKind == 'ai'
+          ? '设置 AI 头像'
+          : displayKind == 'group'
+            ? '设置群头像'
+            : '设置我的头像',
+      )
+    "
     :busy="busy"
     @close="emit('close')"
   >

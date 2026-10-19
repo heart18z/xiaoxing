@@ -32,8 +32,11 @@ public class ChatJobService {
     var files=input.getFileIds()==null?List.<Long>of():List.copyOf(input.getFileIds());
     if(content.length()>20000||files.size()>6||(content.isEmpty()&&files.isEmpty()))throw new ServiceException("请检查消息长度和附件数量");
     ChatRequest request=new ChatRequest();request.setRequestId(id);request.setContent(content);request.setFileIds(files);
+    request.setSupportsGroupRecipients(Boolean.TRUE.equals(input.getSupportsGroupRecipients()));
     String hash;
-    try{hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(List.of(content,files))));}catch(Exception e){throw new IllegalStateException(e);}
+    // Preserve legacy request hashes so retries of pre-upgrade jobs remain idempotent.
+    Object hashInput=Boolean.TRUE.equals(request.getSupportsGroupRecipients())?List.of(content,files,"group-recipients-v1"):List.of(content,files);
+    try{hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(hashInput)));}catch(Exception e){throw new IllegalStateException(e);}
     Boolean created=tx.execute(status->{
       var previous=db.queryForList("select payload_hash from blade_app_chat_job where user_id=? and request_id=?",user,id);
       if(!previous.isEmpty()){if(!hash.equals(previous.get(0).get("payload_hash")))throw new ServiceException("请求编号已用于其他消息");return false;}

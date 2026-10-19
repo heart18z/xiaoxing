@@ -20,7 +20,7 @@ public class EventPrivacyRegression extends Stage1Regression {
     db.update("insert into blade_smart_timeline(id,event_id,branch_id,node_type,content,payload_json) values(184,81,10081,'TIME_CONFLICT_DETECTED',?,?),(185,81,10081,'NEXT_EVALUATION_PLANNED','规划下一次评估',?)",secret,payload,payload);
     var noAi=new NewApiClient(null,mapper){@Override public AiAnswer chat(String system,String user){throw new AssertionError("Viewing a conversation must not call AI");}};
     var scoped=new SmartEventContentService(db,mapper,noAi);
-    service=new SmartReminderService(db,mapper,noAi,new FakeConfig(),null,scoped,new SmartSocialService(db),new SmartScheduleService(db,mapper,noAi));
+    service=new SmartReminderService(db,mapper,noAi,new FakeConfig(),null,scoped,new SmartSocialService(db),new SmartScheduleService(db,mapper,noAi),null);
     var creator=service.eventConversation(81L,-1L);
     check(!creator.toString().contains("PRIVATE")&&!creator.toString().contains("relatedEventIds"),"creator conversation redacts historical cross-event conflict and metadata");
     check(creator.toString().contains("通知陈颖开会"),"legacy creation source remains visible without AI inference");

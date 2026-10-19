@@ -70,7 +70,7 @@ public class ChatContextRegression extends Stage1Regression {
     check(lines.size()==40&&lines.get(0).toString().contains("NEW-5")&&lines.get(39).toString().contains("NEW-44"),"rolling window uses latest 40 messages, excludes current input");
     check(!lines.toString().contains("OLD-QUESTION")&&service.chatMessages(150).size()==46,"refresh only returns post-clear messages");
     var ai=new FakeAi();var large=new FakeConfig(){@Override public AiRuntimeConfig enabledConfig(){return new AiRuntimeConfig(1L,"fixture","","","fixture",1048576,1048576,1024,java.math.BigDecimal.ONE,"",false,1000,"intent-fixture","decision-fixture",true);}};
-    service=new SmartReminderService(db,mapper,ai,large,new SmartFileService(db,ai),content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    service=new SmartReminderService(db,mapper,ai,large,new SmartFileService(db,ai),content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     String prompt=prepare("清除后的新问题");
     check(prompt.contains("老贾")&&prompt.contains("MUTUAL")&&prompt.contains("事件2000")&&prompt.contains("我的个人分支任务"),"actual next request always carries people, aliases, permissions and events");
     check(!prompt.contains("OLD-QUESTION")&&prompt.contains("清除后的新问题"),"actual next prompt excludes archived chat while keeping current input");

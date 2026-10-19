@@ -46,8 +46,9 @@ export const uploadAvatar = file => {
 export const getMessages = limit => request({url:'/api/app/reminder/chat/messages',method:'post',params:{limit},timeout:15000,meta:{noProgress:true,silent:true}});
 export const syncMessages = revision => request({url:'/api/app/reminder/chat/sync',method:'post',params:{limit:150,revision},timeout:15000,meta:{noProgress:true,silent:true}});
 export const sendMessage = data =>
-  request({ url: '/api/app/reminder/chat/send', method: 'post', data, timeout: 300000, meta: { noProgress: true }, ...jsonOptions(data) });
+  request({ url: '/api/app/reminder/chat/send', method: 'post', data: {...data,supportsGroupRecipients:true}, timeout: 300000, meta: { noProgress: true }, ...jsonOptions(data) });
 export const streamMessage = async (data, handlers = {}) => {
+  data={...data,supportsGroupRecipients:true};
   const headers = {
     Authorization: `Basic ${Base64.encode(`${website.clientId}:${website.clientSecret}`)}`,
     'Content-Type': 'application/json;charset=UTF-8',
@@ -67,7 +68,9 @@ export const streamMessage = async (data, handlers = {}) => {
 export const readMessages = messageIds => post('/api/app/reminder/chat/read', { messageIds });
 export const clearChatContext = () => post('/api/app/reminder/chat/context/clear');
 export const stopMessage = requestId => post('/api/app/reminder/chat/stop',{requestId});
-export const confirmCandidate = (candidateId,acceptConflicts=false) => request({url:'/api/app/reminder/candidate/confirm',method:'post',data:{candidateId,acceptConflicts},timeout:300000,meta:{noProgress:true}});
+export const confirmCandidate = (candidateId,acceptConflicts=false,acceptPartialRecipients=false) => request({url:'/api/app/reminder/candidate/confirm',method:'post',data:{candidateId,acceptConflicts,acceptPartialRecipients},timeout:300000,meta:{noProgress:true}});
+export const groupRequest = (action,data,params) => post('/api/app/reminder/groups/'+action,data,params);
+export const candidatePeople = (data,save=false) => post('/api/app/reminder/candidate/recipients'+(save?'/save':''),data);
 export const uploadFile = file => {
   const data = new FormData();
   data.append('file', file);
@@ -83,7 +86,7 @@ export const getEvents = (type, status = '') => post('/api/app/reminder/events',
 export const getEventCounts = type => post('/api/app/reminder/events/counts', null, { type });
 export const getEventDetail = eventId => post('/api/app/reminder/event/detail', null, { eventId });
 export const getReminderDrawer = type => request({url:'/api/app/reminder/events/drawer',method:'post',params:{type},meta:{noProgress:true,silent:true}});
-export const submitChatJob = data => request({url:'/api/app/reminder/chat/jobs/submit',method:'post',data,timeout:15000,meta:{noProgress:true,silent:true}});
+export const submitChatJob = data => request({url:'/api/app/reminder/chat/jobs/submit',method:'post',data:{...data,supportsGroupRecipients:true},timeout:15000,meta:{noProgress:true,silent:true}});
 export const getChatJob = requestId => request({url:'/api/app/reminder/chat/jobs/status',method:'post',data:{requestId},meta:{noProgress:true,silent:true}});
 // Observe accepted work only; closing this connection never cancels the server job.
 export const watchChatJob = async (requestId,{signal,onReasoning}={}) => {

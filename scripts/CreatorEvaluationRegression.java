@@ -55,10 +55,10 @@ public class CreatorEvaluationRegression extends Stage1Regression {
     feedback(304,"请尽快同步");
     var tries=new java.util.concurrent.atomic.AtomicInteger();
     var failing=new FakeAi(){@Override public AiAnswer chat(AiConfigService.AiRuntimeConfig c,String system,String user){if(system.startsWith("decision-fixture")){tries.incrementAndGet();throw new IllegalStateException("simulated upstream unavailable");}return super.chat(c,system,user);}};
-    service=new SmartReminderService(db,mapper,failing,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,failing));
+    service=new SmartReminderService(db,mapper,failing,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,failing),null);
     service.evaluateRequestedBranches();service.evaluateRequestedBranches();
     check(tries.get()==1&&count("select count(*) from blade_smart_event_branch where event_id=304 and evaluation_requested_at>now() and evaluate_lock=0")==1,"upstream failure persists delayed retry without hot looping");
-    var ai=new FakeAi();service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    var ai=new FakeAi();service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     event(305,1,2);future(305);feedback(305,"待同步内容");
     call("{\"intent\":\"stop_event\",\"eventAction\":{\"eventId\":\"305\"}}");service.evaluateRequestedBranches();
     check(count("select count(*) from blade_smart_evaluation where event_id=305")==0,"stopping an event cancels pending evaluation");

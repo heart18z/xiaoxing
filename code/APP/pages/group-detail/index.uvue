@@ -1,0 +1,1330 @@
+<template>
+  <AppFrame theme="profile" :loading="loading">
+    <view class="group-nav">
+      <view class="nav-circle" @click="goBack()">
+        <UiIcon name="chevron" tone="blue" :size="23" class="back-icon" />
+      </view>
+      <text class="app-font nav-title">{{ t('群组详情') }}</text>
+      <view class="nav-spacer" />
+    </view>
+    <scroll-view class="detail-scroll" :scroll-y="true" :bounces="false">
+      <view class="detail-body">
+        <view v-if="error.length > 0" class="surface">
+          <text class="app-font error">{{ t(error) }}</text>
+          <button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
+        </view>
+        <view v-else-if="s(group, 'id').length > 0">
+          <view class="surface hero-card">
+            <view class="hero-row">
+              <view class="hero-picture" @click="manager && (editing = true)">
+                <image
+                  class="hero-avatar"
+                  :src="asset(s(group, 'avatar', groupAvatars[0]))"
+                  mode="aspectFill"
+                />
+                <text class="app-font avatar-caption">
+                  {{ t(manager ? '点击头像可更换' : '群组头像') }}
+                </text>
+              </view>
+              <view class="hero-copy">
+                <view class="hero-title-row" @click="manager && (editing = true)">
+                  <text class="app-font hero-name">{{ s(group, 'name') }}</text>
+                  <view v-if="manager" class="pencil-dot">
+                    <UiIcon name="edit" tone="muted" :size="15" />
+                  </view>
+                </view>
+                <view class="hero-title-row intro-row" @click="manager && (editing = true)">
+                  <text class="app-font introduction">
+                    {{
+                      s(group, 'introduction').length > 0 ? s(group, 'introduction') : t('暂无介绍')
+                    }}
+                  </text>
+                  <view v-if="manager" class="pencil-dot">
+                    <UiIcon name="edit" tone="muted" :size="14" />
+                  </view>
+                </view>
+              </view>
+            </view>
+            <view class="hero-actions">
+              <view v-if="role == 'OWNER'" class="hero-action" @click="openInvite()">
+                <UiIcon name="userPlus" tone="blue" :size="22" />
+                <text class="app-font hero-action-text">{{ t('邀请好友') }}</text>
+              </view>
+              <view v-if="role == 'OWNER'" class="hero-action" @click="openAdmins()">
+                <UiIcon name="settings" tone="blue" :size="21" />
+                <text class="app-font hero-action-text">{{ t('设置管理员') }}</text>
+              </view>
+              <view v-if="role == 'OWNER'" class="hero-action action-danger" @click="dissolve()">
+                <UiIcon name="trash" tone="red" :size="21" />
+                <text class="app-font hero-action-text danger-text">{{ t('解散群') }}</text>
+              </view>
+              <view v-else class="hero-action" @click="editSelfTags()">
+                <UiIcon name="tag" tone="blue" :size="21" />
+                <text class="app-font hero-action-text">{{ t('我的标签') }}</text>
+              </view>
+            </view>
+          </view>
+          <view class="surface tags-card">
+            <view class="section-heading">
+              <UiIcon name="layers" tone="blue" :size="24" />
+              <text class="app-font section-title grow">{{ t('群组标签') }}</text>
+              <view v-if="manager" class="unified-action" @click="openCatalog()">
+                <UiIcon name="settings" tone="blue" :size="15" />
+                <text class="app-font unified-text">{{ t('统一设置') }}</text>
+                <UiIcon name="chevron" :size="14" />
+              </view>
+            </view>
+            <view class="tag-wrap group-tags">
+              <view
+                v-for="tag in tags"
+                :key="s(tag, 'id')"
+                :class="['tag-pill', groupTagTone(s(tag, 'name'))]"
+                @click="manager && editCatalogTag(tag)"
+              >
+                <text class="app-font tag-label">{{ s(tag, 'name') }}</text>
+                <text class="app-font tag-count">{{ n(tag, 'memberCount') }}</text>
+              </view>
+              <text v-if="tags.length == 0" class="app-font small-muted">{{ t('暂无标签') }}</text>
+            </view>
+          </view>
+          <view class="surface members-card">
+            <view class="section-heading member-heading">
+              <UiIcon name="people" tone="blue" :size="24" />
+              <text class="app-font section-title">{{ t('群员列表') }}</text>
+              <text class="app-font count-text">{{ members.length }} {{ t('人') }}</text>
+            </view>
+            <view v-for="person in members" :key="s(person, 'id')" class="member-row">
+              <image
+                class="member-avatar"
+                :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))"
+                mode="aspectFill"
+              />
+              <view class="member-info">
+                <view class="member-top">
+                  <text class="app-font member-name grow">{{ groupPersonName(person) }}</text>
+                  <view v-if="canEdit(person)" class="row-action" @click="openPerson(person)">
+                    <UiIcon name="edit" tone="blue" :size="12" />
+                    <text class="app-font row-action-text">{{ t('编辑') }}</text>
+                  </view>
+                  <view
+                    v-if="role == 'OWNER' && s(person, 'memberRole') != 'OWNER'"
+                    class="row-action row-danger"
+                    @click="removePerson(person)"
+                  >
+                    <UiIcon name="userMinus" tone="red" :size="12" />
+                    <text class="app-font row-action-text danger-text">{{ t('移出群组') }}</text>
+                  </view>
+                </view>
+                <text class="app-font small-muted">@{{ s(person, 'account') }}</text>
+                <view class="tag-wrap">
+                  <view
+                    v-if="s(person, 'memberRole') == 'OWNER'"
+                    class="tag-pill compact-pill tone-4"
+                  >
+                    <text class="app-font tag-label">♔ {{ t('群主') }}</text>
+                  </view>
+                  <view
+                    v-if="s(person, 'memberRole') == 'ADMIN'"
+                    class="tag-pill compact-pill tone-0"
+                  >
+                    <text class="app-font tag-label">{{ t('管理员') }}</text>
+                  </view>
+                  <view
+                    v-for="tag in arr(person, 'tags')"
+                    :key="s(tag, 'id')"
+                    :class="['tag-pill', 'compact-pill', groupTagTone(s(tag, 'name'))]"
+                  >
+                    <text class="app-font tag-label">{{ s(tag, 'name') }}</text>
+                  </view>
+                  <text
+                    v-if="arr(person, 'tags').length == 0 && s(person, 'memberRole') == 'MEMBER'"
+                    class="app-font no-tag"
+                  >
+                    {{ t('未设置标签') }}
+                  </text>
+                </view>
+              </view>
+            </view>
+          </view>
+          <button v-if="role != 'OWNER'" class="app-font danger bottom-action" @click="leave()">
+            {{ t('退出群组') }}
+          </button>
+        </view>
+      </view>
+    </scroll-view>
+  </AppFrame>
+  <GroupEditor :open="editing" :group="group" @close="editing = false" @saved="metadataSaved" />
+  <Popup
+    :open="inviting"
+    :title="t('邀请好友')"
+    variant="group"
+    :busy="saving"
+    :fixed-footer="true"
+    :panel-height="inviteHeight"
+    @close="inviting = false"
+  >
+    <view class="search-box">
+      <UiIcon name="search" :size="21" />
+      <input
+        class="app-font search-input"
+        v-model="inviteQuery"
+        :placeholder="t('搜索好友名称或账号')"
+        :adjust-position="false"
+      />
+    </view>
+    <view class="selection-count">
+      <text class="app-font small-muted">{{ t('已选择') }}</text>
+      <text class="app-font selection-number">{{ inviteIds.length }}</text>
+      <text class="app-font small-muted">{{ t('人') }}</text>
+    </view>
+    <text v-if="friendsLoading" class="app-font small-muted">{{ t('正在读取…') }}</text>
+    <text v-else-if="availableFriends.length == 0" class="app-font small-muted">
+      {{ t('暂无可邀请好友') }}
+    </text>
+    <view
+      v-for="friend in availableFriends"
+      :key="s(friend, 'id')"
+      class="picker-row"
+      @click="toggleInvite(s(friend, 'id'))"
+    >
+      <image
+        class="picker-avatar"
+        :src="asset(s(friend, 'avatar', '/avatars/user/B1.png'))"
+        mode="aspectFill"
+      />
+      <view class="grow">
+        <text class="app-font member-name">{{ groupPersonName(friend) }}</text>
+        <text class="app-font small-muted">@{{ s(friend, 'account') }}</text>
+      </view>
+      <view :class="['check-circle', inviteIds.includes(s(friend, 'id')) ? 'check-selected' : '']">
+        <UiIcon v-if="inviteIds.includes(s(friend, 'id'))" name="check" tone="white" :size="18" />
+      </view>
+    </view>
+    <text v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</text>
+    <template #footer>
+      <view class="form-actions">
+        <button class="app-font secondary form-button" :disabled="saving" @click="inviting = false">
+          {{ t('取消') }}
+        </button>
+        <button
+          class="app-font primary form-button submit-button"
+          :disabled="saving || friendsLoading || inviteIds.length == 0"
+          :loading="saving"
+          @click="invite()"
+        >
+          {{ t('发送邀请') }}
+        </button>
+      </view>
+    </template>
+  </Popup>
+  <Popup
+    :open="personOpen"
+    :title="t('成员详情')"
+    variant="group"
+    :busy="saving"
+    :fixed-footer="true"
+    :panel-height="personHeight"
+    @close="personOpen = false"
+  >
+    <view class="person-profile">
+      <image
+        class="person-profile-avatar"
+        :src="asset(s(selected, 'avatar', '/avatars/user/B1.png'))"
+        mode="aspectFill"
+      />
+      <view class="grow">
+        <text class="app-font person-profile-name">{{ groupPersonName(selected) }}</text>
+        <text class="app-font profile-account">@{{ s(selected, 'account') }}</text>
+      </view>
+    </view>
+    <view class="tag-section">
+      <view class="section-heading">
+        <UiIcon name="tag" tone="blue" :size="19" />
+        <text class="app-font modal-section-title">{{ t('当前标签') }}</text>
+      </view>
+      <view class="tag-wrap">
+        <view
+          v-for="label in personTags"
+          :key="label"
+          :class="['tag-pill', groupTagTone(label)]"
+          @click="togglePersonTag(label)"
+        >
+          <text class="app-font tag-label">{{ label }}</text>
+          <UiIcon v-if="canEditPerson" name="close" :size="13" />
+        </view>
+        <text v-if="personTags.length == 0" class="app-font small-muted">
+          {{ t('未设置标签') }}
+        </text>
+      </view>
+    </view>
+    <view v-if="canEditPerson" class="tag-section">
+      <view class="section-heading">
+        <UiIcon name="plus" tone="blue" :size="19" />
+        <text class="app-font modal-section-title">{{ t('添加标签') }}</text>
+      </view>
+      <view class="tag-wrap">
+        <view
+          v-for="tag in availablePersonTags"
+          :key="s(tag, 'id')"
+          :class="['tag-pill', groupTagTone(s(tag, 'name'))]"
+          @click="togglePersonTag(s(tag, 'name'))"
+        >
+          <UiIcon name="plus" tone="blue" :size="14" />
+          <text class="app-font tag-label">{{ s(tag, 'name') }}</text>
+        </view>
+      </view>
+      <view v-if="addingPersonTag" class="new-tag-input">
+        <input
+          class="app-font new-tag-field grow"
+          v-model="newPersonTag"
+          maxlength="40"
+          :focus="addingPersonTag"
+          :adjust-position="false"
+          :placeholder="t('输入标签内容')"
+          @confirm="addPersonTag()"
+        />
+        <view class="new-tag-done" @click="addPersonTag()">
+          <UiIcon name="check" tone="blue" :size="19" />
+        </view>
+      </view>
+      <view v-else class="new-tag-button" @click="addingPersonTag = true">
+        <UiIcon name="plus" tone="blue" :size="18" />
+        <text class="app-font new-tag-label">{{ t('新建标签') }}</text>
+      </view>
+    </view>
+    <text v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</text>
+    <template #footer>
+      <view class="form-actions">
+        <button
+          class="app-font secondary form-button"
+          :disabled="saving"
+          @click="personOpen = false"
+        >
+          {{ t('取消') }}
+        </button>
+        <button
+          v-if="canEditPerson"
+          class="app-font primary form-button submit-button"
+          :disabled="saving"
+          :loading="saving"
+          @click="savePersonTags()"
+        >
+          {{ t('保存') }}
+        </button>
+      </view>
+    </template>
+  </Popup>
+  <Popup
+    :open="adminsOpen"
+    :title="t('设置管理员')"
+    variant="group"
+    :busy="saving"
+    :fixed-footer="true"
+    :panel-height="adminHeight"
+    @close="adminsOpen = false"
+  >
+    <view class="admin-note">
+      <UiIcon name="tipInfo" tone="blue" :size="18" />
+      <text class="app-font admin-note-text">{{ t('仅可从当前群成员中新增管理员') }}</text>
+    </view>
+    <view class="section-heading admin-heading">
+      <text class="app-font crown">♔</text>
+      <text class="app-font modal-section-title">{{ t('当前管理员') }}</text>
+      <text class="app-font small-muted">{{ currentAdmins.length }} {{ t('人') }}</text>
+    </view>
+    <view v-for="person in currentAdmins" :key="s(person, 'id')" class="picker-row admin-person">
+      <image
+        class="picker-avatar"
+        :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))"
+        mode="aspectFill"
+      />
+      <view class="grow">
+        <text class="app-font member-name">{{ groupPersonName(person) }}</text>
+        <text class="app-font small-muted">@{{ s(person, 'account') }}</text>
+      </view>
+      <text v-if="s(person, 'memberRole') == 'OWNER'" class="app-font owner-fixed">
+        {{ t('群主') }}
+      </text>
+      <view v-else class="row-action row-danger" @click="toggleAdmin(s(person, 'id'))">
+        <UiIcon name="trash" tone="red" :size="14" />
+        <text class="app-font row-action-text danger-text">{{ t('移除') }}</text>
+      </view>
+    </view>
+    <view class="section-heading admin-heading admin-divider">
+      <UiIcon name="people" tone="blue" :size="21" />
+      <text class="app-font modal-section-title">{{ t('选择群成员') }}</text>
+      <text class="app-font small-muted">{{ availableAdmins.length }} {{ t('人') }}</text>
+    </view>
+    <view v-for="person in availableAdmins" :key="s(person, 'id')" class="picker-row admin-person">
+      <image
+        class="picker-avatar"
+        :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))"
+        mode="aspectFill"
+      />
+      <view class="grow">
+        <text class="app-font member-name">{{ groupPersonName(person) }}</text>
+        <text class="app-font small-muted">@{{ s(person, 'account') }}</text>
+      </view>
+      <view class="outline-action" @click="toggleAdmin(s(person, 'id'))">
+        <text class="app-font row-action-text">{{ t('设为管理员') }}</text>
+      </view>
+    </view>
+    <text v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</text>
+    <template #footer>
+      <view class="form-actions">
+        <button
+          class="app-font secondary form-button"
+          :disabled="saving"
+          @click="adminsOpen = false"
+        >
+          {{ t('取消') }}
+        </button>
+        <button
+          class="app-font primary form-button submit-button"
+          :disabled="saving"
+          :loading="saving"
+          @click="saveAdmins()"
+        >
+          {{ t('保存') }}
+        </button>
+      </view>
+    </template>
+  </Popup>
+  <Popup
+    :open="catalogOpen"
+    variant="group"
+    :title="t(tagEditing ? '标签与人员' : '标签管理')"
+    :busy="saving"
+    :fixed-footer="true"
+    :panel-height="tagEditing ? 590 : Math.min(530, 220 + tags.length * 55)"
+    @close="catalogOpen = false"
+  >
+    <view v-if="!tagEditing">
+      <text class="app-font intro-note">
+        {{ t('先设置标签，再选择对应的多位成员。标签不会授予管理或提醒权限。') }}
+      </text>
+      <view v-for="tag in tags" :key="s(tag, 'id')" class="catalog-row" @click="editTag(tag)">
+        <view class="grow">
+          <view :class="['tag-pill', groupTagTone(s(tag, 'name'))]">
+            <text class="app-font tag-label">{{ s(tag, 'name') }}</text>
+          </view>
+        </view>
+        <text class="app-font small-muted">{{ n(tag, 'memberCount') }} {{ t('人') }}</text>
+        <UiIcon name="chevron" :size="18" />
+      </view>
+      <text v-if="tags.length == 0" class="app-font small-muted">
+        {{ t('暂无标签，点击下方创建') }}
+      </text>
+    </view>
+    <view v-else>
+      <input
+        class="app-font input"
+        v-model="tagName"
+        maxlength="40"
+        :adjust-position="false"
+        :placeholder="t('例如：消防负责人')"
+      />
+      <text class="app-font intro-note">
+        {{ t('选择拥有该标签的成员') }} · {{ tagPeople.length }}
+      </text>
+      <view
+        v-for="person in members"
+        :key="s(person, 'id')"
+        class="picker-row"
+        @click="toggleTagPerson(s(person, 'id'))"
+      >
+        <image class="picker-avatar" :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))" />
+        <view class="grow">
+          <text class="app-font member-name">{{ groupPersonName(person) }}</text>
+          <text class="app-font small-muted">@{{ s(person, 'account') }}</text>
+        </view>
+        <view
+          :class="['check-circle', tagPeople.includes(s(person, 'id')) ? 'check-selected' : '']"
+        >
+          <text v-if="tagPeople.includes(s(person, 'id'))" class="app-font check-mark">✓</text>
+        </view>
+      </view>
+      <button
+        v-if="tagId.length > 0"
+        class="app-font danger"
+        :disabled="saving"
+        @click="deleteTag()"
+      >
+        {{ t('删除此标签') }}
+      </button>
+    </view>
+    <text v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</text>
+    <template #footer>
+      <button
+        class="app-font primary"
+        :disabled="saving"
+        :loading="saving"
+        @click="tagEditing ? saveTag() : editTag({})"
+      >
+        {{ t(tagEditing ? '保存标签与人员' : '新增标签') }}
+      </button>
+    </template>
+  </Popup>
+</template>
+<script setup lang="uts">
+import { ref, computed } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import Popup from '@/components/Popup.uvue';
+import UiIcon from '@/components/UiIcon.uvue';
+import GroupEditor from '@/components/GroupEditor.uvue';
+import { t } from '@/core/locale.uts';
+import { s, n, arr, obj, message } from '@/core/json.uts';
+import {
+  groupRoleLabel,
+  groupMemberRole,
+  groupPersonName,
+  groupCanManage,
+  toggleGroupSelection,
+  groupAvatars,
+  groupTagTone,
+} from '@/core/groups.uts';
+import { asset, toast, confirm, back } from '@/core/ui.uts';
+import { reminder } from '@/api/request.uts';
+import { session, requireSession } from '@/store/session.uts';
+const groupId = ref(''),
+  group = ref<UTSJSONObject>({}),
+  loading = ref(false),
+  saving = ref(false),
+  error = ref(''),
+  formError = ref('');
+const editing = ref(false),
+  inviting = ref(false),
+  personOpen = ref(false),
+  catalogOpen = ref(false),
+  tagEditing = ref(false),
+  adminsOpen = ref(false),
+  addingPersonTag = ref(false),
+  friendsLoading = ref(false);
+const adminIds = ref<string[]>([]);
+const personHeight = ref(450);
+const friends = ref<UTSJSONObject[]>([]),
+  inviteIds = ref<string[]>([]),
+  inviteQuery = ref('');
+const selected = ref<UTSJSONObject>({}),
+  personTags = ref<string[]>([]),
+  newPersonTag = ref('');
+const tagId = ref(''),
+  tagName = ref(''),
+  tagPeople = ref<string[]>([]);
+const members = computed((): UTSJSONObject[] => arr(group.value, 'members'));
+const tags = computed((): UTSJSONObject[] => arr(group.value, 'tags'));
+const role = computed((): string => s(group.value, 'myRole'));
+const manager = computed((): boolean => groupCanManage(role.value));
+const canEditPerson = computed(
+  (): boolean => manager.value || s(selected.value, 'id') == session.userId,
+);
+const availablePersonTags = computed((): UTSJSONObject[] =>
+  tags.value.filter((tag: UTSJSONObject): boolean => !personTags.value.includes(s(tag, 'name'))),
+);
+const currentAdmins = computed((): UTSJSONObject[] =>
+  members.value.filter(
+    (p: UTSJSONObject): boolean =>
+      s(p, 'memberRole') == 'OWNER' || adminIds.value.includes(s(p, 'id')),
+  ),
+);
+const availableAdmins = computed((): UTSJSONObject[] =>
+  members.value.filter(
+    (p: UTSJSONObject): boolean =>
+      s(p, 'memberRole') != 'OWNER' && !adminIds.value.includes(s(p, 'id')),
+  ),
+);
+function goBack(): void {
+  back();
+}
+function canEdit(person: UTSJSONObject): boolean {
+  return manager.value || s(person, 'id') == session.userId;
+}
+function personSummary(person: UTSJSONObject): string {
+  const labels = arr(person, 'tags')
+    .map((tag: UTSJSONObject): string => s(tag, 'name'))
+    .slice(0, 2)
+    .join('、');
+  return t(groupMemberRole(s(person, 'memberRole'))) + (labels.length > 0 ? ' · ' + labels : '');
+}
+function openAdmins(): void {
+  if (role.value != 'OWNER') return;
+  adminIds.value = members.value
+    .filter((p: UTSJSONObject): boolean => s(p, 'memberRole') == 'ADMIN')
+    .map((p: UTSJSONObject): string => s(p, 'id'));
+  formError.value = '';
+  adminsOpen.value = true;
+}
+function toggleAdmin(id: string): void {
+  if (!saving.value) adminIds.value = toggleGroupSelection(adminIds.value, id);
+}
+async function saveAdmins() {
+  if (await mutate('admins', { userIds: adminIds.value })) {
+    adminsOpen.value = false;
+    toast('管理员已更新', 'success');
+  }
+}
+function editCatalogTag(tag: UTSJSONObject): void {
+  catalogOpen.value = true;
+  editTag(tag);
+}
+async function removePerson(person: UTSJSONObject) {
+  selected.value = person;
+  await removeMember();
+}
+const adminHeight = computed((): number => Math.min(640, 260 + members.value.length * 60));
+const inviteHeight = computed((): number =>
+  Math.min(
+    620,
+    Math.max(
+      330,
+      240 +
+        friends.value.filter(
+          (person: UTSJSONObject): boolean =>
+            !members.value.some((m: UTSJSONObject): boolean => s(m, 'id') == s(person, 'id')),
+        ).length *
+          65,
+    ),
+  ),
+);
+const availableFriends = computed((): UTSJSONObject[] =>
+  friends.value.filter(
+    (person: UTSJSONObject): boolean =>
+      !members.value.some((member: UTSJSONObject): boolean => s(member, 'id') == s(person, 'id')) &&
+      (groupPersonName(person) + ' ' + s(person, 'account'))
+        .toLowerCase()
+        .includes(inviteQuery.value.trim().toLowerCase()),
+  ),
+);
+let ticket = 0;
+async function load() {
+  if (groupId.value.length == 0 || !requireSession()) return;
+  const current = ++ticket,
+    owner = session.userId;
+  loading.value = s(group.value, 'id').length == 0;
+  try {
+    const result = obj(await reminder('groups/detail', null, { groupId: groupId.value }), 'value');
+    if (current != ticket || owner != session.userId) return;
+    group.value = result;
+    error.value = '';
+  } catch (e) {
+    if (current == ticket) error.value = message(e);
+  } finally {
+    if (current == ticket) loading.value = false;
+  }
+}
+async function mutate(action: string, data: UTSJSONObject): Promise<boolean> {
+  if (saving.value) return false;
+  saving.value = true;
+  formError.value = '';
+  const owner = session.userId;
+  try {
+    const result = await reminder('groups/' + action, { ...data, groupId: groupId.value });
+    if (owner != session.userId) return false;
+    if (action != 'member/remove' && action != 'dissolve') group.value = obj(result, 'value');
+    return true;
+  } catch (e) {
+    formError.value = message(e);
+    toast(message(e));
+    return false;
+  } finally {
+    saving.value = false;
+  }
+}
+function metadataSaved(value: UTSJSONObject): void {
+  group.value = value;
+  editing.value = false;
+  toast('群组资料已保存', 'success');
+}
+async function openInvite() {
+  if (role.value != 'OWNER') return;
+  friends.value = [];
+  friendsLoading.value = true;
+  const owner = session.userId;
+  inviteIds.value = [];
+  inviteQuery.value = '';
+  formError.value = '';
+  inviting.value = true;
+  try {
+    const result = await reminder('friends/list');
+    if (owner == session.userId) friends.value = (result['value'] as UTSJSONObject[]) ?? [];
+  } catch (e) {
+    formError.value = message(e);
+  } finally {
+    friendsLoading.value = false;
+  }
+}
+function toggleInvite(id: string): void {
+  inviteIds.value = toggleGroupSelection(inviteIds.value, id);
+}
+async function invite() {
+  if (inviteIds.value.length == 0) return;
+  if (await mutate('invite', { userIds: inviteIds.value })) {
+    inviting.value = false;
+    toast('好友已加入群组', 'success');
+  }
+}
+function openPerson(person: UTSJSONObject): void {
+  personHeight.value = Math.min(
+    590,
+    Math.max(
+      460,
+      400 +
+        Math.ceil(arr(person, 'tags').length / 3) * 32 +
+        Math.ceil(
+          tags.value.filter(
+            (tag: UTSJSONObject): boolean =>
+              !arr(person, 'tags').some(
+                (label: UTSJSONObject): boolean => s(label, 'name') == s(tag, 'name'),
+              ),
+          ).length / 3,
+        ) *
+          32,
+    ),
+  );
+  selected.value = person;
+  personTags.value = arr(person, 'tags').map((tag: UTSJSONObject): string => s(tag, 'name'));
+  newPersonTag.value = '';
+  addingPersonTag.value = false;
+  formError.value = '';
+  personOpen.value = true;
+}
+function editSelfTags(): void {
+  const self = members.value.find(
+    (person: UTSJSONObject): boolean => s(person, 'id') == session.userId,
+  );
+  if (self != null) openPerson(self);
+}
+function togglePersonTag(name: string): void {
+  if (canEditPerson.value) personTags.value = toggleGroupSelection(personTags.value, name);
+}
+function addPersonTag(): void {
+  const value = newPersonTag.value.trim();
+  if (value.length == 0) return;
+  if (!personTags.value.includes(value)) personTags.value = personTags.value.concat([value]);
+  newPersonTag.value = '';
+  addingPersonTag.value = false;
+}
+async function savePersonTags() {
+  addPersonTag();
+  if (await mutate('member/tags', { userId: s(selected.value, 'id'), tags: personTags.value })) {
+    personOpen.value = false;
+    toast('标签已保存', 'success');
+  }
+}
+async function removeMember() {
+  if (!(await confirm('移出群组', '移出后，该成员不再参与新的群组选人，已创建事件保留。'))) return;
+  if (await mutate('member/remove', { userId: s(selected.value, 'id') })) {
+    personOpen.value = false;
+    await load();
+  }
+}
+function openCatalog(): void {
+  catalogOpen.value = true;
+  tagEditing.value = false;
+  formError.value = '';
+}
+function editTag(tag: UTSJSONObject): void {
+  tagId.value = s(tag, 'id');
+  tagName.value = s(tag, 'name');
+  tagPeople.value = members.value
+    .filter((person: UTSJSONObject): boolean =>
+      arr(person, 'tags').some((label: UTSJSONObject): boolean => s(label, 'id') == tagId.value),
+    )
+    .map((person: UTSJSONObject): string => s(person, 'id'));
+  tagEditing.value = true;
+  formError.value = '';
+}
+function toggleTagPerson(id: string): void {
+  tagPeople.value = toggleGroupSelection(tagPeople.value, id);
+}
+async function saveTag() {
+  if (tagName.value.trim().length == 0) {
+    formError.value = '请输入标签名称';
+    return;
+  }
+  if (
+    await mutate('tags/save', {
+      tagId: tagId.value.length == 0 ? null : tagId.value,
+      name: tagName.value.trim(),
+      userIds: tagPeople.value,
+    })
+  ) {
+    tagEditing.value = false;
+    toast('标签已保存', 'success');
+  }
+}
+async function deleteTag() {
+  if (!(await confirm('删除标签', '此标签将从群组所有成员中移除，人员与历史事件保留。'))) return;
+  if (await mutate('tags/delete', { tagId: tagId.value })) tagEditing.value = false;
+}
+async function dissolve() {
+  if (
+    !(await confirm(
+      '解散群组',
+      '确定解散这个群组吗？解散后不可恢复，成员不能再通过它发起提醒，已创建事件继续保留和处理。',
+    ))
+  )
+    return;
+  if (await mutate('dissolve', {})) {
+    toast('群组已解散', 'success');
+    uni.navigateBack();
+  }
+}
+async function leave() {
+  if (!(await confirm('退出群组', '退出后不能再查看该群组或以它发起新提醒，已创建事件保留。')))
+    return;
+  if (await mutate('member/remove', { userId: session.userId })) uni.navigateBack();
+}
+onLoad((options) => {
+  groupId.value = options['id'] ?? '';
+});
+onShow(() => {
+  void load();
+});
+onUnload(() => {
+  ticket++;
+});
+</script>
+<style scoped>
+.group-nav {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 19px 12px;
+  flex-shrink: 0;
+}
+.nav-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 20px;
+  background-color: #ffffffb5;
+  align-items: center;
+  justify-content: center;
+}
+.back-icon {
+  transform: rotate(180deg);
+}
+.nav-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #10204a;
+}
+.more-glyph {
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: #164bc9;
+}
+.detail-scroll {
+  flex: 1;
+  height: 0;
+}
+.detail-body {
+  padding: 0 14px 24px;
+}
+.surface {
+  border: 1px solid #fff;
+  border-radius: 25px;
+  padding: 14px 12px;
+  background-color: #fffffff2;
+  margin-bottom: 12px;
+}
+.hero-row {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.hero-picture {
+  width: 109px;
+  align-items: center;
+  margin-right: 14px;
+}
+.hero-avatar {
+  width: 109px;
+  height: 109px;
+  border-radius: 22px;
+  background-color: #edf3ff;
+}
+.avatar-caption {
+  font-size: 11px;
+  color: #8492b1;
+  margin-top: 8px;
+}
+.hero-copy {
+  flex: 1;
+  min-width: 0;
+  padding-top: 10px;
+}
+.hero-title-row {
+  flex-direction: row;
+  align-items: center;
+}
+.hero-name {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 29px;
+  color: #112046;
+  flex-shrink: 1;
+}
+.pencil-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 12px;
+  background-color: #f0f3fa;
+  align-items: center;
+  justify-content: center;
+  margin-left: 7px;
+  flex-shrink: 0;
+}
+.intro-row {
+  margin-top: 11px;
+  align-items: flex-start;
+}
+.introduction {
+  font-size: 12px;
+  line-height: 20px;
+  color: #8290ad;
+  flex-shrink: 1;
+}
+.hero-actions {
+  flex-direction: row;
+  margin-top: 16px;
+}
+.hero-action {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid #e0eaff;
+  background-color: #f5f9ff;
+  border-radius: 11px;
+  margin-right: 6px;
+  padding: 6px 3px;
+}
+.hero-action-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #24365f;
+  margin-left: 5px;
+}
+.action-danger {
+  background-color: #fff5f6;
+  border-color: #ffe0e4;
+  margin-right: 0;
+}
+.danger-text {
+  color: #fa536a;
+}
+.section-heading {
+  flex-direction: row;
+  align-items: center;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #152448;
+  margin-left: 8px;
+}
+.unified-action {
+  flex-direction: row;
+  align-items: center;
+  border: 1px solid #e0eaff;
+  background-color: #f1f6ff;
+  border-radius: 10px;
+  padding: 5px 7px;
+}
+.unified-text {
+  font-size: 11px;
+  color: #1766ff;
+  margin: 0 5px;
+}
+.tag-wrap {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.group-tags {
+  padding-left: 30px;
+  margin-top: 9px;
+}
+.tag-pill {
+  flex-direction: row;
+  align-items: center;
+  border-radius: 18px;
+  padding: 6px 10px;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  background-color: #eaf2ff;
+  color: #1c6bfa;
+}
+.tag-label {
+  font-size: 12px;
+  color: inherit;
+}
+.tag-count {
+  font-size: 10px;
+  color: inherit;
+  margin-left: 7px;
+  background-color: #ffffff90;
+  border-radius: 8px;
+  padding: 1px 4px;
+}
+.tone-0 {
+  background-color: #e7f1ff;
+  color: #1766ff;
+}
+.tone-1 {
+  background-color: #f0e6ff;
+  color: #9446e8;
+}
+.tone-2 {
+  background-color: #e5f7ea;
+  color: #149951;
+}
+.tone-3 {
+  background-color: #fff0f2;
+  color: #ef536b;
+}
+.tone-4 {
+  background-color: #fff4e2;
+  color: #dc9217;
+}
+.member-heading {
+  margin-bottom: 11px;
+}
+.count-text {
+  font-size: 13px;
+  color: #8492b1;
+  margin-left: 8px;
+}
+.member-row {
+  flex-direction: row;
+  align-items: flex-start;
+  border: 1px solid #edf3fc;
+  border-radius: 15px;
+  padding: 10px 8px;
+  margin-bottom: 7px;
+  background-color: #fcfdff;
+}
+.member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  margin-right: 10px;
+  background-color: #edf0ff;
+}
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+.member-top {
+  flex-direction: row;
+  align-items: center;
+  min-height: 24px;
+}
+.member-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  color: #162646;
+}
+.row-action {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background-color: #edf5ff;
+  border-radius: 10px;
+  padding: 6px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.row-action-text {
+  font-size: 10px;
+  color: #1766ff;
+  margin-left: 3px;
+}
+.row-danger {
+  background-color: #fff0f2;
+}
+.row-danger .row-action-text {
+  color: #fa536a;
+}
+.small-muted {
+  font-size: 11px;
+  line-height: 19px;
+  color: #8592ae;
+}
+.compact-pill {
+  padding: 3px 7px;
+  border-radius: 12px;
+  margin-right: 4px;
+  margin-bottom: 3px;
+}
+.compact-pill .tag-label {
+  font-size: 10px;
+}
+.no-tag {
+  font-size: 10px;
+  color: #a1acc0;
+}
+.bottom-action {
+  margin-top: 16px;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.picker-row {
+  flex-direction: row;
+  align-items: center;
+  border: 1px solid #edf2fc;
+  border-radius: 13px;
+  padding: 8px;
+  margin-bottom: 5px;
+  background-color: #fcfdff;
+}
+.picker-avatar {
+  width: 43px;
+  height: 43px;
+  border-radius: 11px;
+  margin-right: 11px;
+  background-color: #edf3ff;
+}
+.check-circle {
+  width: 23px;
+  height: 23px;
+  border-radius: 13px;
+  border: 1px solid #a5b1ca;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px 0 8px;
+}
+.check-selected {
+  background-color: #1766ff;
+  border-color: #1766ff;
+}
+.search-box {
+  flex-direction: row;
+  align-items: center;
+  height: 43px;
+  border: 1px solid #e1e8ff;
+  border-radius: 12px;
+  padding: 0 12px;
+  margin-bottom: 12px;
+  background-color: #f8faff;
+}
+.search-input {
+  flex: 1;
+  font-size: 13px;
+  margin-left: 9px;
+}
+.selection-count {
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.selection-number {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1766ff;
+  margin: 0 7px;
+}
+.form-actions {
+  flex-direction: row;
+}
+.form-button {
+  flex: 1;
+  height: 44px;
+  min-height: 44px;
+  line-height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 13px;
+  font-size: 16px;
+}
+.submit-button {
+  margin-left: 10px;
+}
+.person-profile {
+  flex-direction: row;
+  align-items: center;
+  padding: 1px 0 16px;
+}
+.person-profile-avatar {
+  width: 77px;
+  height: 77px;
+  border-radius: 19px;
+  margin-right: 15px;
+  background-color: #edf3ff;
+}
+.person-profile-name {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 30px;
+  color: #14234a;
+}
+.profile-account {
+  font-size: 15px;
+  line-height: 27px;
+  color: #8190b1;
+}
+.tag-section {
+  border-top: 1px solid #e8edf8;
+  padding-top: 14px;
+  margin-top: 2px;
+  padding-bottom: 12px;
+}
+.modal-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #17264b;
+  margin-left: 8px;
+  margin-right: 8px;
+}
+.tag-section .tag-wrap {
+  margin-top: 12px;
+}
+.tag-pill .ui-icon {
+  margin-left: 5px;
+}
+.new-tag-button,
+.new-tag-input {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid #cedaff;
+  border-radius: 9px;
+  margin-top: 3px;
+}
+.new-tag-label {
+  font-size: 12px;
+  color: #8396d7;
+  margin-left: 8px;
+}
+.new-tag-field {
+  font-size: 13px;
+  padding: 0 10px;
+  height: 38px;
+}
+.new-tag-done {
+  padding: 8px;
+}
+.admin-note {
+  flex-direction: row;
+  align-items: center;
+  background-color: #edf4ff;
+  padding: 11px 10px;
+  border-radius: 11px;
+  margin-bottom: 15px;
+}
+.admin-note-text {
+  font-size: 12px;
+  color: #5e82dc;
+  flex: 1;
+  margin-left: 9px;
+  line-height: 19px;
+}
+.admin-heading {
+  margin-top: 4px;
+  margin-bottom: 9px;
+}
+.crown {
+  font-size: 23px;
+  color: #f3b442;
+}
+.admin-person {
+  padding: 8px;
+  background-color: #f7faff;
+}
+.admin-divider {
+  padding-top: 15px;
+  border-top: 1px solid #e7edf8;
+  margin-top: 14px;
+}
+.owner-fixed {
+  font-size: 11px;
+  color: #cf991c;
+  padding: 6px;
+}
+.outline-action {
+  border: 1px solid #7598ff;
+  border-radius: 10px;
+  padding: 8px 7px;
+}
+.intro-note {
+  font-size: 12px;
+  line-height: 20px;
+  color: #8994ab;
+  margin-bottom: 10px;
+}
+.catalog-row {
+  flex-direction: row;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #edf0f8;
+}
+.nav-spacer {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.hero-action {
+  background-color: #f5f8ff;
+  border-color: #dde7fa;
+}
+.hero-action-text {
+  color: #45659c;
+  font-weight: 600;
+}
+.action-danger {
+  background-color: #fff4f5;
+  border-color: #ffdee3;
+}
+.action-danger .hero-action-text {
+  color: #ee6574;
+}
+.row-action {
+  background-color: #edf4ff;
+}
+.row-action-text {
+  color: #3768ce;
+}
+.row-danger {
+  background-color: #fff1f3;
+}
+.row-danger .row-action-text {
+  color: #ec6b7a;
+}
+.unified-action {
+  background-color: #f0f5ff;
+  border-color: #e0e8f9;
+}
+.unified-text {
+  color: #4773cc;
+}
+.outline-action {
+  border-color: #a6bdf4;
+}
+.outline-action .row-action-text {
+  color: #4a73cd;
+}
+.form-button.primary {
+  background-color: #3268f1;
+  color: #fff;
+  background-image: linear-gradient(to right, #2866ed, #4b7ff5);
+}
+.form-button.secondary {
+  background-color: #edf2fc;
+  color: #64769d;
+  font-weight: 600;
+}
+.catalog-row {
+  min-height: 54px;
+  padding: 9px 0;
+}
+.catalog-row .tag-pill {
+  align-self: flex-start;
+  margin-bottom: 0;
+}
+</style>
