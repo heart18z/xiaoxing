@@ -30,6 +30,8 @@
         variant == 'friend-edit' ? 'friend-edit-panel' : '',
         variant == 'friend-search' ? 'friend-search-panel' : '',
         variant == 'personal-qr' ? 'personal-qr-panel' : '',
+        variant == 'group' || variant == 'group-compact' ? 'group-panel' : '',
+        variant == 'group-compact' ? 'group-compact-panel' : '',
       ]"
       @click.stop="noop"
       :style="{
@@ -222,6 +224,7 @@ function noop() {}
   padding: 0 18px 18px;
 }
 .account-panel .popup-scroll,
+.group-panel .popup-scroll,
 .friend-edit-panel .popup-scroll {
   flex: 1;
   height: 0;
@@ -233,6 +236,11 @@ function noop() {}
   border-top: 1px solid #edf1f7;
   background-color: #ffffff;
 }
+.group-panel { max-width: 460px; border-radius: 26px; background-color: #fcfdff; }
+.group-panel .popup-head { padding: 16px 18px 12px; }
+.group-panel .popup-head .title { font-size: 20px; font-weight: 600; color: #132044; }
+.group-panel .close { width: 32px; height: 32px; background-color: #edf2ff; }
+.group-panel .popup-footer { min-height: 72px; padding: 10px 18px 18px; border-top-width: 0; background-color: #fcfdff; }
 .sheet-mask {
   padding: 0;
   justify-content: flex-end;
@@ -295,4 +303,5 @@ function noop() {}
   transition-timing-function: ease-out;
 }
 /* #endif */
+.group-compact-panel{max-width:338px;border-radius:23px;}.group-compact-panel .popup-head{padding:14px 16px 10px;}.group-compact-panel .popup-head .title{font-size:19px;}.group-compact-panel .popup-body{padding:0 16px 12px;}.group-compact-panel .popup-footer{min-height:65px;padding:10px 16px 15px;}
 </style>

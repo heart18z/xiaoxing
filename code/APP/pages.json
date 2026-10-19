@@ -52,6 +52,13 @@
         "navigationStyle": "custom",
         "disableScroll": true
       }
+    },
+    {
+      "path": "pages/group-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
     }
   ],
   "globalStyle": {

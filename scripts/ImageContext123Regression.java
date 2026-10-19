@@ -28,7 +28,7 @@ public class ImageContext123Regression {
   boolean denied=false;try{files.preview(1L,22L);}catch(Exception ex){denied=true;}check(denied,"another account cannot preview photo");
   denied=false;try{files.imageParts(List.of(2L),11L);}catch(Exception ex){denied=true;}check(denied,"another account cannot pass photo to model");
   db.update("insert into blade_smart_chat_message(id,user_id,message_role,message_type,content,payload_json) values(10,11,'user','TEXT','工作安排','{\"fileIds\":[\"1\"]}'),(11,11,'assistant','TEXT','已读取',null),(12,22,'user','TEXT','private','{\"fileIds\":[\"2\"]}')");
-  var service=new SmartReminderService(db,json,ai,null,files,null,null,null);
+  var service=new SmartReminderService(db,json,ai,null,files,null,null,null,null);
   Method recent=SmartReminderService.class.getDeclaredMethod("recentConversationLines",Long.class,Long.class,int.class);recent.setAccessible(true);
   String history=recent.invoke(service,11L,20L,40).toString();check(history.contains("9月24日14点去客户现场")&&!history.contains("private"),"follow-up retains image facts without another user's content");
   Method ids=SmartReminderService.class.getDeclaredMethod("recentImageIds",Long.class,Long.class);ids.setAccessible(true);

@@ -1,0 +1,21 @@
+<template>
+  <el-dialog :model-value="open" :title="mt('核对提醒人员')" width="min(92vw,480px)" align-center append-to-body :close-on-click-modal="!saving" @update:model-value="$emit('close')">
+    <p class="people-note">{{mt('已选择')}} {{selected.length}} {{mt('人，同一人在多个群组中只接收一次。')}}</p>
+    <div class="people-list"><label v-for="person in people" :key="person.id" class="people-row"><img :src="person.avatar||'/avatars/user/B1.png'" alt=""/><span><b>{{display(person)}}</b><small>@{{person.account}}</small><small class="source">{{(person.groupSources||[]).map(g=>g.groupName).join('、')}}</small><small v-if="!person.canRemind" class="issue">{{mt(person.permissionIssue==='NOT_FRIEND'?'尚未添加好友':'尚无提醒权限')}}</small></span><input v-if="person.canRemind" v-model="selected" type="checkbox" :value="String(person.id)" :disabled="saving"/><button v-else type="button" class="permission-action" :disabled="saving" @click.prevent="requestAccess(person)">{{mt('处理权限')}}</button></label><p v-if="loading" class="people-note">{{mt('正在读取…')}}</p></div>
+    <p v-if="error" class="people-error" role="alert">{{error}}</p>
+    <template #footer><div class="people-actions"><button class="sr-button secondary" :disabled="saving||loading" @click="load">{{mt('重新核对权限')}}</button><button class="sr-button" :disabled="saving||loading||!selected.length" @click="save">{{mt('保存接收人员')}} {{selected.length}}</button></div></template>
+  </el-dialog>
+</template>
+<script setup>
+import {ref,watch} from 'vue';import {ElMessage,ElMessageBox} from 'element-plus';import {candidatePeople,requestFriend} from '@/api/smartReminder';import {mt} from './mobileLocale';
+const props=defineProps({open:Boolean,candidateId:String,eventIndex:Number}),emit=defineEmits(['close','saved']);
+const people=ref([]),selected=ref([]),loading=ref(false),saving=ref(false),error=ref('');let ticket=0;
+const display=p=>p.friendRemark||p.name||p.realName||p.account;
+watch(()=>props.open,value=>{if(value){people.value=[];selected.value=[];void load();}else ticket++;});
+async function load(){const current=++ticket;loading.value=true;error.value='';try{const result=(await candidatePeople({candidateId:props.candidateId,eventIndex:props.eventIndex})).data.data;if(current!==ticket||!props.open)return;people.value=result.event.recipientPool||[];selected.value=people.value.filter(p=>p.canRemind&&(result.selectedUserIds||[]).map(String).includes(String(p.id))).map(p=>String(p.id));}catch(e){if(current===ticket)error.value=e.message||mt('读取失败，请重试');}finally{if(current===ticket)loading.value=false;}}
+async function requestAccess(person){if(saving.value)return;try{await ElMessageBox.confirm(mt('将向对方发送好友或提醒权限申请，对方同意后才能提醒。'),mt('申请提醒权限'),{confirmButtonText:mt('确定'),cancelButtonText:mt('取消')});}catch{return;}saving.value=true;error.value='';try{await requestFriend({targetUserId:person.id,permissionMode:'I_CAN_REMIND',message:'希望向你发起群组事项提醒'});ElMessage.success(mt('申请已发送，对方同意后请重新核对权限'));}catch(e){error.value=e.message;}finally{saving.value=false;}}
+async function save(){if(saving.value||!selected.value.length)return;saving.value=true;error.value='';try{await candidatePeople({candidateId:props.candidateId,eventIndex:props.eventIndex,userIds:selected.value},true);emit('saved');}catch(e){error.value=e.message||mt('保存失败，请重试');}finally{saving.value=false;}}
+</script>
+<style scoped>
+.people-note{font-size:12px;line-height:1.8;color:#8995ad}.people-list{max-height:51dvh;overflow:auto}.people-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #edf0f8}.people-row>img{width:40px;height:40px;object-fit:cover;border-radius:13px}.people-row>span{display:grid;flex:1;gap:3px;min-width:0}.people-row b{font-size:14px;color:#263652}.people-row small{font-size:11px;color:#929bb0;overflow-wrap:anywhere}.people-row small.source{font-size:10px;color:#7087b1}.people-row small.issue{color:#c88d4e}.people-row>input{width:20px;height:20px;accent-color:#5269df}.permission-action{font-size:11px;white-space:nowrap;padding:8px;border:0;border-radius:9px;color:#946d38;background:#fff4e8;cursor:pointer}.people-error{color:#ce7667;font-size:12px}.people-actions{display:flex;flex-direction:column;gap:10px}.people-actions .sr-button{width:100%;height:44px;min-height:44px;line-height:44px;margin:0;padding:0 12px;font-size:14px;border-radius:13px}
+</style>

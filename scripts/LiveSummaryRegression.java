@@ -51,7 +51,7 @@ public class LiveSummaryRegression extends Stage1Regression {
     check(summaryInput.contains("2099-01-01 16:00:00"),"model time fields are readable strings, not epoch milliseconds");
     check(content.latestEventSummary(401L,"").equals("陈通16点开会，陈颖提交论证报告-PRIVATE。"),"creator uses compact persisted overview");
     check(!content.refreshEventOverview(401L),"unchanged task overview does not call model again");
-    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     detail=service.eventDetail(401L);
     check(!detail.toString().contains("PRIVATE")&&!detail.toString().contains("overview_source_hash"),"recipient cannot read organizer overview or cache metadata");
     check(detail.toString().contains("已完成尾款支付"),"latest progress is returned separately from current task");
@@ -70,7 +70,7 @@ public class LiveSummaryRegression extends Stage1Regression {
     var batch=SmartEventContentService.class.getDeclaredMethod("refreshSummaryBatch");batch.setAccessible(true);batch.invoke(content);
     check(count("select count(*) from blade_smart_event where overview_source_hash is not null")>0,"bounded background overview backfill executes");
     var noAi=new NewApiClient(null,mapper){@Override public AiAnswer chat(String s,String u){throw new AssertionError("read API called model");}};
-    service=new SmartReminderService(db,mapper,noAi,new FakeConfig(),null,new SmartEventContentService(db,mapper,noAi),new SmartSocialService(db),new SmartScheduleService(db,mapper,noAi));
+    service=new SmartReminderService(db,mapper,noAi,new FakeConfig(),null,new SmartEventContentService(db,mapper,noAi),new SmartSocialService(db),new SmartScheduleService(db,mapper,noAi),null);
     var sync=service.syncChatMessages(150,"");String revision=sync.get("revision").toString();
     check(sync.containsKey("messages"),"initial sync sends visible snapshot without calling AI");
     check(!service.syncChatMessages(150,revision).containsKey("messages"),"unchanged sync omits message payload");

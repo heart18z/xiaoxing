@@ -67,6 +67,7 @@
           @layout="scrollLatest"
           @reveal="revealThinking"
           @confirm="confirmCandidate"
+          @people="openCandidatePeople"
         />
         <view id="latest" style="height: 12px" />
       </view>
@@ -79,9 +80,15 @@
     </view>
     <view class="composer" :style="{ marginBottom: keyboard > 0 ? '0px' : '10px' }">
       <view v-if="files.length > 0" class="file-grid">
-        <AttachmentTile v-for="file in files" :key="file.key" :source="file.path"
-          :state="file.state" :visible="pageShown && session.visible"
-          @remove="removeFile(file.key)" @retry="uploadOne(file)" />
+        <AttachmentTile
+          v-for="file in files"
+          :key="file.key"
+          :source="file.path"
+          :state="file.state"
+          :visible="pageShown && session.visible"
+          @remove="removeFile(file.key)"
+          @retry="uploadOne(file)"
+        />
       </view>
       <view class="composer-box">
         <view class="input-row">
@@ -144,6 +151,13 @@
     </view>
   </AppFrame>
   <ReminderDrawer :open="drawer" @close="drawer = false" />
+  <CandidatePeople
+    :open="peopleOpen"
+    :candidate-id="peopleCandidate"
+    :event-index="peopleEvent"
+    @close="peopleOpen = false"
+    @saved="peopleSaved"
+  />
 
   <Popup :open="clearOpen" :title="t('清除当前上下文')" :busy="clearing" @close="clearOpen = false">
     <text class="app-font clear-copy">
@@ -183,6 +197,7 @@ import { t as _t } from '@/core/locale.uts';
 import { onMounted, onUnmounted, ref, reactive, watch, nextTick, computed } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
 import ChatMessage from '@/components/ChatMessage.uvue';
+import CandidatePeople from '@/components/CandidatePeople.uvue';
 import ReminderDrawer from '@/components/ReminderDrawer.uvue';
 import Popup from '@/components/Popup.uvue';
 import {
@@ -239,7 +254,10 @@ const pendingUser = computed((): UTSJSONObject => ({
   messageRole: 'user',
   messageType: 'TEXT',
   content: s(chat.pending, 'content'),
-  payload: { fileNames: chat.pending['fileNames'] ?? ([] as string[]), fileIds: chat.pending['fileIds'] ?? ([] as string[]) },
+  payload: {
+    fileNames: chat.pending['fileNames'] ?? ([] as string[]),
+    fileIds: chat.pending['fileIds'] ?? ([] as string[]),
+  },
 }));
 const pendingAssistant = computed((): UTSJSONObject => ({
   id: 'pending-ai-' + s(chat.pending, 'requestId'),
@@ -250,8 +268,11 @@ const pendingAssistant = computed((): UTSJSONObject => ({
   reasoningContent: chat.reasoning,
   streaming: chat.busy,
 }));
-const displayedMessages = computed((): UTSJSONObject[] => s(chat.pending, 'requestId').length > 0
-  ? chat.messages.concat([pendingUser.value, pendingAssistant.value]) : chat.messages);
+const displayedMessages = computed((): UTSJSONObject[] =>
+  s(chat.pending, 'requestId').length > 0
+    ? chat.messages.concat([pendingUser.value, pendingAssistant.value])
+    : chat.messages,
+);
 
 type Attachment = {
   key: string;
@@ -322,7 +343,9 @@ let timer: number = 0,
   recordGeneration = 0,
   syncFailures = 0;
 const voiceStage = ref('');
-function rowKey(item: UTSJSONObject): string { return messageKey(item); }
+function rowKey(item: UTSJSONObject): string {
+  return messageKey(item);
+}
 const voiceLevel = ref(0);
 // #ifdef APP-ANDROID
 let androidAudioId = '';
@@ -336,23 +359,38 @@ async function handleRecording(path: string): Promise<void> {
   const run = recordGeneration;
   const started = Date.now();
   let uploadedAt: number = 0;
-  console.info('[speech] recording stopped, stopWaitMs=' + (recordStopRequestedAt > 0 ? started - recordStopRequestedAt : 0));
+  console.info(
+    '[speech] recording stopped, stopWaitMs=' +
+      (recordStopRequestedAt > 0 ? started - recordStopRequestedAt : 0),
+  );
   try {
-    const data = await upload('/app/reminder/audio/transcriptions', path, 125000, (progress: number) => {
-      if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
-      voiceStage.value = progress >= 100 ? '正在识别语音…' : '正在上传录音… ' + Math.floor(progress) + '%';
-      if (progress >= 100 && uploadedAt == 0) {
-        uploadedAt = Date.now();
-        console.info('[speech] upload completed, uploadMs=' + (uploadedAt - started));
-      }
-    });
-    console.info('[speech] response received, totalMs=' + (Date.now() - started) + ', responseWaitMs=' + (uploadedAt > 0 ? Date.now() - uploadedAt : -1));
+    const data = await upload(
+      '/app/reminder/audio/transcriptions',
+      path,
+      125000,
+      (progress: number) => {
+        if (run != recordGeneration || recordCancelled || recordOwner != session.userId) return;
+        voiceStage.value =
+          progress >= 100 ? '正在识别语音…' : '正在上传录音… ' + Math.floor(progress) + '%';
+        if (progress >= 100 && uploadedAt == 0) {
+          uploadedAt = Date.now();
+          console.info('[speech] upload completed, uploadMs=' + (uploadedAt - started));
+        }
+      },
+    );
+    console.info(
+      '[speech] response received, totalMs=' +
+        (Date.now() - started) +
+        ', responseWaitMs=' +
+        (uploadedAt > 0 ? Date.now() - uploadedAt : -1),
+    );
     if (run == recordGeneration && !recordCancelled && recordOwner == session.userId)
       setDraft(recordDraft + (recordDraft.length > 0 ? '\n' : '') + s(data, 'text'));
     if (run == recordGeneration && s(data, 'text').trim().length == 0)
       throw new Error('未识别到语音，请重试');
   } catch (e) {
-    if (run == recordGeneration && !recordCancelled && recordOwner == session.userId) toast(message(e));
+    if (run == recordGeneration && !recordCancelled && recordOwner == session.userId)
+      toast(message(e));
   } finally {
     if (run == recordGeneration) transcribing.value = false;
   }
@@ -369,7 +407,9 @@ async function pollAndroidAudio(run: number): Promise<void> {
       await handleRecording(s(data, 'path'));
       return;
     }
-    androidAudioTimer = setTimeout(() => { void pollAndroidAudio(run); }, 100);
+    androidAudioTimer = setTimeout(() => {
+      void pollAndroidAudio(run);
+    }, 100);
   } catch (e) {
     if (run != recordGeneration) return;
     recording.value = false;
@@ -441,7 +481,9 @@ function moveScroll(target: number, animated: boolean) {
   // Only commands update the binding. Scroll notifications never write back to native scroll.
   if (scrollTop.value == value) {
     scrollTop.value = actualScrollTop;
-    nextTick(() => { if (active && session.visible && !touching) scrollTop.value = value; });
+    nextTick(() => {
+      if (active && session.visible && !touching) scrollTop.value = value;
+    });
   } else scrollTop.value = value;
 }
 function scrollAfterLayout() {
@@ -464,30 +506,47 @@ function scrollLatest() {
   if (!active || !session.visible || !follow.value || touching || layoutTimer != 0) return;
   scrollLockedUntil = Date.now() + 100;
   // One coalesced measurement per content update, not a continuous native layout loop.
-  layoutTimer = setTimeout(() => { scrollAfterLayout(); }, 40);
+  layoutTimer = setTimeout(() => {
+    scrollAfterLayout();
+  }, 40);
 }
 function revealThinking(id: string) {
   if (!active || !session.visible) return;
-  clearTimeout(layoutTimer); layoutTimer = 0;
+  clearTimeout(layoutTimer);
+  layoutTimer = 0;
   clearTimeout(revealTimer);
   follow.value = false;
   // Finish the small expansion, then reveal this panel (never jump to the latest message).
   revealTimer = setTimeout(() => {
     if (!active || !session.visible || touching) return;
-    let top = 0, bottom = 0, viewTop = 0, viewBottom = 0;
+    let top = 0,
+      bottom = 0,
+      viewTop = 0,
+      viewBottom = 0;
     // #ifdef WEB
-    const panel = document.getElementById(id), viewport = document.getElementById('chat-scroll');
+    const panel = document.getElementById(id),
+      viewport = document.getElementById('chat-scroll');
     if (panel == null || viewport == null) return;
-    const rect = panel.getBoundingClientRect(), bounds = viewport.getBoundingClientRect();
-    top = rect.top; bottom = rect.bottom; viewTop = bounds.top; viewBottom = bounds.bottom;
+    const rect = panel.getBoundingClientRect(),
+      bounds = viewport.getBoundingClientRect();
+    top = rect.top;
+    bottom = rect.bottom;
+    viewTop = bounds.top;
+    viewBottom = bounds.bottom;
     // #endif
     // #ifdef APP
-    const nativePanel = uni.getElementById(id), nativeViewport = uni.getElementById('chat-scroll');
+    const nativePanel = uni.getElementById(id),
+      nativeViewport = uni.getElementById('chat-scroll');
     if (nativePanel == null || nativeViewport == null) return;
-    const nativeRect = nativePanel.getBoundingClientRect(), nativeBounds = nativeViewport.getBoundingClientRect();
-    top = nativeRect.top; bottom = nativeRect.bottom; viewTop = nativeBounds.top; viewBottom = nativeBounds.bottom;
+    const nativeRect = nativePanel.getBoundingClientRect(),
+      nativeBounds = nativeViewport.getBoundingClientRect();
+    top = nativeRect.top;
+    bottom = nativeRect.bottom;
+    viewTop = nativeBounds.top;
+    viewBottom = nativeBounds.bottom;
     // #endif
-    if (bottom > viewBottom - 12) moveScroll(actualScrollTop + Math.min(bottom - viewBottom + 12, top - viewTop - 8), true);
+    if (bottom > viewBottom - 12)
+      moveScroll(actualScrollTop + Math.min(bottom - viewBottom + 12, top - viewTop - 8), true);
     else if (top < viewTop + 8) moveScroll(actualScrollTop + top - viewTop - 8, true);
   }, 200);
 }
@@ -501,9 +560,15 @@ function settleInitialScroll() {
   jumpLatest();
   const started = Date.now();
   scrollTimer = setInterval(() => {
-    if (!active || !session.visible || !initialScrollPending) { clearInterval(scrollTimer); return; }
+    if (!active || !session.visible || !initialScrollPending) {
+      clearInterval(scrollTimer);
+      return;
+    }
     scrollLatest();
-    if (Date.now() - started >= 1200) { clearInterval(scrollTimer); initialScrollPending = false; }
+    if (Date.now() - started >= 1200) {
+      clearInterval(scrollTimer);
+      initialScrollPending = false;
+    }
   }, 240);
 }
 function updateKeyboard(height: number) {
@@ -512,20 +577,36 @@ function updateKeyboard(height: number) {
   keyboard.value = height;
   clearTimeout(keyboardLayoutTimer);
   // Both keyboard callbacks can report the same change. Apply one layout and one native scroll.
-  keyboardLayoutTimer = setTimeout(() => { scrollLatest(); }, 30);
+  keyboardLayoutTimer = setTimeout(() => {
+    scrollLatest();
+  }, 30);
 }
-const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => { updateKeyboard(event.height); };
-function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) { updateKeyboard(event.detail.height); }
+const keyboardChange = (event: OnKeyboardHeightChangeCallbackResult) => {
+  updateKeyboard(event.height);
+};
+function inputKeyboardChange(event: UniInputKeyboardHeightChangeEvent) {
+  updateKeyboard(event.detail.height);
+}
 function stopScrollLock() {
-  clearTimeout(layoutTimer); layoutTimer = 0;
+  clearTimeout(layoutTimer);
+  layoutTimer = 0;
   clearTimeout(revealTimer);
   initialScrollPending = false;
   clearInterval(scrollTimer);
   scrollLockedUntil = 0;
 }
-function touchStarted() { touching = true; userScrolling = true; stopScrollLock(); measureScroll(); }
-function touchMoved() { follow.value = false; }
-function touchEnded() { touching = false; }
+function touchStarted() {
+  touching = true;
+  userScrolling = true;
+  stopScrollLock();
+  measureScroll();
+}
+function touchMoved() {
+  follow.value = false;
+}
+function touchEnded() {
+  touching = false;
+}
 function scrolling(event: UniScrollEvent) {
   const detail = event.detail;
   actualScrollTop = detail.scrollTop;
@@ -663,11 +744,44 @@ async function dismiss() {
   if (await confirm('结束本机等待', '这不会取消服务器任务。请先核对事件，避免重复发送。'))
     await dismissPending();
 }
+const peopleOpen = ref(false),
+  peopleCandidate = ref(''),
+  peopleEvent = ref(0);
+function openCandidatePeople(item: UTSJSONObject, index: number): void {
+  peopleCandidate.value = s(payload(item), 'candidateId');
+  peopleEvent.value = index;
+  peopleOpen.value = true;
+}
+async function peopleSaved() {
+  peopleOpen.value = false;
+  await loadHistory();
+}
 async function confirmCandidate(item: UTSJSONObject, alarms: number[]) {
   if (confirming.value.length > 0 || clearing.value || s(item, 'messageType') != 'CANDIDATE')
     return;
   const id = s(payload(item), 'candidateId');
   if (id.length == 0) return;
+  const candidateEvents = arr(payload(item), 'events');
+  const acceptPartial = candidateEvents.some(
+    (event: UTSJSONObject): boolean => arr(event, 'recipientIssues').length > 0,
+  );
+  if (
+    candidateEvents.some(
+      (event: UTSJSONObject): boolean =>
+        arr(event, 'groupSelectors').length > 0 && arr(event, 'recipients').length == 0,
+    )
+  ) {
+    toast('没有可提醒人员，请先查看人员并处理权限');
+    return;
+  }
+  if (
+    acceptPartial &&
+    !(await confirm(
+      '仅提醒可提醒人员',
+      '部分成员尚未添加好友或没有提醒权限。本次只向事件卡列出的可提醒人员发送，其他成员不会收到。是否继续？',
+    ))
+  )
+    return;
   confirming.value = id;
   try {
     let result = obj(
@@ -675,6 +789,7 @@ async function confirmCandidate(item: UTSJSONObject, alarms: number[]) {
         'candidate/confirm',
         {
           candidateId: id,
+          acceptPartialRecipients: acceptPartial,
           acceptConflicts: arr(payload(item), 'events').some(
             (event: UTSJSONObject): boolean => arr(event, 'scheduleConflicts').length > 0,
           ),
@@ -944,12 +1059,21 @@ function finishRecording() {
   // #endif
   // #ifdef APP-ANDROID
   if (recording.value) {
-    if (androidAudioId.length == 0) { recordCancelled = true; recordGeneration++; recording.value = false; return; }
+    if (androidAudioId.length == 0) {
+      recordCancelled = true;
+      recordGeneration++;
+      recording.value = false;
+      return;
+    }
     recordStopRequestedAt = Date.now();
     recording.value = false;
     transcribing.value = true;
     voiceStage.value = '正在结束录音…';
-    void callNative('audio.stop', { session: androidAudioId, cancel: recordCancelled }).catch((e) => { toast(message(e)); });
+    void callNative('audio.stop', { session: androidAudioId, cancel: recordCancelled }).catch(
+      (e) => {
+        toast(message(e));
+      },
+    );
   }
   // #endif
 }
@@ -971,13 +1095,15 @@ function cancelRecording() {
   // #endif
   // #ifdef APP-ANDROID
   clearTimeout(androidAudioTimer);
-  if (androidAudioId.length > 0) void callNative('audio.stop', { session: androidAudioId, cancel: true }).catch(() => {});
+  if (androidAudioId.length > 0)
+    void callNative('audio.stop', { session: androidAudioId, cancel: true }).catch(() => {});
   androidAudioId = '';
   // #endif
   recording.value = false;
 }
 function stopPage() {
-  touching = false; userScrolling = false;
+  touching = false;
+  userScrolling = false;
   clearTimeout(revealTimer);
   clearTimeout(layoutTimer);
   layoutTimer = 0;
@@ -1217,7 +1343,12 @@ watch((): string => s(chat.pending, 'requestId'), scrollLatest);
   justify-content: center;
   box-shadow: 0 2px 8px #7183ad17;
 }
-.file-grid { flex-direction: row; flex-wrap: wrap; padding-top: 2px; flex-shrink: 0; }
+.file-grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
 .clear-copy {
   font-size: 14px;
   line-height: 25px;

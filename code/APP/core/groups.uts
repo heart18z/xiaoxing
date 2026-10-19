@@ -1,0 +1,44 @@
+import { s, firstText, arr } from '@/core/json.uts';
+
+export function groupRoleLabel(role: string): string {
+  return role == 'OWNER' ? '我创建的' : role == 'ADMIN' ? '我管理的' : '我加入的';
+}
+export function groupCanManage(role: string): boolean {
+  return role == 'OWNER' || role == 'ADMIN';
+}
+export function groupMemberRole(role: string): string {
+  return role == 'OWNER' ? '群主' : role == 'ADMIN' ? '管理员' : '群员';
+}
+export function groupPersonName(person: UTSJSONObject): string {
+  return firstText(person, ['friendRemark', 'name', 'realName', 'account']);
+}
+export function groupSources(person: UTSJSONObject): string {
+  return arr(person, 'groupSources')
+    .map((source: UTSJSONObject): string => s(source, 'groupName'))
+    .join('、');
+}
+export function permissionIssue(person: UTSJSONObject): string {
+  return s(person, 'permissionIssue') == 'NOT_FRIEND' ? '尚未添加好友' : '尚无提醒权限';
+}
+export function toggleGroupSelection(values: string[], value: string): string[] {
+  return values.includes(value)
+    ? values.filter((item: string): boolean => item != value)
+    : values.concat([value]);
+}
+
+export const groupAvatars: string[] = [
+  '/avatars/group/01-campus.png',
+  '/avatars/group/02-assessment.png',
+  '/avatars/group/03-safety.png',
+  '/avatars/group/04-reading.png',
+  '/avatars/group/05-sports.png',
+  '/avatars/group/06-notice.png',
+  '/avatars/group/07-team.png',
+  '/avatars/group/08-schedule.png',
+  '/avatars/group/09-charity.png',
+];
+export function groupTagTone(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash + name.charCodeAt(i)) % 3;
+  return 'tone-' + (hash + 1).toString();
+}

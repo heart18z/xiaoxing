@@ -17,7 +17,7 @@ public class FriendApplications134Regression {
   db.update("insert into blade_friendship values(-1,4,'ACTIVE'),(-1,5,'ACTIVE')");
   long exact=9007199254740993L;
   db.update("insert into blade_friend_request values(?,2,-1,'PENDING','FRIEND','hi','MUTUAL',now(),now()),(2,-1,3,'PENDING','FRIEND','hi','MUTUAL',now(),now()),(3,-1,4,'ACCEPTED','FRIEND','hi','MUTUAL',now(),now()),(4,5,-1,'ACCEPTED','FRIEND','hi','MUTUAL',now(),now()),(5,4,-1,'REJECTED','FRIEND','hi','MUTUAL',now(),now()),(6,-1,5,'CANCELLED','FRIEND','hi','MUTUAL',now(),now()),(7,2,3,'PENDING','FRIEND','other people','MUTUAL',now(),now()),(8,6,-1,'ACCEPTED','FRIEND','deleted','MUTUAL',now(),now()),(9,4,-1,'PENDING','PERMISSION','change','I_CAN_REMIND',now(),now())",exact);
-  var service=new SmartReminderService(db,new ObjectMapper(),null,null,null,null,new SmartSocialService(db),null);
+  var service=new SmartReminderService(db,new ObjectMapper(),null,null,null,null,new SmartSocialService(db),null,null);
   var result=service.friendRequests();
   check(((List<?>)result.get("incoming")).size()==2&&((List<?>)result.get("outgoing")).size()==1,"pending arrays retain old client contracts");
   var rows=(List<Map<String,Object>>)result.get("items");

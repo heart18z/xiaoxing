@@ -51,6 +51,12 @@ export default [
     meta: { keepAlive: false, isTab: false },
   },
   {
+    path: '/app/group/:id',
+    name: '群组详情',
+    component: () => import('@/page/smart-reminder/group-detail.vue'),
+    meta: { keepAlive: false, isTab: false },
+  },
+  {
     path: '/app/settings',
     name: '智能提醒设置',
     component: () => import('@/page/smart-reminder/settings.vue'),

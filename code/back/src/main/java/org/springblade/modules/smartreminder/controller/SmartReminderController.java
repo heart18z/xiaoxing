@@ -207,7 +207,16 @@ public class SmartReminderController {
 	@PostMapping("/candidate/confirm")
 	public R<Object> confirm(@RequestBody CandidateConfirmRequest request) {
 		AppRoleGuard.requireAppUser();
-		return R.data(reminderService.confirmWithScheduleReview(request.getCandidateId(),Boolean.TRUE.equals(request.getAcceptConflicts())));
+		return R.data(reminderService.confirmWithScheduleReview(request.getCandidateId(),Boolean.TRUE.equals(request.getAcceptConflicts()),Boolean.TRUE.equals(request.getAcceptPartialRecipients())));
+	}
+
+	@PostMapping("/candidate/recipients")
+	public R<Object> candidateRecipients(@RequestBody org.springblade.modules.smartreminder.dto.ReminderGroupDtos.CandidatePeople request) {
+		AppRoleGuard.requireAppUser();return R.data(reminderService.candidateRecipients(request,false));
+	}
+	@PostMapping("/candidate/recipients/save")
+	public R<Object> saveCandidateRecipients(@RequestBody org.springblade.modules.smartreminder.dto.ReminderGroupDtos.CandidatePeople request) {
+		AppRoleGuard.requireAppUser();return R.data(reminderService.candidateRecipients(request,true));
 	}
 
 	@PostMapping("/files/upload")

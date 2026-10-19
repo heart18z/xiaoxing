@@ -19,7 +19,7 @@ public class FriendRemarkRegression {
     db.update("insert into blade_user values(-1,'owner','本人','本人','','','','2099000000000000001',0),(2,'staff2','陈通','陈通','13800138000','friend@example.com','','2099000000000000001',0),(3,'staff3','其他好友','其他好友','','','','2099000000000000001',0),(4,'staff4','非好友','非好友','','','','2099000000000000001',0)");
     db.update("insert into blade_friendship values(1,-1,2,null,'MUTUAL','ACTIVE',now()),(2,2,-1,'他的备注','MUTUAL','ACTIVE',now()),(3,3,2,'其他人的备注','MUTUAL','ACTIVE',now()),(4,-1,3,null,'MUTUAL','ACTIVE',now())");
     var mapper=new ObjectMapper();var social=new SmartSocialService(db);
-    var service=new SmartReminderService(db,mapper,null,null,null,null,social,null);
+    var service=new SmartReminderService(db,mapper,null,null,null,null,social,null,null);
     social.saveRemark(-1L,2L," 通哥 ");
     check("通哥".equals(db.queryForObject("select friend_remark from blade_friendship where id=1",String.class)),"owner remark saved and trimmed");
     check("陈通".equals(db.queryForObject("select name from blade_user where id=2",String.class)),"real name unchanged");

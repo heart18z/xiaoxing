@@ -28,7 +28,7 @@ public class Social131Regression {
    @Override public String latestTask(Long eventId,Long userId){return "my task";}
    @Override public String latestEventSummary(Long eventId,String fallback){return fallback;}
   };
-  var service=new SmartReminderService(db,mapper,null,null,null,content,new SmartSocialService(db),null);
+  var service=new SmartReminderService(db,mapper,null,null,null,content,new SmartSocialService(db),null,null);
   Long request=tx.execute(s->service.sendFriendRequest(2L,"hi","MUTUAL"));
   check(db.queryForObject("select count(*) from blade_friend_request",Integer.class)==1,"request persists");
   var notice=db.queryForMap("select * from blade_smart_chat_message");

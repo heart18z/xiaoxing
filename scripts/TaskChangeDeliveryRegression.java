@@ -18,7 +18,7 @@ public class TaskChangeDeliveryRegression extends Stage1Regression {
     Stage1Regression.main(args);
     db.execute("alter table blade_smart_event_branch drop constraint fail_new_branch");
     var ai=new DeferringAi();var schedules=new SmartScheduleService(db,mapper,ai);
-    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),schedules);
+    service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),schedules,null);
     event(5001,1,2);
     db.update("update blade_smart_event set event_time='2099-01-01 13:00:00' where id=5001");
     db.update("update blade_smart_event_branch set task_content='下午1点提交报告' where event_id=5001");

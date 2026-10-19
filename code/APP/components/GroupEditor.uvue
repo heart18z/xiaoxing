@@ -1,0 +1,412 @@
+<template>
+  <Popup
+    :open="open"
+    :title="t(creating ? '创建群组' : '群组资料')"
+    :busy="saving"
+    variant="group-compact"
+    :fixed-footer="true"
+    :panel-height="456"
+    @close="emit('close')"
+  >
+    <view class="editor-summary">
+      <view class="avatar-column">
+        <text class="app-font field-title">{{ t('群组头像') }}</text>
+        <view class="upload-cover" @click="pickAvatar()">
+          <image class="group-picture" :src="asset(avatar)" mode="aspectFill" />
+        </view>
+        <text class="app-font avatar-hint" @click="pickAvatar()">
+          {{ t(saving ? '上传中…' : '点击头像更换') }}
+        </text>
+      </view>
+      <view class="fields-column">
+        <text class="app-font field-title">
+          {{ t('群组名称') }}
+          <text class="required">*</text>
+        </text>
+        <input
+          class="app-font name-input"
+          v-model="name"
+          maxlength="60"
+          :adjust-position="false"
+          :placeholder="t('请输入群组名称')"
+        />
+        <text class="app-font field-title intro-title">{{ t('群组介绍') }}</text>
+        <view class="intro-field">
+          <textarea
+            class="app-font intro-input"
+            v-model="introduction"
+            maxlength="200"
+            :adjust-position="false"
+            :placeholder="t('请输入群组介绍')"
+          />
+          <text class="app-font counter">{{ introduction.length }}/200</text>
+        </view>
+      </view>
+    </view>
+    <text class="app-font field-title avatar-title">{{ t('选择头像') }}</text>
+    <view class="avatar-grid">
+      <view
+        v-for="url in groupAvatars"
+        :key="url"
+        class="avatar-cell"
+        @click="!saving && (avatar = url)"
+      >
+        <view :class="['avatar-border', avatar == url ? 'avatar-selected' : '']">
+          <image class="preset-image" :src="asset(url)" mode="aspectFit" />
+          <view v-if="avatar == url" class="selected-dot">
+            <UiIcon name="check" tone="white" :size="18" />
+          </view>
+        </view>
+      </view>
+    </view>
+    <text v-if="error.length > 0" class="app-font error">{{ t(error) }}</text>
+    <template #footer>
+      <view class="form-actions">
+        <button class="app-font secondary form-button" :disabled="saving" @click="emit('close')">
+          {{ t('取消') }}
+        </button>
+        <button
+          class="app-font primary form-button"
+          :disabled="saving"
+          :loading="saving"
+          @click="save()"
+        >
+          {{ t(creating ? '创建' : '保存') }}
+        </button>
+      </view>
+    </template>
+  </Popup>
+</template>
+<script setup lang="uts">
+import { ref, watch } from 'vue';
+import Popup from './Popup.uvue';
+import UiIcon from './UiIcon.uvue';
+import { t } from '@/core/locale.uts';
+import { s, obj, message } from '@/core/json.uts';
+import { reminder, upload } from '@/api/request.uts';
+import { asset } from '@/core/ui.uts';
+import { pickImages } from '@/services/images.uts';
+import { groupAvatars } from '@/core/groups.uts';
+const props = defineProps({
+  open: { type: Boolean, default: false },
+  group: { type: Object, default: (): UTSJSONObject => ({}) },
+  creating: { type: Boolean, default: false },
+});
+const emit = defineEmits(['close', 'saved']);
+const name = ref(''),
+  avatar = ref(groupAvatars[0]),
+  introduction = ref(''),
+  error = ref(''),
+  saving = ref(false);
+watch(
+  (): boolean => props.open,
+  (open: boolean) => {
+    if (!open) return;
+    const group = props.group as UTSJSONObject;
+    name.value = props.creating ? '' : s(group, 'name');
+    avatar.value = props.creating
+      ? groupAvatars[Math.floor(Math.random() * groupAvatars.length)]
+      : s(group, 'avatar', groupAvatars[0]);
+    introduction.value = props.creating ? '' : s(group, 'introduction');
+    error.value = '';
+  },
+);
+function pickAvatar(): void {
+  if (saving.value) return;
+  pickImages(1, (result) => {
+    if (result.tempFiles[0].size > 2 * 1024 * 1024) {
+      error.value = '头像不能超过2MB';
+      return;
+    }
+    void uploadAvatar(result.tempFilePaths[0]);
+  });
+}
+async function uploadAvatar(path: string) {
+  saving.value = true;
+  error.value = '';
+  try {
+    const result = await upload('/blade-resource/oss/endpoint/put-file', path, 120000);
+    const url = s(result, 'link', s(result, 'url'));
+    if (url.length == 0) throw new Error('上传未返回头像地址');
+    avatar.value = url;
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+async function save() {
+  if (saving.value) return;
+  if (name.value.trim().length == 0) {
+    error.value = '请输入群组名称';
+    return;
+  }
+  saving.value = true;
+  error.value = '';
+  try {
+    const result = obj(
+      await reminder(props.creating ? 'groups/create' : 'groups/save', {
+        groupId: props.creating ? null : s(props.group as UTSJSONObject, 'id'),
+        name: name.value.trim(),
+        avatar: avatar.value,
+        introduction: introduction.value.trim(),
+        groupType: 'CUSTOM',
+      }),
+      'value',
+    );
+    emit('saved', result);
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    saving.value = false;
+  }
+}
+</script>
+<style scoped>
+.editor-summary {
+  flex-direction: row;
+  padding: 13px 10px;
+  border: 1px solid #e6ebff;
+  border-radius: 15px;
+  background-color: #f8faff;
+}
+.avatar-column {
+  width: 92px;
+  align-items: center;
+  margin-right: 12px;
+}
+.field-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #142146;
+  line-height: 22px;
+}
+.required {
+  color: #ee7f8b;
+  font-size: 12px;
+}
+.upload-cover {
+  width: 88px;
+  height: 88px;
+  border: 2px solid #fff;
+  border-radius: 20px;
+  margin-top: 9px;
+  overflow: hidden;
+}
+.group-picture {
+  width: 100%;
+  height: 100%;
+}
+.avatar-hint {
+  font-size: 10px;
+  color: #8b97b6;
+  margin-top: 6px;
+}
+.fields-column {
+  flex: 1;
+  min-width: 0;
+}
+.name-input {
+  width: 100%;
+  height: 39px;
+  border: 1px solid #dce4ff;
+  border-radius: 10px;
+  font-size: 12px;
+  padding: 0 9px;
+  margin-top: 5px;
+  background-color: #ffffff80;
+}
+.intro-title {
+  margin-top: 10px;
+}
+.intro-field {
+  border: 1px solid #dce4ff;
+  border-radius: 10px;
+  padding: 8px;
+  margin-top: 5px;
+  background-color: #ffffff80;
+}
+.intro-input {
+  width: 100%;
+  height: 48px;
+  font-size: 12px;
+  line-height: 19px;
+}
+.counter {
+  font-size: 10px;
+  color: #929db9;
+  text-align: right;
+}
+.avatar-title {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.avatar-grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-left: -4px;
+  margin-right: -4px;
+}
+.avatar-cell {
+  width: 33.333%;
+  padding: 4px;
+}
+.avatar-border {
+  width: 100%;
+  height: 87px;
+  border: 2px solid transparent;
+  border-radius: 17px;
+  padding: 2px;
+  position: relative;
+  overflow: visible;
+}
+.avatar-selected {
+  border-color: #176aff;
+}
+.preset-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+}
+.selected-dot {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  width: 23px;
+  height: 23px;
+  border: 2px solid #fff;
+  border-radius: 13px;
+  background-color: #176aff;
+  align-items: center;
+  justify-content: center;
+}
+.form-actions {
+  flex-direction: row;
+}
+.form-button {
+  flex: 1;
+  height: 44px;
+  min-height: 44px;
+  line-height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 14px;
+  font-size: 16px;
+}
+.form-button + .form-button {
+  margin-left: 10px;
+}
+.editor-summary {
+  padding: 10px 8px;
+  border-radius: 13px;
+}
+.avatar-column {
+  width: 76px;
+  margin-right: 10px;
+}
+.field-title {
+  font-size: 13px;
+  line-height: 20px;
+}
+.upload-cover {
+  width: 72px;
+  height: 72px;
+  border-radius: 17px;
+  margin-top: 7px;
+}
+.name-input {
+  height: 35px;
+  font-size: 12px;
+}
+.intro-title {
+  margin-top: 8px;
+}
+.intro-input {
+  height: 32px;
+  line-height: 17px;
+}
+.intro-field {
+  padding: 7px;
+}
+.avatar-title {
+  margin-top: 12px;
+  margin-bottom: 5px;
+}
+.avatar-cell {
+  padding: 3px;
+}
+.avatar-border {
+  height: 65px;
+  border-radius: 13px;
+}
+.preset-image {
+  border-radius: 10px;
+}
+.selected-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 11px;
+}
+.form-button {
+  height: 40px;
+  min-height: 40px;
+  line-height: 40px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+.form-button.primary {
+  background-color: #3268f1;
+  color: #fff;
+  background-image: linear-gradient(to right, #2866ed, #4b7ff5);
+}
+.form-button.secondary {
+  background-color: #edf2fc;
+  color: #64769d;
+  font-weight: 600;
+}
+.avatar-border {
+  width: 70px;
+  height: 70px;
+  align-self: center;
+}
+.editor-summary {
+  padding: 8px;
+}
+.intro-title {
+  margin-top: 6px;
+}
+.name-input {
+  height: 34px;
+}
+.avatar-cell {
+  padding: 2px;
+}
+.avatar-title {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+.avatar-grid {
+  margin-left: 0;
+  margin-right: 0;
+}
+.avatar-cell {
+  width: 20%;
+  padding: 2px;
+}
+.avatar-border {
+  width: 100%;
+  height: 54px;
+  align-self: center;
+  aspect-ratio: auto;
+}
+.preset-image {
+  border-radius: 9px;
+}
+.selected-dot {
+  width: 17px;
+  height: 17px;
+  border-radius: 10px;
+  right: -2px;
+  top: -2px;
+}
+</style>

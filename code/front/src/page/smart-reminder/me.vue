@@ -30,12 +30,13 @@
       <button type="button" class="ai-profile sr-card" @click="avatarTarget='ai'"><img :src="profile.aiAvatar||'/avatars/assistant/A3.png'" :alt="mt('AI头像')"/><span><b>{{ mt("我的 AI 助手") }}</b><small>{{ mt("设置专属于你的 AI 头像") }}</small></span><i>{{ mt("更换 ›") }}</i></button>
       <AvatarPicker :kind="avatarTarget" :initial="initial" :open="!!avatarTarget" :title="avatarTarget==='ai'?mt('设置 AI 头像'):mt('设置我的头像')" :value="avatarTarget==='ai'?profile.aiAvatar:profile.avatar" :busy="uploading||saving" @close="avatarTarget=''" @choose="chooseAvatar" @upload="changeAvatar" />
 
-      <div class="friend-tabs">
-        <button :class="{active:friendTab==='friends'}" @click="friendTab='friends'">{{ mt("我的好友") }}<span>{{ friends.length }}</span></button>
-        <button :class="{active:friendTab==='pending'}" @click="friendTab='pending'">{{ mt("申请待通过") }}<span v-if="pendingCount">{{ pendingCount }}</span></button>
+      <div class="friend-tabs social-tabs" role="tablist">
+        <button role="tab" :aria-selected="friendTab==='friends'" :class="{active:friendTab==='friends'}" @click="friendTab='friends'">{{mt('我的好友')}}<span>{{friends.length}}</span></button>
+        <button role="tab" :aria-selected="friendTab==='groups'" :class="{active:friendTab==='groups'}" @click="friendTab='groups'">{{mt('组织')}}<span>{{groups.length}}</span></button>
+        <button role="tab" :aria-selected="friendTab==='pending'" :class="{active:friendTab==='pending'}" @click="friendTab='pending'">{{mt('申请')}}<span v-if="requests.incoming?.length">{{requests.incoming.length}}</span></button>
       </div>
-
-      <div v-if="friendTab==='friends'" class="friend-area">
+      <div class="social-viewport" @touchstart.passive="socialTouchStart" @touchend.passive="socialTouchEnd"><div class="social-track" :style="{transform:'translateX(-'+socialIndex*100+'%)'}">
+        <div class="social-page">      <div class="friend-area">
         <div class="search"><div class="friend-search-input"><UiIcon name="search" /><input v-model.trim="friendKeyword" maxlength="100" class="sr-input" :aria-label="mt('查找现有好友')" :placeholder="mt('查找现有好友')" /></div><button class="sr-button" @click="openAddFriend">{{ mt('添加好友') }}</button></div>
         <el-dialog v-model="searchVisible" :title="mt('添加好友')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog" @closed="resetSearch">
           <form class="search" @submit.prevent="search"><div class="friend-search-input"><input v-model.trim="keyword" maxlength="100" class="sr-input" :aria-label="mt('搜索新好友')" :placeholder="mt('账号（人员号）/ 手机号 / 邮箱')" /></div><button class="sr-button" :disabled="searching||!keyword">{{ searching?mt('查找中'):mt('查找') }}</button></form>
@@ -63,25 +64,11 @@
         </div>
       </div>
 
-      <div v-else class="friend-area">
-        <div class="friend-scroll pending-scroll">
-          <section v-if="requests.incoming?.length" class="sr-card people-card">
-            <h3>{{ mt("等待我处理") }}</h3>
-            <div v-for="item in requests.incoming" :key="item.id" class="person">
-              <div class="sr-avatar"><img v-if="item.avatar" :src="item.avatar" alt=""/><template v-else>{{ userInitial(item) }}</template></div>
-              <div><b>{{ userDisplay(item) }}</b><p>{{ mt(requestTitle(item,true)) }}</p><small>{{ mt(permissionLabel(item.permissionMode,true)) }}</small></div><div class="reply"><button @click="reply(item.id,false)">{{ mt("拒绝") }}</button><button @click="reply(item.id,true)">{{ mt("同意") }}</button></div>
-            </div>
-          </section>
-          <section v-if="requests.outgoing?.length" class="sr-card people-card">
-            <h3>{{ mt("等待对方通过") }}</h3>
-            <div v-for="item in requests.outgoing" :key="item.id" class="person">
-              <div class="sr-avatar"><img v-if="item.avatar" :src="item.avatar" alt=""/><template v-else>{{ userInitial(item) }}</template></div>
-              <div><b>{{ userDisplay(item) }}</b><p>{{ mt(requestTitle(item,false)) }}</p><small>{{ mt(permissionLabel(item.permissionMode)) }}</small></div><span class="relation">{{ mt("待确认") }}</span>
-            </div>
-          </section>
-          <div v-if="!pendingCount" class="sr-card sr-empty">{{ mt("暂无待通过的好友申请") }}</div>
-        </div>
-      </div>
+</div>
+        <div class="social-page"><GroupList :rows="groups" :loading="groupsLoading" :error="groupsError" @create="creatingGroup=true" @retry="loadGroups"/></div>
+        <div class="social-page"><div class="friend-area"><div class="friend-scroll pending-scroll"><section class="sr-card people-card"><div v-for="item in requestItems" :key="item.id" class="person"><div class="sr-avatar"><img v-if="item.avatar" :src="item.avatar" alt=""/><template v-else>{{userInitial(item)}}</template></div><div><b>{{userDisplay(item)}}</b><p>{{mt(applicationDescription(item))}}</p></div><div v-if="item.direction==='incoming'&&item.requestStatus==='PENDING'" class="reply"><button @click="reply(item.id,false)">{{mt('拒绝')}}</button><button @click="reply(item.id,true)">{{mt('接受')}}</button></div><span v-else class="relation">{{mt(applicationStatus(item))}}</span></div><div v-if="!requestItems.length" class="sr-empty">{{mt('暂无好友申请')}}</div></section></div></div></div>
+      </div></div>
+      <GroupEditor :open="creatingGroup" :creating="true" @close="creatingGroup=false" @saved="groupCreated"/>
       <el-dialog v-model="friendDetailVisible" :title="mt('好友资料')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog" :close-on-click-modal="!remarkSaving" :show-close="!remarkSaving" :close-on-press-escape="!remarkSaving">
         <form v-if="selectedFriend" class="profile-edit-form friend-detail-form" @submit.prevent="saveRemark">
           <dl><dt>姓名</dt><dd>{{ selectedFriend.name||selectedFriend.realName||'未填写' }}</dd><dt>账号（人员号）</dt><dd>{{ selectedFriend.account }}</dd><dt>手机号</dt><dd>{{ selectedFriend.phone||'未填写' }}</dd><dt>邮箱</dt><dd>{{ selectedFriend.email||'未填写' }}</dd></dl>
@@ -114,7 +101,9 @@ defineOptions({name:'SmartReminderMe'});
 import {onDeactivated,onActivated} from 'vue';
 import {mt} from './mobileLocale';
 import UiIcon from './UiIcon.vue';
-import {saveFriendRemark} from '@/api/smartReminder';
+import {saveFriendRemark,groupRequest} from '@/api/smartReminder';
+import GroupList from './GroupList.vue';
+import GroupEditor from './GroupEditor.vue';
 import {watch} from 'vue';
 const editingProfile=ref(false),profileDraft=reactive({name:'',phone:'',email:''}),profileErrorMessage=ref('');
 let friendsRevision=0;
@@ -123,9 +112,9 @@ import { useSilentRefresh } from './useSilentRefresh';
 import { silentReminder } from '@/api/smartReminder';
 useSilentRefresh(async current=>{
   const revision=friendsRevision;
-  const [list,pending]=await Promise.all([silentReminder('friends/list'),silentReminder('friends/requests')]);
+  const [list,pending,groupList]=await Promise.all([silentReminder('friends/list'),silentReminder('friends/requests'),silentReminder('groups/list')]);
   if(!current()||revision!==friendsRevision)return;
-  friends.value=list.data.data||[];Object.assign(requests,pending.data.data||{incoming:[],outgoing:[]});
+  friends.value=list.data.data||[];Object.assign(requests,pending.data.data||{incoming:[],outgoing:[]});groups.value=groupList.data.data||[];
 });
 const searchVisible=ref(false),searchError=ref(false);
 const friendKeyword=ref(''),friendDetailVisible=ref(false),selectedFriendId=ref(''),remarkDraft=ref(''),remarkSaving=ref(false),remarkError=ref('');
@@ -157,6 +146,21 @@ const saveProfile=async()=>{
 };
 import { computed, onMounted, reactive, ref } from 'vue';import { useRouter } from 'vue-router';import { useStore } from 'vuex';import { ElMessage,ElMessageBox } from 'element-plus';import AppShell from './AppShell.vue';import { bootstrap,getFriends,getFriendRequests,replyFriend,requestFriend,searchUsers,updateProfile,uploadAvatar,removeFriend } from '@/api/smartReminder';import { withMobileLoading } from './mobileLoading';import AvatarPicker from './AvatarPicker.vue';
 const router=useRouter(),store=useStore(),data=ref({}),profile=reactive({nickname:'',avatar:'',aiAvatar:''}),saving=ref(false),uploading=ref(false),friendTab=ref('friends'),keyword=ref(''),results=ref([]),friends=ref([]),requests=reactive({incoming:[],outgoing:[]}),permissionDialog=reactive({open:false,user:null,type:'FRIEND',mode:'MUTUAL',submitting:false});const avatarTarget=ref(''),searching=ref(false),searched=ref(false),removing=ref(false);
+const groups=ref([]),groupsLoading=ref(false),groupsError=ref(''),creatingGroup=ref(false);
+const socialTabs=['friends','groups','pending'],socialIndex=computed(()=>socialTabs.indexOf(friendTab.value));
+let socialStart=null;
+const socialTouchStart=e=>{socialStart=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null;};
+const socialTouchEnd=e=>{if(!socialStart||!e.changedTouches.length)return;const dx=e.changedTouches[0].clientX-socialStart.x,dy=e.changedTouches[0].clientY-socialStart.y;socialStart=null;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5)friendTab.value=socialTabs[Math.max(0,Math.min(2,socialIndex.value+(dx<0?1:-1)))];};
+const loadGroups=async()=>{groupsLoading.value=!groups.value.length;try{groups.value=(await groupRequest('list')).data.data||[];groupsError.value='';}catch(e){groupsError.value=e.message||mt('读取失败，请重试');}finally{groupsLoading.value=false;}};
+const groupCreated=async group=>{creatingGroup.value=false;friendTab.value='groups';void loadGroups();router.push('/app/group/'+group.id);};
+const requestItems=computed(()=>requests.items||[...(requests.incoming||[]).map(r=>({...r,direction:'incoming',requestStatus:'PENDING'})),...(requests.outgoing||[]).map(r=>({...r,direction:'outgoing',requestStatus:'PENDING'}))]);
+const applicationDescription=item=>{
+  const incoming=item.direction==='incoming',permission=item.requestType==='PERMISSION',status=item.requestStatus;
+  if(status==='PENDING')return permission?(incoming?'请求调整提醒权限':'你申请调整提醒权限'):(incoming?'请求添加你为好友':'你申请添加对方');
+  if(status==='ACCEPTED')return permission?(incoming?'你已接受对方的权限申请':'对方已通过你的权限申请'):(incoming?'你已接受对方的申请':'对方已通过你的申请');
+  if(status==='REJECTED')return incoming?'你已拒绝对方的申请':'对方已拒绝你的申请';return '申请已取消';
+};
+const applicationStatus=item=>item.requestStatus==='PENDING'?'等待对方通过':item.requestStatus==='ACCEPTED'?(item.requestType!=='PERMISSION'&&item.friendActive?'已添加':'已通过'):item.requestStatus==='REJECTED'?'已拒绝':'已取消';
 const permissionOptions=[{value:'I_CAN_REMIND',label:'我可提醒对方',description:'你可以提醒对方，对方不能提醒你'},{value:'THEY_CAN_REMIND',label:'对方可提醒我',description:'对方可以提醒你，你不能提醒对方'},{value:'MUTUAL',label:'互相提醒',description:'双方都可以向对方创建提醒'}];
 const displayName=computed(()=>profile.nickname||data.value.user?.realName||data.value.user?.account||'用户'),initial=computed(()=>displayName.value.slice(0,1)),pendingCount=computed(()=>(requests.incoming?.length||0)+(requests.outgoing?.length||0));
 const userDisplay=u=>u.friendRemark||u.name||u.realName||u.account,userInitial=u=>(userDisplay(u)||'?').slice(0,1),relation=s=>({FRIEND:'已是好友',PENDING_OUT:'已申请',PENDING_IN:'待你同意'}[s]||s);
@@ -177,7 +181,7 @@ const exitSession=async()=>{try{await store.dispatch('LogOut');}catch{await stor
 const logout=async()=>{try{await ElMessageBox.confirm('退出后需要重新登录，聊天与事件记录仍会保留。','退出当前账号？',{confirmButtonText:'退出登录',cancelButtonText:'暂不退出',type:'warning',customClass:'app-logout-confirm',showClose:false,closeOnClickModal:false,autofocus:false});}catch{return;}await exitSession();};
 watch(keyword,()=>{++searchTicket;results.value=[];searched.value=false;searching.value=false;searchError.value=false;});
 watch(selectedFriend,user=>{if(!user)friendDetailVisible.value=false;});
-onMounted(()=>withMobileLoading(()=>Promise.all([loadProfile(),loadFriends()])));
+onMounted(()=>withMobileLoading(()=>Promise.all([loadProfile(),loadFriends(),loadGroups()])));
 let profileActivated=false;
 onActivated(()=>{if(profileActivated)void loadProfile().catch(()=>{});profileActivated=true;});
 onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;friendDetailVisible.value=false;resetSearch();avatarTarget.value='';permissionDialog.open=false;});
@@ -249,4 +253,16 @@ onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;friendDe
 .me-page .logout{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:96px;width:min(calc(100% - 32px),728px);display:flex;align-items:center;justify-content:center;gap:10px;margin:0;height:46px;border:2px solid white;border-radius:18px;background:#fff5f6;box-shadow:0 5px 22px #b9889812;color:#e95356;font-size:16px;font-weight:600;cursor:pointer}
 .me-page .logout .ui-icon{width:22px;height:22px}
 @media(max-width:360px){.me-page .profile{gap:11px;padding:14px 12px}.me-page .avatar-editor{width:50px;height:50px;flex-basis:50px}.nickname-row h1{font-size:17px}.edit-profile{padding:0 8px;font-size:11px}.me-page .profile small{font-size:10px}.me-page .search>.sr-button{padding:0 10px;font-size:12px}.friend-search-input{padding-left:9px;gap:6px}.friend-search-input .sr-input{font-size:12px}.me-page .person{gap:9px}.me-page .permission-change{padding:7px 10px}}
+</style>
+
+<style scoped>
+.me-page{height:calc(100dvh - 110px);min-height:0;overflow:hidden;padding-bottom:0;display:flex;flex-direction:column}
+.me-page .friend-tabs{display:flex;flex:0 0 auto}.me-page .friend-tabs button{flex:1;min-width:0;font-size:14px}
+.social-viewport{overflow:hidden;min-height:0;flex:1;display:flex;touch-action:pan-y}
+.social-track{display:flex;flex:1;min-width:0;width:100%;transition:transform 260ms cubic-bezier(.22,.61,.36,1)}
+.social-page{display:flex;flex:0 0 100%;width:100%;min-width:0;min-height:0;overflow:hidden}
+.me-page .friend-area{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;width:100%}
+.me-page .friend-scroll{flex:1;min-height:0;overflow-y:auto}
+.me-page .logout{position:static;transform:none;width:100%;flex:0 0 46px;margin:12px 0 0}
+.me-page .profile,.me-page .ai-profile{flex-shrink:0}
 </style>

@@ -15,7 +15,7 @@ public class ChatJobIntegrationRegression extends Stage1Regression {
       }
     };
     var config=new FakeConfig(){@Override public String languageInstruction(Long user){return "";}};
-    var actual=new SmartReminderService(db,mapper,ai,config,new SmartFileService(db,ai),new SmartEventContentService(db,mapper,ai),new SmartSocialService(db),new SmartScheduleService(db,mapper,ai));
+    var actual=new SmartReminderService(db,mapper,ai,config,new SmartFileService(db,ai),new SmartEventContentService(db,mapper,ai),new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     var jobs=new ChatJobService(db,mapper,actual,new ChatRunRegistry(),tx.getTransactionManager());
     try{
       var request=new ChatRequest();request.setRequestId("integration000001");request.setContent("停止我的9000事件");jobs.submit(1L,"creator",request);

@@ -28,7 +28,8 @@
             <p v-if="hasScheduleConflict(item)&&item.messageType==='CANDIDATE'" class="schedule-warning">{{ mt("发现不同事项的时间冲突，只有选择“仍要安排”后才会创建并通知接收人。") }}</p>
             <div v-for="(event,index) in payload(item).events || []" :key="index" :class="['candidate-event',eventKind(event)]">
               <b>{{ event.summary }}</b>
-              <p>{{ mt("接收人：") }}{{ (event.recipients || []).map(userName).join('、') }}</p>
+              <p>{{ mt("接收人：") }}{{ (event.groupSelectors?.length ? (event.recipients||[]).slice(0,4) : event.recipients||[]).map(userName).join('、') }}{{event.groupSelectors?.length&&event.recipients?.length>4?'…':''}}</p>
+              <div v-if="event.groupSelectors?.length" class="group-recipient-meta"><span>{{event.recipients?.length||0}} {{mt('人可提醒')}}<small v-if="event.recipientIssues?.length"> · {{event.recipientIssues.length}} {{mt('人需处理权限')}}</small></span><button v-if="item.messageType==='CANDIDATE'" type="button" @click="openPeople(item,index)">{{mt('查看／调整人员')}}</button></div>
               <p>{{ eventKind(event)==='macro' ? mt('目标周期') : mt('事件时间') }}：{{ event.timeDescription || event.eventTime || mt('持续跟进') }}</p>
               <p>{{ eventKind(event)==='macro' ? mt('首次跟进') : mt('首次评估') }}：{{ event.firstEvaluateTime }}</p>
               <label v-if="item.messageType==='CANDIDATE'" class="alarm-choice"><input type="checkbox" :checked="wantsAlarm(item,index,event)" @change="alarmChoices[alarmKey(item,index)]=$event.target.checked" />同时设置本机系统闹铃（iOS 26+）</label>
@@ -112,6 +113,7 @@
       <p class="clear-retained">{{ mt('后台聊天记录仍保留，好友、人员别称和已创建事件不受影响，提醒继续执行。') }}</p>
       <template #footer><button type="button" class="clear-cancel" :disabled="clearing" @click="clearDialog=false">{{ mt('取消') }}</button><button type="button" class="sr-button" :disabled="clearing" @click="clearCurrentContext">{{ clearing?mt('正在清除…'):mt('确认清除') }}</button></template>
     </el-dialog>
+    <CandidatePeople :open="peopleOpen" :candidate-id="peopleCandidate" :event-index="peopleEvent" @close="peopleOpen=false" @saved="peopleSaved"/>
   </AppShell>
 </template>
 
@@ -126,6 +128,7 @@ import VoiceInput from './VoiceInput.vue';
 import { ElMessage } from 'element-plus';
 import AppShell from './AppShell.vue';
 import ReminderDrawer from './ReminderDrawer.vue';
+import CandidatePeople from './CandidatePeople.vue';
 import {pendingChat,rememberPendingChat,clearPendingChat,followChatJob} from './pendingChat';
 import {revealReply} from './revealReply.mjs';
 import {ElMessageBox} from 'element-plus';
@@ -310,15 +313,22 @@ const addFiles=selected=>{for(const raw of selected){if(files.value.length>=6){E
 const upload=e=>{addFiles(Array.from(e.target.files||[]));e.target.value='';};
 const pasteFiles=e=>{const images=Array.from(e.clipboardData?.files||[]).filter(file=>file.type.startsWith('image/'));if(images.length){e.preventDefault();addFiles(images);}};
 const removeFile=key=>{const file=files.value.find(item=>item.key===key);if(file?.previewUrl)URL.revokeObjectURL(file.previewUrl);files.value=files.value.filter(item=>item.key!==key);};
+const peopleOpen=ref(false),peopleCandidate=ref(''),peopleEvent=ref(0);
+const openPeople=(item,index)=>{peopleCandidate.value=String(payload(item).candidateId);peopleEvent.value=index;peopleOpen.value=true;};
+const peopleSaved=async()=>{peopleOpen.value=false;await load();};
 const alarmChoices=reactive({});
 const alarmKey=(item,index)=>String(payload(item).candidateId)+':'+index;
 const wantsAlarm=(item,index,event)=>alarmChoices[alarmKey(item,index)]??(event.alarmRequested===true);
 const confirm=async(id,item)=>{
   const key=String(id||'');if(!key||confirmingId.value||item.messageType!=='CANDIDATE')return;
+  const events=payload(item).events||[];
+  if(events.some(event=>event.groupSelectors?.length&&!event.recipients?.length)){ElMessage.warning(mt('没有可提醒人员，请先查看人员并处理权限'));return;}
+  const partial=events.some(event=>event.recipientIssues?.length);
+  if(partial){try{await ElMessageBox.confirm(mt('部分成员尚未添加好友或没有提醒权限。本次只向事件卡列出的可提醒人员发送，其他成员不会收到。是否继续？'),mt('仅提醒可提醒人员'),{confirmButtonText:mt('确定'),cancelButtonText:mt('取消')});}catch{return;}}
   confirmingId.value=key;
   const choices=(payload(item).events||[]).map((event,index)=>wantsAlarm(item,index,event));
   try{
-    const res=await confirmCandidate(id,hasScheduleConflict(item));
+    const res=await confirmCandidate(id,hasScheduleConflict(item),partial);
     if(res.data.data?.confirmationRequired){ElMessage.warning(mt('发现新的日程冲突，请查看后确认是否仍要安排'));await load();return;}
     item.messageType='CANDIDATE_CONFIRMED';
     window.dispatchEvent(new Event('smart-reminder:badge-refresh'));
@@ -384,4 +394,8 @@ onBeforeUnmount(()=>{disposed=true;pageActive=false;stopLayoutFollow();historyVe
 </style>
 <style>
 .clear-context-dialog.el-dialog{border-radius:22px;padding:22px;box-shadow:0 20px 70px #42537833}.clear-context-dialog .el-dialog__title{font-size:17px;font-weight:650;color:#293958}.clear-context-dialog .el-dialog__header{padding-bottom:16px}.clear-context-dialog .el-dialog__footer{padding-top:20px}.clear-context-dialog .sr-button{border:0;border-radius:12px;min-height:40px;padding:0 20px;background:#4d65ff;color:#fff;cursor:pointer}.clear-context-dialog button:disabled{opacity:.55;cursor:wait}
+</style>
+
+<style scoped>
+.group-recipient-meta{display:grid;gap:4px;margin:8px 0;font-size:11px;color:#8c98af}.group-recipient-meta small{font-size:11px;color:#c88d4e}.candidate .group-recipient-meta button{width:auto;justify-self:start;min-height:0;padding:3px 0;border:0;background:none!important;box-shadow:none;color:#5269df;font-size:12px;cursor:pointer}
 </style>

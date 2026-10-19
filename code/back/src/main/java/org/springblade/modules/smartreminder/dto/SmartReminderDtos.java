@@ -39,6 +39,8 @@ public final class SmartReminderDtos {
 		private String requestId;
 		private String content;
 		private List<Long> fileIds = new ArrayList<>();
+		/** Opt in only when the client can review group recipients and permission issues. */
+		private Boolean supportsGroupRecipients = false;
 	}
 
 	@Data
@@ -56,6 +58,7 @@ public final class SmartReminderDtos {
 	public static class CandidateConfirmRequest {
 		private Long candidateId;
 		private Boolean acceptConflicts = false;
+		private Boolean acceptPartialRecipients = false;
 	}
 
 	@Data
