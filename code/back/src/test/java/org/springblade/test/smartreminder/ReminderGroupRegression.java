@@ -33,11 +33,18 @@ public class ReminderGroupRegression {
         long a=create("校园巡检组"),b=create("迎新专项组");
         check(groups.list(1L).size()==2,"owner sees created groups");
         ReminderGroupDtos.Save bad=new ReminderGroupDtos.Save();bad.setName("学校");bad.setGroupType("ORGANIZATION");denied(()->groups.create(1L,bad));
+        var forbiddenInvite=new ReminderGroupDtos.Members();forbiddenInvite.setGroupId(a);forbiddenInvite.setUserIds(List.of(2L,5L));
+        denied(()->groups.invite(1L,forbiddenInvite));
+        check(groups.members(1L,a).size()==1,"no partial invitation when one friend lacks outgoing reminder permission");
+        db.update("update blade_friendship set permission_mode='MUTUAL' where owner_user_id=1 and friend_user_id=5");
         invite(a,2L,3L,4L,5L);invite(b,2L,3L);
+        db.update("update blade_friendship set permission_mode='THEY_CAN_REMIND' where owner_user_id=1 and friend_user_id=5");
         check(groups.list(2L).size()==2,"invited friend joins without approval");
         check(groups.directory(2L).isEmpty(),"ordinary member has no AI send directory");
         var role=new ReminderGroupDtos.Member();role.setGroupId(a);role.setUserId(2L);role.setRole("ADMIN");groups.role(1L,role);
-        check(groups.directory(2L).size()==1,"admin sees actionable directory");
+        check(groups.directory(2L).isEmpty(),"admin does not receive a group reminder directory");
+        var adminSelector=json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a)));
+        denied(()->groups.select(2L,adminSelector));denied(()->groups.lookup(2L,adminSelector));
         var preview=groups.list(1L).stream().filter(g->Long.toString(a).equals(g.get("id"))).findFirst().orElseThrow();
         check(preview.get("memberPreviews") instanceof List<?> avatars&&avatars.size()==4,"list supplies capped member avatars with total count");
         check(!groups.directory(1L).toString().contains("memberPreviews"),"avatar previews do not bloat AI context");
@@ -74,7 +81,7 @@ public class ReminderGroupRegression {
         check(!Boolean.TRUE.equals(member(2L,a,3L).get("canRemind")),"admin role never grants friendship permission");
         check(!Boolean.TRUE.equals(member(1L,a,5L).get("canRemind")),"one-way permission respected");
         denied(()->groups.select(3L,both));
-        var lookup=groups.lookup(2L,json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a))));
+        var lookup=groups.lookup(1L,json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a))));
         check(!lookup.toString().contains("phone")&&!lookup.toString().contains("email"),"model roster omits unrelated private fields");
         SmartEventContentService content=new SmartEventContentService(db,json,null);
         SmartReminderService service=new SmartReminderService(db,json,null,null,null,content,null,null,groups);
@@ -92,6 +99,7 @@ public class ReminderGroupRegression {
         verifyModelLookup(a,fire,content);
         verifyLegacyCompatibility(content);
         groups.validateSavedRecipients(1L,candidate);
+        denied(()->groups.validateSavedRecipients(2L,candidate));
         db.update("update blade_friendship set permission_mode='THEY_CAN_REMIND' where owner_user_id=1 and friend_user_id=3");denied(()->groups.validateSavedRecipients(1L,candidate));
         db.update("update blade_friendship set permission_mode='MUTUAL' where owner_user_id=1 and friend_user_id=3");
         var remove=new ReminderGroupDtos.Member();remove.setGroupId(a);remove.setUserId(4L);groups.remove(1L,remove);denied(()->groups.validateSavedRecipients(1L,candidate));

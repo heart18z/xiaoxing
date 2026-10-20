@@ -8,7 +8,7 @@
         </view>
         <view class="toolbar-button" @click="openSettings()">
           <UiIcon name="settings" tone="ink" :size="22" />
-          <view v-if="updates.available" class="update-dot" />
+          <view v-if="updates.available || needsNotificationPermission()" class="update-dot" />
         </view>
       </view>
       <view class="card profile">
@@ -479,6 +479,7 @@
 </template>
 <script setup lang="uts">
 import { updates, checkUpdates } from '@/services/updates.uts';
+import { needsNotificationPermission } from '@/services/native.uts';
 // #ifdef WEB
 import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
 // #endif
@@ -942,6 +943,9 @@ onUnload(stopTimer);
 function openSettings() {
   uni.navigateTo({ url: '/pages/settings/index' });
 }
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .social-tabs .segment-item {

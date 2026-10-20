@@ -27,7 +27,10 @@
           </view>
         </view>
         <view class="card">
-          <text class="app-font heading">{{ t('手机通知') }}</text>
+          <view class="notification-title">
+            <text class="app-font heading notification-heading">{{ t('手机通知') }}</text>
+            <view v-if="needsNotificationPermission()" class="notification-dot" />
+          </view>
           <text class="app-font notification-copy">
             {{ notificationStatus() }}
           </text>
@@ -39,11 +42,11 @@
           </text>
           <button
             class="app-font primary notification-button"
-            :disabled="checkingNotification || pushState.busy"
-            :loading="checkingNotification || pushState.busy"
+            :disabled="checkingNotification"
+            :loading="checkingNotification"
             @click="checkNotification()"
           >
-            {{ t(checkingNotification || pushState.busy ? '正在检查通知…' : '开启 / 检查通知') }}
+            {{ t(checkingNotification ? '正在检查通知…' : pushState.permission == 'authorized' ? '通知已开启' : '开启通知') }}
           </button>
           <text
             v-if="notificationFeedback.length > 0"
@@ -62,6 +65,7 @@
           <text v-if="updates.available" class="app-font notification-copy">
             {{ updateNotes() }}
           </text>
+          <UpdateProgress />
           <button
             class="app-font primary notification-button"
             :disabled="updates.checking || updates.installing"
@@ -156,6 +160,7 @@
   />
 </template>
 <script setup lang="uts">
+import UpdateProgress from '@/components/UpdateProgress.uvue';
 import { updates, checkUpdates, installUpdate } from '@/services/updates.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
@@ -177,6 +182,9 @@ import {
   pushState as _pushState,
   syncPush as _syncPush,
   callNative,
+  refreshNotificationPermission,
+  requestNotificationPermission,
+  needsNotificationPermission,
   logout,
 } from '@/services/native.uts';
 function syncPush(requestPermission: boolean = false): Promise<void> {
@@ -363,6 +371,9 @@ async function openSettings() {
   }
 }
 function notificationStatus(): string {
+  if (!pushState.checked) return t('正在检查通知权限…');
+  if (needsNotificationPermission()) return t('通知权限尚未开启，可能无法收到事件提醒。点击下方按钮开启。');
+  if (pushState.supported && !pushState.registered) return t('通知权限已开启，正在准备设备提醒服务。');
   // #ifdef APP-ANDROID
   return pushState.registered
     ? t('后台接收已开启。请保留应用在后台运行，系统限制后台运行时可能延迟接收。')
@@ -377,40 +388,31 @@ function notificationStatus(): string {
   // #endif
 }
 async function checkNotification(): Promise<void> {
-  if (checkingNotification.value || pushState.busy) return;
+  if (checkingNotification.value) return;
   checkingNotification.value = true;
-  notificationFeedback.value = t('正在检查通知权限和设备绑定…');
+  notificationFeedback.value = t('正在检查通知权限…');
   toast(notificationFeedback.value);
   try {
-    if (pushState.permission == 'denied') {
-      const result = await callNative('settings');
-      notificationFeedback.value = t(
-        result['supported'] == false
-          ? '请在手机 App 中管理通知权限'
-          : '请在系统设置中允许通知，返回后将重新检查',
-      );
+    await refreshNotificationPermission();
+    if (pushState.permission == 'authorized') {
+      notificationFeedback.value = t('通知已开启');
     } else {
-      await syncPush(true);
-      notificationFeedback.value =
-        pushState.error.length > 0
-          ? pushState.error
-          : t(
-              pushState.registered
-                ? '检查完成，通知已开启，设备已绑定'
-                : pushState.permission == 'denied'
-                  ? '通知未获允许，请在系统设置中开启'
-                  : pushState.supported
-                    ? '检查完成，设备尚未完成绑定，请稍后重试'
-                    : '请在手机 App 中开启通知',
-            );
+      const result = await requestNotificationPermission();
+      notificationFeedback.value = t(
+        !pushState.supported ? '请在手机 App 中开启通知'
+          : pushState.permission == 'authorized' ? '通知已开启'
+            : result['settingsOpened'] == true ? '请在系统设置中允许通知，返回后将重新检查'
+              : '通知尚未开启，可再次点击开启通知',
+      );
     }
+    if (pushState.permission == 'authorized') void syncPush();
   } catch (e) {
     notificationFeedback.value = message(e);
   } finally {
     checkingNotification.value = false;
     toast(
       notificationFeedback.value,
-      notificationFeedback.value == t('检查完成，通知已开启，设备已绑定') ? 'success' : 'info',
+      pushState.permission == 'authorized' ? 'success' : 'info',
     );
   }
 }
@@ -422,14 +424,21 @@ function updateAction() {
   else void checkUpdates(true);
 }
 onShow(() => {
+  void refreshNotificationPermission().catch(() => {});
   if (requireSession()) {
     void load();
     if (!updates.installing) void checkUpdates(true);
     void syncPush();
   }
 });
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
+.notification-title { flex-direction: row; align-items: center; margin-bottom: 16px; }
+.notification-heading { margin-bottom: 0; }
+.notification-dot { width: 7px; height: 7px; border-radius: 4px; background-color: #ef536b; margin-left: 8px; }
 .update-dot {
   width: 8px;
   height: 8px;

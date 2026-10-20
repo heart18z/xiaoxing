@@ -397,7 +397,6 @@ async function save() {
   width: 100%;
   height: 54px;
   align-self: center;
-  aspect-ratio: auto;
 }
 .preset-image {
   border-radius: 9px;

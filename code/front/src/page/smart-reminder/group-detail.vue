@@ -1,7 +1,7 @@
 <template>
   <div class="group-page">
-    <AppShell class="group-shell" variant="profile" :back="true"
-      ><div class="group-screen">
+    <AppShell class="group-shell" variant="profile" :back="true">
+      <div class="group-screen">
         <div class="group-nav">
           <div class="nav-circle" @click="goBack()">
             <UiIcon name="chevron" tone="blue" :size="23" class="back-icon" />
@@ -12,19 +12,17 @@
         <div class="detail-scroll">
           <div class="detail-body">
             <div v-if="error.length > 0" class="surface">
-              <span class="app-font error">{{ t(error) }}</span
-              ><button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
+              <span class="app-font error">{{ t(error) }}</span>
+              <button class="app-font secondary" @click="load()">{{ t('重新加载') }}</button>
             </div>
             <div v-else-if="s(group, 'id').length > 0">
               <div class="surface hero-card">
                 <div class="hero-row">
                   <div class="hero-picture" @click="manager && (editing = true)">
-                    <img
-                      class="hero-avatar"
-                      :src="asset(s(group, 'avatar', groupAvatars[0]))"
-                    /><span class="app-font avatar-caption">{{
-                      t(manager ? '点击头像可更换' : '群组头像')
-                    }}</span>
+                    <img class="hero-avatar" :src="asset(s(group, 'avatar', groupAvatars[0]))" />
+                    <span class="app-font avatar-caption">
+                      {{ t(manager ? '点击头像可更换' : '群组头像') }}
+                    </span>
                   </div>
                   <div class="hero-copy">
                     <div class="hero-title-row" @click="manager && (editing = true)">
@@ -34,11 +32,13 @@
                       </div>
                     </div>
                     <div class="hero-title-row intro-row" @click="manager && (editing = true)">
-                      <span class="app-font introduction">{{
-                        s(group, 'introduction').length > 0
-                          ? s(group, 'introduction')
-                          : t('暂无介绍')
-                      }}</span>
+                      <span class="app-font introduction">
+                        {{
+                          s(group, 'introduction').length > 0
+                            ? s(group, 'introduction')
+                            : t('暂无介绍')
+                        }}
+                      </span>
                       <div v-if="manager" class="pencil-dot">
                         <UiIcon name="edit" tone="muted" :size="14" />
                       </div>
@@ -47,42 +47,31 @@
                 </div>
                 <div class="hero-actions">
                   <div v-if="role == 'OWNER'" class="hero-action" @click="openInvite()">
-                    <UiIcon name="userPlus" tone="blue" :size="22" /><span
-                      class="app-font hero-action-text"
-                      >{{ t('邀请好友') }}</span
-                    >
+                    <UiIcon name="userPlus" tone="blue" :size="22" />
+                    <span class="app-font hero-action-text">{{ t('邀请好友') }}</span>
                   </div>
                   <div v-if="role == 'OWNER'" class="hero-action" @click="openAdmins()">
-                    <UiIcon name="settings" tone="blue" :size="21" /><span
-                      class="app-font hero-action-text"
-                      >{{ t('设置管理员') }}</span
-                    >
+                    <UiIcon name="settings" tone="blue" :size="21" />
+                    <span class="app-font hero-action-text">{{ t('设置管理员') }}</span>
                   </div>
                   <div v-if="role == 'OWNER'" class="hero-action action-danger" @click="dissolve()">
-                    <UiIcon name="trash" tone="red" :size="21" /><span
-                      class="app-font hero-action-text danger-text"
-                      >{{ t('解散群') }}</span
-                    >
+                    <UiIcon name="trash" tone="red" :size="21" />
+                    <span class="app-font hero-action-text danger-text">{{ t('解散群') }}</span>
                   </div>
                   <div v-else class="hero-action" @click="editSelfTags()">
-                    <UiIcon name="tag" tone="blue" :size="21" /><span
-                      class="app-font hero-action-text"
-                      >{{ t('我的标签') }}</span
-                    >
+                    <UiIcon name="tag" tone="blue" :size="21" />
+                    <span class="app-font hero-action-text">{{ t('我的标签') }}</span>
                   </div>
                 </div>
               </div>
               <div class="surface tags-card">
                 <div class="section-heading">
-                  <UiIcon name="layers" tone="blue" :size="24" /><span
-                    class="app-font section-title grow"
-                    >{{ t('群组标签') }}</span
-                  >
+                  <UiIcon name="layers" tone="blue" :size="24" />
+                  <span class="app-font section-title grow">{{ t('群组标签') }}</span>
                   <div v-if="manager" class="unified-action" @click="openCatalog()">
-                    <UiIcon name="settings" tone="blue" :size="15" /><span
-                      class="app-font unified-text"
-                      >{{ t('统一设置') }}</span
-                    ><UiIcon name="chevron" :size="14" />
+                    <UiIcon name="settings" tone="blue" :size="15" />
+                    <span class="app-font unified-text">{{ t('统一设置') }}</span>
+                    <UiIcon name="chevron" :size="14" />
                   </div>
                 </div>
                 <div class="tag-wrap group-tags">
@@ -92,20 +81,19 @@
                     :class="['tag-pill', groupTagTone(s(tag, 'name'))]"
                     @click="manager && editCatalogTag(tag)"
                   >
-                    <span class="app-font tag-label">{{ s(tag, 'name') }}</span
-                    ><span class="app-font tag-count">{{ n(tag, 'memberCount') }}</span>
+                    <span class="app-font tag-label">{{ s(tag, 'name') }}</span>
+                    <span class="app-font tag-count">{{ n(tag, 'memberCount') }}</span>
                   </div>
-                  <span v-if="tags.length == 0" class="app-font small-muted">{{
-                    t('暂无标签')
-                  }}</span>
+                  <span v-if="tags.length == 0" class="app-font small-muted">
+                    {{ t('暂无标签') }}
+                  </span>
                 </div>
               </div>
               <div class="surface members-card">
                 <div class="section-heading member-heading">
-                  <UiIcon name="people" tone="blue" :size="24" /><span
-                    class="app-font section-title"
-                    >{{ t('群员列表') }}</span
-                  ><span class="app-font count-text">{{ members.length }} {{ t('人') }}</span>
+                  <UiIcon name="people" tone="blue" :size="24" />
+                  <span class="app-font section-title">{{ t('群员列表') }}</span>
+                  <span class="app-font count-text">{{ members.length }} {{ t('人') }}</span>
                 </div>
                 <div v-for="person in members" :key="s(person, 'id')" class="member-row">
                   <img
@@ -116,20 +104,18 @@
                     <div class="member-top">
                       <span class="app-font member-name grow">{{ groupPersonName(person) }}</span>
                       <div v-if="canEdit(person)" class="row-action" @click="openPerson(person)">
-                        <UiIcon name="edit" tone="blue" :size="12" /><span
-                          class="app-font row-action-text"
-                          >{{ t('编辑') }}</span
-                        >
+                        <UiIcon name="edit" tone="blue" :size="12" />
+                        <span class="app-font row-action-text">{{ t('编辑') }}</span>
                       </div>
                       <div
                         v-if="role == 'OWNER' && s(person, 'memberRole') != 'OWNER'"
                         class="row-action row-danger"
                         @click="removePerson(person)"
                       >
-                        <UiIcon name="userMinus" tone="red" :size="12" /><span
-                          class="app-font row-action-text danger-text"
-                          >{{ t('移出群组') }}</span
-                        >
+                        <UiIcon name="userMinus" tone="red" :size="12" />
+                        <span class="app-font row-action-text danger-text">
+                          {{ t('移出群组') }}
+                        </span>
                       </div>
                     </div>
                     <span class="app-font small-muted">@{{ s(person, 'account') }}</span>
@@ -158,8 +144,9 @@
                           arr(person, 'tags').length == 0 && s(person, 'memberRole') == 'MEMBER'
                         "
                         class="app-font no-tag"
-                        >{{ t('未设置标签') }}</span
                       >
+                        {{ t('未设置标签') }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -170,8 +157,8 @@
             </div>
           </div>
         </div>
-      </div></AppShell
-    >
+      </div>
+    </AppShell>
     <GroupEditor :open="editing" :group="group" @close="editing = false" @saved="metadataSaved" />
     <GroupDialog
       :open="inviting"
@@ -183,54 +170,59 @@
       @close="inviting = false"
     >
       <div class="search-box">
-        <UiIcon name="search" :size="21" /><input
+        <UiIcon name="search" :size="21" />
+        <input
           class="app-font search-input"
           v-model="inviteQuery"
           :placeholder="t('搜索好友名称或账号')"
         />
       </div>
       <div class="selection-count">
-        <span class="app-font small-muted">{{ t('已选择') }}</span
-        ><span class="app-font selection-number">{{ inviteIds.length }}</span
-        ><span class="app-font small-muted">{{ t('人') }}</span>
+        <span class="app-font small-muted">{{ t('已选择') }}</span>
+        <span class="app-font selection-number">{{ inviteIds.length }}</span>
+        <span class="app-font small-muted">{{ t('人') }}</span>
       </div>
-      <span v-if="friendsLoading" class="app-font small-muted">{{ t('正在读取…') }}</span
-      ><span v-else-if="availableFriends.length == 0" class="app-font small-muted">{{
-        t('暂无可邀请好友')
-      }}</span>
+      <span v-if="friendsLoading" class="app-font small-muted">{{ t('正在读取…') }}</span>
+      <span v-else-if="availableFriends.length == 0" class="app-font small-muted">
+        {{ t('暂无可邀请好友') }}
+      </span>
       <div
         v-for="friend in availableFriends"
         :key="s(friend, 'id')"
-        class="picker-row"
+        :class="['picker-row', canInviteFriend(friend) ? '' : 'invite-disabled']"
         @click="toggleInvite(s(friend, 'id'))"
       >
         <img class="picker-avatar" :src="asset(s(friend, 'avatar', '/avatars/user/B1.png'))" />
         <div class="grow">
-          <span class="app-font member-name">{{ groupPersonName(friend) }}</span
-          ><span class="app-font small-muted">@{{ s(friend, 'account') }}</span>
+          <span class="app-font member-name">{{ groupPersonName(friend) }}</span>
+          <span class="app-font small-muted">@{{ s(friend, 'account') }}</span>
+          <span v-if="!canInviteFriend(friend)" class="app-font invite-reason">
+            {{ t('暂无向对方发起提醒的权限') }}
+          </span>
         </div>
         <div :class="['check-circle', inviteIds.includes(s(friend, 'id')) ? 'check-selected' : '']">
           <UiIcon v-if="inviteIds.includes(s(friend, 'id'))" name="check" tone="white" :size="18" />
         </div>
       </div>
-      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span
-      ><template #footer
-        ><div class="form-actions">
+      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span>
+      <template #footer>
+        <div class="form-actions">
           <button
             class="app-font secondary form-button"
             :disabled="saving"
             @click="inviting = false"
           >
-            {{ t('取消') }}</button
-          ><button
+            {{ t('取消') }}
+          </button>
+          <button
             class="app-font primary form-button submit-button"
             :disabled="saving || friendsLoading || inviteIds.length == 0"
             @click="invite()"
           >
             {{ t('发送邀请') }}
           </button>
-        </div></template
-      >
+        </div>
+      </template>
     </GroupDialog>
     <GroupDialog
       :open="personOpen"
@@ -247,15 +239,14 @@
           :src="asset(s(selected, 'avatar', '/avatars/user/B1.png'))"
         />
         <div class="grow">
-          <span class="app-font person-profile-name">{{ groupPersonName(selected) }}</span
-          ><span class="app-font profile-account">@{{ s(selected, 'account') }}</span>
+          <span class="app-font person-profile-name">{{ groupPersonName(selected) }}</span>
+          <span class="app-font profile-account">@{{ s(selected, 'account') }}</span>
         </div>
       </div>
       <div class="tag-section">
         <div class="section-heading">
-          <UiIcon name="tag" tone="blue" :size="19" /><span class="app-font modal-section-title">{{
-            t('当前标签')
-          }}</span>
+          <UiIcon name="tag" tone="blue" :size="19" />
+          <span class="app-font modal-section-title">{{ t('当前标签') }}</span>
         </div>
         <div class="tag-wrap">
           <div
@@ -264,19 +255,18 @@
             :class="['tag-pill', groupTagTone(label)]"
             @click="togglePersonTag(label)"
           >
-            <span class="app-font tag-label">{{ label }}</span
-            ><UiIcon v-if="canEditPerson" name="close" :size="13" />
+            <span class="app-font tag-label">{{ label }}</span>
+            <UiIcon v-if="canEditPerson" name="close" :size="13" />
           </div>
-          <span v-if="personTags.length == 0" class="app-font small-muted">{{
-            t('未设置标签')
-          }}</span>
+          <span v-if="personTags.length == 0" class="app-font small-muted">
+            {{ t('未设置标签') }}
+          </span>
         </div>
       </div>
       <div v-if="canEditPerson" class="tag-section">
         <div class="section-heading">
-          <UiIcon name="plus" tone="blue" :size="19" /><span class="app-font modal-section-title">{{
-            t('添加标签')
-          }}</span>
+          <UiIcon name="plus" tone="blue" :size="19" />
+          <span class="app-font modal-section-title">{{ t('添加标签') }}</span>
         </div>
         <div class="tag-wrap">
           <div
@@ -285,9 +275,8 @@
             :class="['tag-pill', groupTagTone(s(tag, 'name'))]"
             @click="togglePersonTag(s(tag, 'name'))"
           >
-            <UiIcon name="plus" tone="blue" :size="14" /><span class="app-font tag-label">{{
-              s(tag, 'name')
-            }}</span>
+            <UiIcon name="plus" tone="blue" :size="14" />
+            <span class="app-font tag-label">{{ s(tag, 'name') }}</span>
           </div>
         </div>
         <div v-if="addingPersonTag" class="new-tag-input">
@@ -304,21 +293,21 @@
           </div>
         </div>
         <div v-else class="new-tag-button" @click="addingPersonTag = true">
-          <UiIcon name="plus" tone="blue" :size="18" /><span class="app-font new-tag-label">{{
-            t('新建标签')
-          }}</span>
+          <UiIcon name="plus" tone="blue" :size="18" />
+          <span class="app-font new-tag-label">{{ t('新建标签') }}</span>
         </div>
       </div>
-      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span
-      ><template #footer
-        ><div class="form-actions">
+      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span>
+      <template #footer>
+        <div class="form-actions">
           <button
             class="app-font secondary form-button"
             :disabled="saving"
             @click="personOpen = false"
           >
-            {{ t('取消') }}</button
-          ><button
+            {{ t('取消') }}
+          </button>
+          <button
             v-if="canEditPerson"
             class="app-font primary form-button submit-button"
             :disabled="saving"
@@ -326,8 +315,8 @@
           >
             {{ t('保存') }}
           </button>
-        </div></template
-      >
+        </div>
+      </template>
     </GroupDialog>
     <GroupDialog
       :open="adminsOpen"
@@ -339,65 +328,62 @@
       @close="adminsOpen = false"
     >
       <div class="admin-note">
-        <UiIcon name="tipInfo" tone="blue" :size="18" /><span class="app-font admin-note-text">{{
-          t('仅可从当前群成员中新增管理员')
-        }}</span>
+        <UiIcon name="tipInfo" tone="blue" :size="18" />
+        <span class="app-font admin-note-text">{{ t('仅可从当前群成员中新增管理员') }}</span>
       </div>
       <div class="section-heading admin-heading">
-        <span class="app-font crown">♔</span
-        ><span class="app-font modal-section-title">{{ t('当前管理员') }}</span
-        ><span class="app-font small-muted">{{ currentAdmins.length }} {{ t('人') }}</span>
+        <span class="app-font crown">♔</span>
+        <span class="app-font modal-section-title">{{ t('当前管理员') }}</span>
+        <span class="app-font small-muted">{{ currentAdmins.length }} {{ t('人') }}</span>
       </div>
       <div v-for="person in currentAdmins" :key="s(person, 'id')" class="picker-row admin-person">
         <img class="picker-avatar" :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))" />
         <div class="grow">
-          <span class="app-font member-name">{{ groupPersonName(person) }}</span
-          ><span class="app-font small-muted">@{{ s(person, 'account') }}</span>
+          <span class="app-font member-name">{{ groupPersonName(person) }}</span>
+          <span class="app-font small-muted">@{{ s(person, 'account') }}</span>
         </div>
-        <span v-if="s(person, 'memberRole') == 'OWNER'" class="app-font owner-fixed">{{
-          t('群主')
-        }}</span>
+        <span v-if="s(person, 'memberRole') == 'OWNER'" class="app-font owner-fixed">
+          {{ t('群主') }}
+        </span>
         <div v-else class="row-action row-danger" @click="toggleAdmin(s(person, 'id'))">
-          <UiIcon name="trash" tone="red" :size="14" /><span
-            class="app-font row-action-text danger-text"
-            >{{ t('移除') }}</span
-          >
+          <UiIcon name="trash" tone="red" :size="14" />
+          <span class="app-font row-action-text danger-text">{{ t('移除') }}</span>
         </div>
       </div>
       <div class="section-heading admin-heading admin-divider">
-        <UiIcon name="people" tone="blue" :size="21" /><span class="app-font modal-section-title">{{
-          t('选择群成员')
-        }}</span
-        ><span class="app-font small-muted">{{ availableAdmins.length }} {{ t('人') }}</span>
+        <UiIcon name="people" tone="blue" :size="21" />
+        <span class="app-font modal-section-title">{{ t('选择群成员') }}</span>
+        <span class="app-font small-muted">{{ availableAdmins.length }} {{ t('人') }}</span>
       </div>
       <div v-for="person in availableAdmins" :key="s(person, 'id')" class="picker-row admin-person">
         <img class="picker-avatar" :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))" />
         <div class="grow">
-          <span class="app-font member-name">{{ groupPersonName(person) }}</span
-          ><span class="app-font small-muted">@{{ s(person, 'account') }}</span>
+          <span class="app-font member-name">{{ groupPersonName(person) }}</span>
+          <span class="app-font small-muted">@{{ s(person, 'account') }}</span>
         </div>
         <div class="outline-action" @click="toggleAdmin(s(person, 'id'))">
           <span class="app-font row-action-text">{{ t('设为管理员') }}</span>
         </div>
       </div>
-      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span
-      ><template #footer
-        ><div class="form-actions">
+      <span v-if="formError.length > 0" class="app-font error">{{ t(formError) }}</span>
+      <template #footer>
+        <div class="form-actions">
           <button
             class="app-font secondary form-button"
             :disabled="saving"
             @click="adminsOpen = false"
           >
-            {{ t('取消') }}</button
-          ><button
+            {{ t('取消') }}
+          </button>
+          <button
             class="app-font primary form-button submit-button"
             :disabled="saving"
             @click="saveAdmins()"
           >
             {{ t('保存') }}
           </button>
-        </div></template
-      >
+        </div>
+      </template>
     </GroupDialog>
     <GroupDialog
       :open="catalogOpen"
@@ -620,7 +606,12 @@ async function openInvite() {
     friendsLoading.value = false;
   }
 }
+function canInviteFriend(person) {
+  return ['MUTUAL', 'I_CAN_REMIND'].includes(s(person, 'permissionMode'));
+}
 function toggleInvite(id) {
+  const person = friends.value.find((p) => s(p, 'id') == id);
+  if (saving.value || person == null || !canInviteFriend(person)) return;
   if (!saving.value) inviteIds.value = toggleSelection(inviteIds.value, id);
 }
 async function invite() {
@@ -1444,5 +1435,29 @@ onMounted(load);
 .catalog-row .tag-pill {
   align-self: flex-start;
   margin-bottom: 0;
+}
+.nav-title,
+.hero-name,
+.section-title,
+.member-name,
+.person-profile-name,
+.modal-section-title {
+  font-weight: 700;
+}
+.hero-action-text,
+.unified-text,
+.row-action-text,
+.tag-label,
+.form-button {
+  font-weight: 600;
+}
+.invite-disabled {
+  opacity: 0.45;
+}
+.invite-reason {
+  font-size: 11px;
+  line-height: 18px;
+  color: #7d8799;
+  margin-top: 3px;
 }
 </style>

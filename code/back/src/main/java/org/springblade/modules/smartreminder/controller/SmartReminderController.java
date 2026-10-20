@@ -226,9 +226,15 @@ public class SmartReminderController {
 	}
 
 	@PostMapping("/files/preview")
-	public R<Object> filePreview(@RequestParam Long id, @RequestParam(defaultValue="false") boolean full) {
+	public R<Object> filePreview(@RequestParam Long id, @RequestParam(defaultValue="false") boolean full,
+        @RequestParam(required=false) Long eventId,@RequestParam(required=false) Long participantUserId,@RequestParam(required=false) Long messageId) {
 		AppRoleGuard.requireAppUser();
-		return R.data(fileService.preview(id, AuthUtil.getUserId(),full));
+		Long owner=AuthUtil.getUserId();
+        if(eventId!=null) {
+            if(messageId==null)throw new org.springblade.core.log.exception.ServiceException("缺少对话消息标识");
+            owner=reminderService.conversationAttachmentOwner(eventId,participantUserId,messageId,id);
+        }
+        return R.data(fileService.preview(id,owner,full));
 	}
 
     /** QR codes contain only a public account identifier, never a login credential. */

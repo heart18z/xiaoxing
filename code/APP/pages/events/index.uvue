@@ -86,6 +86,7 @@
   </AppFrame>
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 import { ref, computed } from 'vue';
 import UiIcon from '@/components/UiIcon.uvue';
 import EventList from '@/components/EventList.uvue';
@@ -233,6 +234,9 @@ onShow(() => {
 });
 onHide(stop);
 onUnload(stop);
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .event-pager {

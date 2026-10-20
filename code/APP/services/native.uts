@@ -16,6 +16,7 @@ import {
 import { resetChat } from './chat.uts';
 export type PushState = {
   supported: boolean;
+  checked: boolean;
   permission: string;
   registered: boolean;
   error: string;
@@ -23,11 +24,33 @@ export type PushState = {
 };
 export const pushState = reactive<PushState>({
   supported: false,
+  checked: false,
   permission: 'unknown',
   registered: false,
   error: '',
   busy: false,
 });
+let notificationPermissionSerial: Promise<void> = Promise.resolve();
+export function needsNotificationPermission(): boolean {
+  return pushState.checked && pushState.supported && pushState.permission != 'authorized';
+}
+function notificationPermission(action: string): Promise<UTSJSONObject> {
+  const result = notificationPermissionSerial.catch(() => {}).then(async (): Promise<UTSJSONObject> => {
+    const state = await callNative(action);
+    pushState.supported = b(state, 'supported');
+    pushState.permission = s(state, 'permission', 'unsupported');
+    pushState.checked = true;
+    return state;
+  });
+  notificationPermissionSerial = result.then(() => {}).catch(() => {});
+  return result;
+}
+export function refreshNotificationPermission(firstLaunch: boolean = false): Promise<UTSJSONObject> {
+  return notificationPermission(firstLaunch ? 'push.onboarding' : 'push.permission');
+}
+export function requestNotificationPermission(): Promise<UTSJSONObject> {
+  return notificationPermission('push.authorize');
+}
 export function callNative(action: string, input: UTSJSONObject = {}): Promise<UTSJSONObject> {
   return new Promise<UTSJSONObject>((resolve, reject) =>
     nativeCall(action, JSON.stringify(input), (json: string) => {
@@ -147,6 +170,7 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
     });
     pushState.supported = b(androidState, 'supported');
     pushState.permission = s(androidState, 'permission');
+    pushState.checked = true;
     pushState.registered = b(androidState, 'registered');
     pushState.error = s(androidState, 'message');
     return;
@@ -165,6 +189,7 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
       if (owner != session.userId || revision != session.revision) return;
       pushState.supported = b(state, 'supported');
       pushState.permission = s(state, 'permission', 'unsupported');
+      pushState.checked = true;
       pushState.error = '';
       if (!pushState.supported) return;
       if (pushState.permission == 'denied') {
@@ -215,6 +240,8 @@ export async function checkNotificationTap(): Promise<void> {
 }
 export async function startNative(): Promise<void> {
   await callNative('initialize');
+  // Device permission can be requested on first launch, before the user logs in.
+  await refreshNotificationPermission(true).catch((e) => { pushState.error = message(e); });
   // #ifdef APP-ANDROID
   if (alarmTimer > 0) clearInterval(alarmTimer);
   alarmTimer = setInterval(() => { void refreshRingingAlarm().catch(() => {}); }, 1000);

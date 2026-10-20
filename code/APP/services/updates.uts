@@ -2,36 +2,125 @@ import { reactive } from 'vue';
 import { reminder, headers } from '@/api/request.uts';
 import { BASE_URL } from '@/config/environment.uts';
 import { callNative } from '@/services/native.uts';
-import { obj, s, n, message } from '@/core/json.uts';
-export type UpdateState = { supported: boolean; checking: boolean; installing: boolean; available: boolean; current: string; feedback: string; release: UTSJSONObject; };
-export const updates = reactive<UpdateState>({ supported: false, checking: false, installing: false, available: false, current: '', feedback: '', release: {} });
+import { session } from '@/store/session.uts';
+import { obj, s, n, b, message } from '@/core/json.uts';
+export type UpdateState = {
+  supported: boolean;
+  checking: boolean;
+  installing: boolean;
+  available: boolean;
+  required: boolean;
+  prompt: boolean;
+  progress: number;
+  downloaded: number;
+  total: number;
+  current: string;
+  feedback: string;
+  release: UTSJSONObject;
+};
+export const updates = reactive<UpdateState>({
+  supported: false,
+  checking: false,
+  installing: false,
+  available: false,
+  required: false,
+  prompt: false,
+  progress: 0,
+  downloaded: 0,
+  total: 0,
+  current: '',
+  feedback: '',
+  release: {},
+});
 let checkedAt: number = 0;
+let promptedVersion: number = 0;
+let checkGeneration: number = 0;
+let installGeneration: number = 0;
+export function resetUpdateSession(): void {
+  checkGeneration++;
+  installGeneration++;
+  checkedAt = 0;
+  promptedVersion = 0;
+  updates.checking = false;
+  updates.prompt = false;
+  updates.required = false;
+  updates.available = false;
+}
+export function dismissUpdate(): void {
+  if (!updates.required && !updates.installing) updates.prompt = false;
+}
 export async function checkUpdates(force: boolean = false): Promise<void> {
   // #ifdef APP-ANDROID
   updates.supported = true;
-  if (updates.checking || (!force && Date.now() - checkedAt < 300000)) return;
+  if (
+    session.userId.length == 0 ||
+    updates.checking ||
+    updates.installing ||
+    (!force && Date.now() - checkedAt < 300000)
+  )
+    return;
+  const owner = session.userId,
+    generation = ++checkGeneration;
   updates.checking = true;
-  updates.feedback = '正在检查更新…';
   try {
     const local = await callNative('update.info');
-    updates.current = s(local, 'versionName') + ' (' + n(local, 'versionCode') + ')';
-    const latest = obj(await reminder('releases/latest'), 'value');
+    const code = n(local, 'versionCode');
+    if (generation != checkGeneration || owner != session.userId) return;
+    updates.current = s(local, 'versionName') + ' (' + code + ')';
+    const latest = obj(
+      await reminder('releases/latest', null, { currentVersionCode: code }),
+      'value',
+    );
+    if (generation != checkGeneration || owner != session.userId) return;
     updates.release = latest;
-    updates.available = n(latest, 'versionCode') > n(local, 'versionCode');
-    updates.feedback = updates.available ? '发现新版本 ' + s(latest, 'versionName') + ' (' + n(latest, 'versionCode') + ')' : '当前已是最新版本';
-    if (updates.available && n(local, 'pendingVersionCode') > n(local, 'versionCode')) {
-      updates.feedback = '上次更新尚未完成，当前仍为 ' + updates.current + '，请重新下载安装';
+    updates.available = s(latest, 'id').length > 0 && n(latest, 'versionCode') > code;
+    updates.required = updates.available && (b(latest, 'required') || b(latest, 'forceUpdate'));
+    updates.feedback = updates.available
+      ? '发现新版本 ' + s(latest, 'versionName') + ' (' + n(latest, 'versionCode') + ')'
+      : '当前已是最新版本';
+    if (updates.available && n(local, 'pendingVersionCode') > code)
+      updates.feedback = '上次更新尚未完成，请重新下载安装';
+    if (updates.available && (updates.required || promptedVersion != n(latest, 'versionCode'))) {
+      promptedVersion = n(latest, 'versionCode');
+      updates.prompt = true;
+      uni.hideKeyboard();
     }
+    if (!updates.available) updates.prompt = false;
     checkedAt = Date.now();
-  } catch (e) { updates.feedback = '检查失败：' + message(e); }
-  finally { updates.checking = false; }
+  } catch (e) {
+    if (generation == checkGeneration && owner == session.userId)
+      updates.feedback = '检查失败：' + message(e);
+  } finally {
+    if (generation == checkGeneration) updates.checking = false;
+  }
   // #endif
 }
 export async function installUpdate(): Promise<void> {
   // #ifdef APP-ANDROID
   if (updates.installing || !updates.available) return;
+  const owner = session.userId;
+  const run = ++installGeneration;
   updates.installing = true;
-  updates.feedback = '正在下载安装包，请稍候…';
+  updates.progress = 0;
+  updates.downloaded = 0;
+  updates.total = n(updates.release, 'fileSize');
+  updates.feedback = '正在下载安装包…';
+  let polling = false;
+  const timer = setInterval(() => {
+    if (polling) return;
+    polling = true;
+    void callNative('update.status')
+      .then((status: UTSJSONObject) => {
+        if (run != installGeneration || owner != session.userId || !updates.installing) return;
+        updates.progress = n(status, 'progress');
+        updates.downloaded = n(status, 'downloaded');
+        if (s(status, 'phase') == 'VERIFYING') updates.feedback = '下载完成，正在校验安装包…';
+      })
+      .catch(() => {})
+      .finally(() => {
+        polling = false;
+      });
+  }, 250);
   try {
     const result = await callNative('update.install', {
       url: BASE_URL + '/app/reminder/releases/' + s(updates.release, 'id') + '/apk',
@@ -40,8 +129,22 @@ export async function installUpdate(): Promise<void> {
       fileSize: n(updates.release, 'fileSize'),
       versionCode: n(updates.release, 'versionCode'),
     });
-    updates.feedback = result['permissionRequired'] == true ? '请允许安装此来源的应用，返回后再点下载安装' : '已打开系统安装页面，请确认安装';
-  } catch (e) { updates.feedback = '更新失败：' + message(e); }
-  finally { updates.installing = false; }
+    if (run != installGeneration || owner != session.userId) return;
+    if (b(result, 'permissionRequired')) {
+      updates.progress = 0;
+      updates.feedback = '请允许安装此来源的应用，返回后再点下载安装';
+    } else {
+      updates.progress = 100;
+      updates.downloaded = updates.total;
+      updates.feedback = '已打开系统安装页面，请确认安装';
+    }
+    // A mandatory prompt remains until update.info confirms the installed version.
+  } catch (e) {
+    if (run == installGeneration && owner == session.userId)
+      updates.feedback = '更新失败：' + message(e);
+  } finally {
+    clearInterval(timer);
+    updates.installing = false;
+  }
   // #endif
 }

@@ -85,6 +85,7 @@ public final class XiaoxingBridge: NSObject, UNUserNotificationCenterDelegate, U
         DispatchQueue.main.async {
             switch action {
             case "initialize": shared.install(); call.resolve(["supported":true])
+            case "push.permission", "push.authorize", "push.onboarding": shared.notificationPermission(call,action:action)
             case "push.status", "push.request": shared.push(call,request:action=="push.request")
             case "push.tap": let value=shared.tapped;shared.tapped=[:];call.resolve(value)
             case "push.clear": shared.tapped=[:];UNUserNotificationCenter.current().removeAllDeliveredNotifications();call.resolve()
@@ -125,13 +126,39 @@ public final class XiaoxingBridge: NSObject, UNUserNotificationCenterDelegate, U
         }
         class_replaceMethod(cls,failure,imp_implementationWithBlock(failBlock),"v@:@@")
     }
+    private func notificationPermission(_ call:XiaoxingCall,action:String) {
+        let center=UNUserNotificationCenter.current()
+        let report: (Bool)->Void = { settingsOpened in
+            center.getNotificationSettings { settings in
+                DispatchQueue.main.async {
+                    let granted=settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional || settings.authorizationStatus == .ephemeral
+                    call.resolve(["supported":true,"permission":granted ? "authorized" : settings.authorizationStatus == .denied ? "denied" : "prompt","settingsOpened":settingsOpened])
+                }
+            }
+        }
+        center.getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                if action == "push.authorize" && settings.authorizationStatus == .denied {
+                    guard let url=URL(string:UIApplication.openSettingsURLString) else {call.reject("无法打开设置");return}
+                    UIApplication.shared.open(url) { ok in
+                        if ok {report(true)} else {call.reject("无法打开设置")}
+                    }
+                } else if settings.authorizationStatus == .notDetermined && (action == "push.authorize" || action == "push.onboarding") {
+                    center.requestAuthorization(options:[.alert,.sound,.badge]) { _,error in
+                        if error != nil {DispatchQueue.main.async {call.reject("通知权限申请失败，请重试")}}
+                        else {report(false)}
+                    }
+                } else {report(false)}
+            }
+        }
+    }
     private func push(_ call:XiaoxingCall,request:Bool) {
         install()
         let center=UNUserNotificationCenter.current()
         let report = {
             center.getNotificationSettings { settings in
                 DispatchQueue.main.async {
-                    let granted=settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                    let granted=settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional || settings.authorizationStatus == .ephemeral
                     if granted {UIApplication.shared.registerForRemoteNotifications()}
                     call.resolve(["supported":true,"permission":granted ? "authorized" : settings.authorizationStatus == .denied ? "denied" : "prompt","token":self.token,"error":self.registrationError,"bundleId":Bundle.main.bundleIdentifier ?? "","environment":Bundle.main.object(forInfoDictionaryKey:"APNsEnvironment") as? String ?? "","appVersion":Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? ""])
                 }

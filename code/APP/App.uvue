@@ -1,5 +1,6 @@
 <script setup lang="uts">
 import { watch } from 'vue';
+import { checkUpdates, resetUpdateSession } from '@/services/updates.uts';
 import { syncLanguage } from '@/api/request.uts';
 import { restoreSession, session } from '@/store/session.uts';
 import { pauseChat, resume, resetChat } from '@/services/chat.uts';
@@ -9,11 +10,17 @@ import {
   reconcileAlarms,
   checkNotificationTap,
   refreshRingingAlarm,
+  refreshNotificationPermission,
   alarmState,
 } from '@/services/native.uts';
 watch(
   (): string => session.userId,
-  () => { resetChat(); alarmState.ringing = false; },
+  () => {
+    resetChat();
+    alarmState.ringing = false;
+    resetUpdateSession();
+    if (session.userId.length > 0) void checkUpdates(true);
+  },
   { flush: 'sync' },
 );
 onLaunch(() => {
@@ -22,8 +29,10 @@ onLaunch(() => {
 });
 onShow(() => {
   session.visible = true;
+  void refreshNotificationPermission().catch(() => {});
   void syncLanguage().catch(() => {});
   if (session.userId.length > 0) {
+    void checkUpdates(true);
     void resume().catch(() => {});
     void syncPush();
     void reconcileAlarms().catch(() => {});

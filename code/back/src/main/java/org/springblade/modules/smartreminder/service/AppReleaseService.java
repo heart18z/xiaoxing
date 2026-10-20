@@ -21,15 +21,31 @@ public class AppReleaseService {
     private final JdbcTemplate jdbc;
     @Value("${smart-reminder.upload-dir:${user.dir}/uploads/smart-reminder}")
     private String uploadDir;
-    private static final String COLUMNS = "cast(id as char) as id,version_code as versionCode,version_name as versionName,notes,coalesce(file_name,concat(id,'.apk')) as fileName,file_size as fileSize,sha256,published,create_time as createTime";
+    private static final String COLUMNS = "cast(id as char) as id,version_code as versionCode,version_name as versionName,notes,coalesce(file_name,concat(id,'.apk')) as fileName,file_size as fileSize,sha256,published,force_update as forceUpdate,create_time as createTime";
     public List<Map<String,Object>> list() {
-        return jdbc.queryForList("select " + COLUMNS + " from blade_app_release order by version_code desc limit 100");
+        var rows=jdbc.queryForList("select " + COLUMNS + " from blade_app_release order by version_code desc limit 100");
+        rows.forEach(this::normalizePolicy);return rows;
     }
-    public Map<String,Object> latest() {
+    public Map<String,Object> latest() { return latest(null); }
+    public Map<String,Object> latest(Integer currentVersionCode) {
         var rows = jdbc.queryForList("select " + COLUMNS + " from blade_app_release where published=1 order by version_code desc limit 1");
-        return rows.isEmpty() ? Map.of() : rows.get(0);
+        if(rows.isEmpty())return Map.of();
+        var latest=rows.get(0);normalizePolicy(latest);
+        // Only the offered release decides whether this update is mandatory.
+        if(currentVersionCode!=null) {
+            latest.put("required",Boolean.TRUE.equals(latest.get("forceUpdate"))&&((Number)latest.get("versionCode")).intValue()>currentVersionCode);
+        }
+        return latest;
     }
-    public Map<String,Object> upload(MultipartFile file, int code, String name, String notes) throws Exception {
+    private void normalizePolicy(Map<String,Object> row) {
+        Object value=row.get("forceUpdate");
+        row.put("forceUpdate",Boolean.TRUE.equals(value)||value instanceof Number n&&n.intValue()!=0);
+    }
+    public void policy(long id,boolean forced) {
+        if(jdbc.update("update blade_app_release set force_update=? where id=?",forced?1:0,id)!=1)throw new ServiceException("版本不存在");
+    }
+    public Map<String,Object> upload(MultipartFile file, int code, String name, String notes) throws Exception { return upload(file,code,name,notes,false); }
+    public Map<String,Object> upload(MultipartFile file, int code, String name, String notes, boolean forced) throws Exception {
         if(code < 1 || name == null || name.isBlank() || name.length()>40 || notes == null || notes.isBlank() || notes.length()>4000)
             throw new ServiceException("请填写有效版本号和更新说明（最多4000字）");
         if(file.isEmpty() || file.getSize()>300L*1024*1024 || !Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT).endsWith(".apk"))
@@ -55,8 +71,8 @@ public class AppReleaseService {
                 while((count=input.read(buffer))!=-1) digest.update(buffer,0,count);
             }
             String hash=HexFormat.of().formatHex(digest.digest());
-            jdbc.update("insert into blade_app_release(id,version_code,version_name,notes,file_name,file_size,sha256,published,create_user,create_time) values(?,?,?,?,?,?,?,0,?,now())",
-                id,code,name.trim(),notes.trim(),fileName,file.getSize(),hash,AuthUtil.getUserId());
+            jdbc.update("insert into blade_app_release(id,version_code,version_name,notes,file_name,file_size,sha256,published,force_update,create_user,create_time) values(?,?,?,?,?,?,?,0,?,?,now())",
+                id,code,name.trim(),notes.trim(),fileName,file.getSize(),hash,forced?1:0,AuthUtil.getUserId());
             return Map.of("id",String.valueOf(id),"sha256",hash);
         } catch(Exception e) {
             Files.deleteIfExists(target);

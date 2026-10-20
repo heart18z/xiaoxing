@@ -32,9 +32,32 @@ object XiaoxingNotifications {
         if (Build.VERSION.SDK_INT >= 24 && !manager(context).areNotificationsEnabled()) return false
         return Build.VERSION.SDK_INT < 26 || manager(context).getNotificationChannel(ALERT)?.importance != NotificationManager.IMPORTANCE_NONE
     }
-    fun state(context: Context): String = JSONObject().put("supported", true)
-        .put("permission", if (allowed(context)) "authorized" else "denied")
-        .put("registered", running).put("message", lastError).put("mode", "background").toString()
+    fun state(context: Context): String {
+        val asked=context.getSharedPreferences("xiaoxing-permissions",Context.MODE_PRIVATE).getBoolean("notificationsAsked",false)
+        val missing=Build.VERSION.SDK_INT>=33 && context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED
+        return JSONObject().put("supported",true)
+            .put("permission",if(allowed(context)) "authorized" else if(missing&&!asked) "prompt" else "denied")
+            .put("registered",running).put("message",lastError).put("mode","background").toString()
+    }
+    private fun permission(activity:Activity,action:String,callback:(String)->Unit) {
+        channels(activity)
+        val preferences=activity.getSharedPreferences("xiaoxing-permissions",Context.MODE_PRIVATE)
+        val asked=preferences.getBoolean("notificationsAsked",false)
+        val missing=Build.VERSION.SDK_INT>=33 && activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED
+        val explicit=action=="push.authorize"
+        if(allowed(activity)||(!explicit && !(action=="push.onboarding" && missing && !asked))) {
+            callback(state(activity));return
+        }
+        if(missing && (!asked || activity.shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS"))) {
+            if(activity.fragmentManager.findFragmentByTag("xiaoxing.notifications")!=null) {callback(state(activity));return}
+            preferences.edit().putBoolean("notificationsAsked",true).apply()
+            val fragment=XiaoxingNotificationPermission();fragment.callback=callback
+            activity.fragmentManager.beginTransaction().add(fragment,"xiaoxing.notifications").commitAllowingStateLoss()
+        } else if(explicit) {
+            activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName))
+            callback(JSONObject(state(activity)).put("settingsOpened",true).toString())
+        } else callback(state(activity))
+    }
     fun start(context: Context) {
         channels(context)
         if (!allowed(context) || running) return
@@ -78,27 +101,16 @@ object XiaoxingNotifications {
                 }
                 when(action) {
                     "initialize" -> { channels(activity); callback("{\"supported\":true}") }
+                    "push.permission", "push.authorize", "push.onboarding" -> permission(activity,action,callback)
                     "push.status", "push.request" -> {
                         val input = JSONObject(json)
                         val base = input.optString("baseUrl")
                         if (!base.startsWith("https://")) { callback("{\"error\":\"通知服务地址无效\"}"); return@runOnUiThread }
                         if (!XiaoxingAndroid.write(activity, "android-push-config", json)) { callback("{\"error\":\"无法保存通知配置\"}"); return@runOnUiThread }
                         channels(activity)
-                        val preferences = activity.getSharedPreferences("xiaoxing-permissions", Context.MODE_PRIVATE)
-                        val asked = preferences.getBoolean("notificationsAsked", false)
-                        val missingPermission = Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
-                        if (!missingPermission) preferences.edit().putBoolean("notificationsAsked", true).apply()
-                        if (missingPermission && (!asked || action == "push.request")) {
-                            if (asked && !activity.shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS")) {
-                                activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
-                                callback(state(activity)); return@runOnUiThread
-                            }
-                            preferences.edit().putBoolean("notificationsAsked", true).apply()
-                            if (activity.fragmentManager.findFragmentByTag("xiaoxing.notifications") != null) { callback(state(activity)); return@runOnUiThread }
-                            val fragment = XiaoxingNotificationPermission(); fragment.callback = callback
-                            activity.fragmentManager.beginTransaction().add(fragment, "xiaoxing.notifications").commitAllowingStateLoss()
+                        if (action == "push.request") {
+                            permission(activity,"push.authorize") { result -> start(activity);callback(result) }
                         } else {
-                            if (action == "push.request" && !allowed(activity)) activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
                             start(activity); callback(state(activity))
                         }
                     }

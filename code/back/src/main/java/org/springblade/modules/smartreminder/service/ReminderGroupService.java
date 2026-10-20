@@ -50,7 +50,7 @@ public class ReminderGroupService {
     public List<Map<String,Object>> directory(Long user) {
         List<Map<String,Object>> result=new ArrayList<>();
         for(var group:list(user,false)) {
-            if(!manager(group.get("myRole")))continue;
+            if(!"OWNER".equals(group.get("myRole")))continue;
             var index=new LinkedHashMap<String,Object>();
             for(String field:List.of("id","name","introduction","memberCount"))index.put(field,group.get(field));
             index.put("tags",tags(Long.valueOf(group.get("id").toString())));
@@ -131,6 +131,7 @@ public class ReminderGroupService {
             if(target.equals(user))continue;
             if(jdbc.queryForObject("select count(*) from blade_friendship f join blade_user u on u.id=f.friend_user_id and u.is_deleted=0 where f.owner_user_id=? and f.friend_user_id=? and f.status='ACTIVE'",Integer.class,user,target)==0)
                 throw new ServiceException("只能邀请自己已通过的好友，请刷新好友列表");
+            if(!canRemind(user,target))throw new ServiceException("只能邀请你有发起提醒权限的好友，请先处理提醒权限");
             var existing=jdbc.queryForList("select status from blade_reminder_group_member where group_id=? and user_id=?",input.getGroupId(),target);
             if(existing.isEmpty())jdbc.update("insert into blade_reminder_group_member(group_id,user_id) values(?,?)",input.getGroupId(),target);
             else if(!"ACTIVE".equals(existing.get(0).get("status")))jdbc.update("update blade_reminder_group_member set member_role='MEMBER',status='ACTIVE',joined_at=now() where group_id=? and user_id=?",input.getGroupId(),target);
@@ -223,6 +224,7 @@ public class ReminderGroupService {
         for(JsonNode selector:selectors) {
             Long groupId=id(selector.path("groupId").asText());
             Map<String,Object> group=access(user,groupId,true,false);
+            owner(group);
             String mode=selector.path("tagMatch").asText("ALL");
             if(!List.of("ALL","ANY").contains(mode))throw new ServiceException("请明确标签需要同时满足还是满足其中一项");
             Set<String> labels=stringIds(selector.path("tagIds")),users=stringIds(selector.path("userIds")),excluded=stringIds(selector.path("excludedUserIds"));
@@ -253,7 +255,7 @@ public class ReminderGroupService {
         if(!queries.isArray()||queries.isEmpty()||queries.size()>10)throw new ServiceException("请明确需要查询的群组");
         List<Map<String,Object>> result=new ArrayList<>();
         for(JsonNode query:queries) {
-            Long groupId=id(query.path("groupId").asText());var group=access(user,groupId,true,false);
+            Long groupId=id(query.path("groupId").asText());var group=access(user,groupId,true,false);owner(group);
             // Return complete relevant roster to let the model distinguish ambiguous names/tag meanings.
             List<Map<String,Object>> roster=select(user,mapper.createArrayNode().add(query));
             List<Map<String,Object>> compact=new ArrayList<>();
@@ -268,7 +270,7 @@ public class ReminderGroupService {
     }
 
     public void validateSavedRecipients(Long user,JsonNode event) {
-        for(JsonNode selector:event.path("groupSelectors"))access(user,id(selector.path("groupId").asText()),true,true);
+        for(JsonNode selector:event.path("groupSelectors"))owner(access(user,id(selector.path("groupId").asText()),true,true));
         for(JsonNode person:event.path("recipients")) {
             Long target=id(person.path("id").asText());
             if(!target.equals(user)&&!canRemind(user,target))throw new ServiceException("“"+person.path("name").asText(person.path("account").asText())+"”的好友关系或提醒权限已变化，请查看人员并重新确认");
@@ -276,7 +278,7 @@ public class ReminderGroupService {
             if(sources.isArray()&&!sources.isEmpty()) {
                 boolean active=false;
                 for(JsonNode source:sources) {
-                    Long group=id(source.path("groupId").asText());access(user,group,true,false);
+                    Long group=id(source.path("groupId").asText());owner(access(user,group,true,false));
                     if(jdbc.queryForObject("select count(*) from blade_reminder_group_member where group_id=? and user_id=? and status='ACTIVE'",Integer.class,group,target)>0)active=true;
                 }
                 if(!active)throw new ServiceException("接收人的群组成员关系已变化，请查看人员并重新确认");
@@ -295,7 +297,7 @@ public class ReminderGroupService {
         var memberships=jdbc.queryForList("select member_role from blade_reminder_group_member where group_id=? and user_id=? and status='ACTIVE'",groupId,user);
         if(memberships.isEmpty())throw new ServiceException("你已不在该群组中");
         String role=memberships.get(0).get("member_role").toString();
-        if(management&&!manager(role))throw new ServiceException("仅群主和管理员可以管理群组或以群组发起提醒");
+        if(management&&!manager(role))throw new ServiceException("仅群主和管理员可以管理群组");
         var row=new LinkedHashMap<>(rows.get(0));
         row.put("name",row.get("name"));row.put("myRole",role);row.put("ownerUserId",row.remove("owner_user_id"));row.put("groupType",row.remove("group_type"));
         return row;

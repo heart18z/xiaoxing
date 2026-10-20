@@ -16,7 +16,7 @@ public class AppReleaseRegression {
  };}
  public static void main(String[] args)throws Exception {
  var db=new JdbcTemplate(new DriverManagerDataSource("jdbc:h2:mem:releases;MODE=MySQL;DB_CLOSE_DELAY=-1","sa",""));
- db.execute("create table blade_app_release(id bigint primary key,version_code int unique,version_name varchar(40),notes varchar(4000),file_name varchar(255),file_size bigint,sha256 varchar(64),published int,create_user bigint,create_time timestamp)");
+ db.execute("create table blade_app_release(id bigint primary key,version_code int unique,version_name varchar(40),notes varchar(4000),file_name varchar(255),file_size bigint,sha256 varchar(64),published int,force_update int default 0,create_user bigint,create_time timestamp)");
  var service=new AppReleaseService(db);var directory=Files.createTempDirectory("xiaoxing-release-test");
  var field=AppReleaseService.class.getDeclaredField("uploadDir");field.setAccessible(true);field.set(service,directory.toString());
  var out=new ByteArrayOutputStream();try(var zip=new ZipOutputStream(out)){for(String name:List.of("AndroidManifest.xml","classes.dex")){zip.putNextEntry(new ZipEntry(name));zip.write(new byte[]{1,2,3});zip.closeEntry();}}
@@ -29,7 +29,17 @@ public class AppReleaseRegression {
   service.publish(id,true);
   rejected=false;try{service.delete(id);}catch(Exception e){rejected=true;}check(rejected,"published release cannot be deleted");
   check(!service.latest().isEmpty(),"published version visible");check(service.download(id).length()==out.size(),"download content size");
-  service.publish(id,false);check(service.latest().isEmpty(),"withdraw removes update");
+  check(Boolean.FALSE.equals(service.latest(116).get("required")),"legacy upload defaults to optional");
+  service.policy(id,true);check(Boolean.TRUE.equals(service.latest(116).get("required")),"published mandatory release blocks older version");
+  check(Boolean.FALSE.equals(service.latest(117).get("required")),"already installed mandatory release is not required again");
+  var newer=service.upload(file(out.toByteArray()),118,"1.0.118","optional newer",false);long newerId=Long.parseLong(newer.get("id").toString());service.publish(newerId,true);
+  check(Boolean.FALSE.equals(service.latest(116).get("forceUpdate"))&&Boolean.FALSE.equals(service.latest(116).get("required")),"new optional release never inherits an older mandatory policy");
+  service.policy(newerId,true);check(Boolean.TRUE.equals(service.latest(116).get("required")),"offered release has its own mandatory switch");
+  service.policy(newerId,false);check(Boolean.FALSE.equals(service.latest(117).get("required")),"turning off offered release restores optional update");
+  service.policy(id,false);check(Boolean.FALSE.equals(service.latest(116).get("required")),"administrator can cancel mandatory policy");
+  service.policy(id,true);service.publish(id,false);check(Boolean.FALSE.equals(service.latest(116).get("required")),"withdrawn mandatory release does not block users");
+  service.publish(newerId,false);service.delete(newerId);
+  check(service.latest().isEmpty(),"withdraw removes update");
   rejected=false;try{service.upload(file(new byte[]{1,2}),118,"bad","bad");}catch(Exception e){rejected=true;}check(rejected,"invalid APK rejected");
   rejected=false;try{service.upload(file(out.toByteArray()),117,"duplicate","duplicate");}catch(Exception e){rejected=e.getMessage().contains("版本代码已存在")&&!e.getMessage().contains("SQL");}check(rejected,"duplicate version has friendly error");
   try(var files=Files.list(directory.resolve("app-releases"))){check(files.count()==1,"failed uploads cleaned without deleting published artifact");}

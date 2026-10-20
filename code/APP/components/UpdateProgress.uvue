@@ -1,0 +1,57 @@
+<template>
+  <view v-if="updates.installing || updates.progress > 0" class="download-progress">
+    <view class="progress-caption">
+      <text class="app-font progress-label">
+        {{ t(updates.progress >= 100 ? '下载完成' : '正在下载安装包…') }}
+      </text>
+      <text class="app-font progress-percent">{{ updates.progress }}%</text>
+    </view>
+    <view class="progress-track">
+      <view class="progress-fill" :style="{ width: updates.progress + '%' }" />
+    </view>
+    <text class="app-font progress-bytes">
+      {{ (updates.downloaded / 1048576).toFixed(1) }} /
+      {{ (updates.total / 1048576).toFixed(1) }} MB
+    </text>
+  </view>
+</template>
+<script setup lang="uts">
+import { updates } from '@/services/updates.uts';
+import { t } from '@/core/locale.uts';
+</script>
+<style scoped>
+.download-progress {
+  margin: 14px 0 4px;
+  align-self: stretch;
+}
+.progress-caption {
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.progress-label {
+  font-size: 12px;
+  color: #66748f;
+}
+.progress-percent {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3e63f5;
+}
+.progress-track {
+  height: 7px;
+  border-radius: 4px;
+  background-color: #e9efff;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 7px;
+  border-radius: 4px;
+  background-color: #4a68ff;
+}
+.progress-bytes {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #8994aa;
+}
+</style>

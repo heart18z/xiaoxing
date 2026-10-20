@@ -17,9 +17,9 @@ public class AppReleaseController {
     public R<Object> list() { AppRoleGuard.requireAdmin(); return R.data(releases.list()); }
     @PostMapping("blade-smart/admin/releases/upload")
     public R<Object> upload(@RequestParam MultipartFile file, @RequestParam int versionCode,
-            @RequestParam String versionName, @RequestParam String notes) throws Exception {
+            @RequestParam String versionName, @RequestParam String notes, @RequestParam(defaultValue="false") boolean forceUpdate) throws Exception {
         AppRoleGuard.requireAdmin();
-        return R.data(releases.upload(file, versionCode, versionName, notes));
+        return R.data(releases.upload(file, versionCode, versionName, notes, forceUpdate));
     }
     @PostMapping("blade-smart/admin/releases/publish")
     public R<Object> publish(@RequestParam long id, @RequestParam boolean published) {
@@ -29,8 +29,12 @@ public class AppReleaseController {
     public R<Object> delete(@RequestParam long id) {
         AppRoleGuard.requireAdmin(); releases.delete(id); return R.success("版本已删除");
     }
+    @PostMapping("blade-smart/admin/releases/policy")
+    public R<Object> policy(@RequestParam long id,@RequestParam boolean forceUpdate) {
+        AppRoleGuard.requireAdmin();releases.policy(id,forceUpdate);return R.success("更新策略已保存");
+    }
     @PostMapping("app/reminder/releases/latest")
-    public R<Object> latest() { AppRoleGuard.requireAppUser(); return R.data(releases.latest()); }
+    public R<Object> latest(@RequestParam(required=false) Integer currentVersionCode) { AppRoleGuard.requireAppUser(); return R.data(releases.latest(currentVersionCode)); }
     @GetMapping("app/reminder/releases/{id}/apk")
     public ResponseEntity<FileSystemResource> download(@PathVariable long id) {
         AppRoleGuard.requireAppUser();

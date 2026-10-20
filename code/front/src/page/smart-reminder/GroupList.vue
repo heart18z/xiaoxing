@@ -2,8 +2,8 @@
   <div class="groups-area">
     <div class="group-heading">
       <div class="grow">
-        <span class="app-font group-title">{{ t('我的组织') }}</span
-        ><span class="app-font group-help">{{ t('按成员标签，灵活发起提醒') }}</span>
+        <span class="app-font group-title">{{ t('我的组织') }}</span>
+        <span class="app-font group-help">{{ t('按成员标签，灵活发起提醒') }}</span>
       </div>
       <button class="app-font primary create-group" @click="emit('create')">
         ＋ {{ t('创建组织') }}
@@ -11,26 +11,25 @@
     </div>
     <div class="group-scroll">
       <div v-if="error.length > 0" class="group-empty">
-        <span class="app-font error">{{ t(error) }}</span
-        ><button class="app-font secondary" @click="emit('retry')">{{ t('重新加载') }}</button>
+        <span class="app-font error">{{ t(error) }}</span>
+        <button class="app-font secondary" @click="emit('retry')">{{ t('重新加载') }}</button>
       </div>
       <div v-else-if="rows.length == 0" class="group-empty">
-        <UiIcon name="people" tone="blue" :size="36" /><span class="app-font empty-title">{{
-          t(loading ? '正在读取…' : '还没有群组')
-        }}</span
-        ><span class="app-font group-help">{{ t('创建群组、邀请好友，为成员设置多个标签') }}</span>
+        <UiIcon name="people" tone="blue" :size="36" />
+        <span class="app-font empty-title">{{ t(loading ? '正在读取…' : '还没有群组') }}</span>
+        <span class="app-font group-help">{{ t('创建群组、邀请好友，为成员设置多个标签') }}</span>
       </div>
       <div v-for="group in rows" :key="s(group, 'id')" class="group-row" @click="open(group)">
         <img class="group-avatar" :src="asset(s(group, 'avatar', groupAvatars[0]))" />
         <div class="group-main">
-          <span class="app-font row-name">{{ s(group, 'name') }}</span
-          ><span class="app-font row-description">{{
-            s(group, 'introduction').length > 0 ? s(group, 'introduction') : t('自定义群组')
-          }}</span>
+          <span class="app-font row-name">{{ s(group, 'name') }}</span>
+          <span class="app-font row-description">
+            {{ s(group, 'introduction').length > 0 ? s(group, 'introduction') : t('自定义群组') }}
+          </span>
           <div class="group-meta">
-            <span class="app-font" :class="['role-chip', 'role-' + s(group, 'myRole')]">{{
-              t(groupRoleLabel(s(group, 'myRole')))
-            }}</span>
+            <span class="app-font" :class="['role-chip', 'role-' + s(group, 'myRole')]">
+              {{ t(groupRoleLabel(s(group, 'myRole'))) }}
+            </span>
             <div class="member-previews">
               <img
                 v-for="(person, index) in previews(group)"
@@ -303,5 +302,13 @@ const open = (group) => router.push('/app/group/' + group.id);
   .member-separator {
     margin: 0 4px;
   }
+}
+.group-title,
+.row-name {
+  font-weight: 700;
+}
+.create-group,
+.role-chip {
+  font-weight: 600;
 }
 </style>

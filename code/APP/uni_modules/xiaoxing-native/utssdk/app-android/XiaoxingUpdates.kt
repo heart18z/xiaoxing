@@ -19,6 +19,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object XiaoxingUpdates {
     private val busy=AtomicBoolean(false)
+    @Volatile private var downloaded=0L
+    @Volatile private var totalBytes=0L
+    @Volatile private var phase="IDLE"
+    private fun status():JSONObject {
+        val total=totalBytes;val bytes=downloaded
+        val progress=if(total>0) ((bytes*100/total).coerceIn(0L,if(phase=="DOWNLOADING")99L else 100L)).toInt() else 0
+        return JSONObject().put("busy",busy.get()).put("phase",phase).put("downloaded",bytes).put("total",total).put("progress",progress)
+    }
     private fun info(activity:Activity):JSONObject {
         val pkg=activity.packageManager.getPackageInfo(activity.packageName,0)
         val code=if(Build.VERSION.SDK_INT>=28) pkg.longVersionCode else pkg.versionCode.toLong()
@@ -30,6 +38,7 @@ object XiaoxingUpdates {
     }
     fun call(activity:Activity,action:String,input:String,callback:(String)->Unit) {
         try {
+            if(action=="update.status"){callback(status().toString());return}
             if(action=="update.info"){callback(info(activity).toString());return}
             if(action=="update.install") {
                 if(Build.VERSION.SDK_INT>=26 && !activity.packageManager.canRequestPackageInstalls()) {
@@ -37,6 +46,7 @@ object XiaoxingUpdates {
                     callback(JSONObject().put("permissionRequired",true).toString());return
                 }
                 if(!busy.compareAndSet(false,true)){callback("{\"error\":\"正在准备安装，请稍候\"}");return}
+                downloaded=0L;totalBytes=0L;phase="DOWNLOADING"
                 Thread {
                     var connection:HttpURLConnection?=null
                     var target:File?=null
@@ -44,6 +54,8 @@ object XiaoxingUpdates {
                         val args=JSONObject(input)
                         val url=URL(args.getString("url"))
                         require(url.protocol=="https" && url.host in setOf("www.chentong.xyz","47.100.172.149") && url.path.matches(Regex("/api/app/reminder/releases/[0-9]+/apk"))) {"安装包地址不受信任"}
+                        totalBytes=args.getLong("fileSize")
+                        require(totalBytes in 1L..300L*1024*1024){"安装包大小无效"}
                         val expected=args.getString("sha256")
                         require(expected.matches(Regex("[a-f0-9]{64}"))){"缺少安装包校验信息"}
                         val requestedCode=args.getLong("versionCode")
@@ -61,8 +73,9 @@ object XiaoxingUpdates {
                         var total=0L
                         connection!!.inputStream.use { source -> apk.outputStream().use { sink ->
                             val buffer=ByteArray(65536)
-                            while(true){val count=source.read(buffer);if(count<0)break;total+=count;require(total<=300L*1024*1024){"安装包过大"};digest.update(buffer,0,count);sink.write(buffer,0,count)}
+                            while(true){val count=source.read(buffer);if(count<0)break;total+=count;require(total<=300L*1024*1024){"安装包过大"};digest.update(buffer,0,count);sink.write(buffer,0,count);downloaded=total}
                         } }
+                        phase="VERIFYING"
                         require(total==args.getLong("fileSize")){"安装包下载不完整，请重试"}
                         val actual=digest.digest().joinToString(""){"%02x".format(it.toInt() and 255)}
                         require(actual==expected){"安装包校验失败，请重试"}
@@ -83,11 +96,12 @@ object XiaoxingUpdates {
                                 intent.clipData=ClipData.newRawUri("APK",uri)
                                 activity.startActivity(intent)
                                 activity.getSharedPreferences("xiaoxing-updates",Context.MODE_PRIVATE).edit().putLong("pendingVersionCode",code).apply()
+                                phase="INSTALLER"
                                 callback("{\"installerOpened\":true}")
-                            }catch(e:Exception){callback(JSONObject().put("error","无法打开安装器："+e.message).toString())}
+                            }catch(e:Exception){phase="FAILED";callback(JSONObject().put("error","无法打开安装器："+e.message).toString())}
                             finally{busy.set(false)}
                         }
-                    }catch(e:Exception){target?.delete();busy.set(false);activity.runOnUiThread{callback(JSONObject().put("error",e.message?:"更新失败，请重试").toString())}}
+                    }catch(e:Exception){phase="FAILED";target?.delete();busy.set(false);activity.runOnUiThread{callback(JSONObject().put("error",e.message?:"更新失败，请重试").toString())}}
                     finally{connection?.disconnect()}
                 }.start()
                 return

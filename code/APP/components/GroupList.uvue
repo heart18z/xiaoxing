@@ -271,4 +271,20 @@ function open(group: UTSJSONObject): void {
 .group-row-compact .member-separator {
   margin: 0 4px;
 }
+.group-title,
+.row-name {
+  font-weight: 700;
+}
+.create-group,
+.role-chip {
+  font-weight: 600;
+}
+/* #ifdef APP-IOS */
+.group-title,
+.row-name,
+.create-group,
+.role-chip {
+  font-family: 'PingFangSC-Semibold';
+}
+/* #endif */
 </style>

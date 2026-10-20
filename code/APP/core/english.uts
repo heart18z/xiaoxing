@@ -770,3 +770,29 @@ english['保存'] = 'Save';
 english['统一设置'] = 'Manage tags';
 english['创建'] = 'Create';
 english['已选择'] = 'Selected';
+
+english['暂无向对方发起提醒的权限'] = 'You do not have permission to remind this friend';
+english['需要更新 APP'] = 'App update required';
+english['发现新版本'] = 'Update available';
+english['下载完成'] = 'Download complete';
+english['正在下载安装包…'] = 'Downloading update…';
+english['下载完成，正在校验安装包…'] = 'Download complete. Verifying package…';
+english['此版本为强制更新，完成安装后才能继续使用。'] =
+  'Install this required update to continue using the app.';
+english['稍后更新'] = 'Later';
+english['立即更新'] = 'Update now';
+english['正在下载…'] = 'Downloading…';
+english['上次更新尚未完成，请重新下载安装'] =
+  'The previous update was not installed. Download and install it again.';
+english['已打开系统安装页面，请确认安装'] = 'Confirm installation in the system installer.';
+english['请允许安装此来源的应用，返回后再点下载安装'] =
+  'Allow installation from this source, then return and tap Update.';
+
+english["正在检查通知权限…"] = "Checking notification permission…";
+english["通知权限尚未开启，可能无法收到事件提醒。点击下方按钮开启。"] = "Notifications are off. Enable them below to receive event reminders.";
+english["通知权限已开启，正在准备设备提醒服务。"] = "Notifications are enabled. Preparing the reminder service.";
+english["通知已开启"] = "Notifications are enabled";
+english["开启通知"] = "Enable notifications";
+english["通知尚未开启，可再次点击开启通知"] = "Notifications are still off. Tap Enable notifications to try again.";
+english["通知权限申请失败，请重试"] = "Could not request notification permission. Please try again.";
+english["请在系统设置中允许通知，返回后将重新检查"] = "Allow notifications in system settings. We will check again when you return.";

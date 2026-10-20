@@ -1,0 +1,112 @@
+<template>
+  <view v-if="updates.prompt" class="update-mask" @click.stop="noop">
+    <view class="update-panel" @click.stop="noop">
+      <text class="app-font update-heading">
+        {{ t(updates.required ? '需要更新 APP' : '发现新版本') }}
+      </text>
+      <text class="app-font update-version">{{ s(updates.release, 'versionName') }}</text>
+      <scroll-view class="update-notes" :scroll-y="true">
+        <text class="app-font notes-copy">{{ s(updates.release, 'notes') }}</text>
+      </scroll-view>
+      <text v-if="updates.required" class="app-font required-copy">
+        {{ t('此版本为强制更新，完成安装后才能继续使用。') }}
+      </text>
+      <UpdateProgress />
+      <text class="app-font update-feedback">{{ t(updates.feedback) }}</text>
+      <view class="update-actions">
+        <button
+          v-if="!updates.required"
+          class="app-font secondary action"
+          :disabled="updates.installing"
+          @click="dismissUpdate()"
+        >
+          {{ t('稍后更新') }}
+        </button>
+        <button
+          class="app-font primary action"
+          :disabled="updates.installing"
+          :loading="updates.installing"
+          @click="installUpdate()"
+        >
+          {{ t(updates.installing ? '正在下载…' : '立即更新') }}
+        </button>
+      </view>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { updates, dismissUpdate, installUpdate } from '@/services/updates.uts';
+import { s } from '@/core/json.uts';
+import { t } from '@/core/locale.uts';
+import UpdateProgress from './UpdateProgress.uvue';
+function noop(): void {}
+</script>
+<style scoped>
+.update-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30000;
+  background-color: #172a5366;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+.update-panel {
+  width: 100%;
+  max-width: 390px;
+  background-color: #fff;
+  border-radius: 24px;
+  padding: 24px 20px 18px;
+}
+.update-heading {
+  font-size: 20px;
+  font-weight: 700;
+  color: #172746;
+}
+.update-version {
+  font-size: 14px;
+  color: #4264ec;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+.update-notes {
+  height: 120px;
+}
+.notes-copy {
+  font-size: 14px;
+  line-height: 23px;
+  color: #52617e;
+}
+.required-copy {
+  font-size: 12px;
+  color: #c8753b;
+  line-height: 19px;
+  margin-top: 12px;
+}
+.update-feedback {
+  font-size: 12px;
+  line-height: 20px;
+  color: #7b88a0;
+  margin-top: 12px;
+}
+.update-actions {
+  flex-direction: row;
+  margin-top: 16px;
+}
+.action {
+  flex: 1;
+  height: 44px;
+  line-height: 44px;
+  min-height: 44px;
+  font-size: 14px;
+  margin: 0 4px;
+}
+/* #ifdef APP-IOS */
+.update-heading {
+  font-family: 'PingFangSC-Semibold';
+}
+/* #endif */
+</style>

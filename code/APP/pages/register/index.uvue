@@ -15,6 +15,7 @@
   </AppFrame>
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 import { ref } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
 import RegistrationForm from '@/components/RegistrationForm.uvue';
@@ -23,9 +24,14 @@ import { syncPush } from '@/services/native.uts';
 import { message } from '@/core/json.uts';
 import { toast } from '@/core/ui.uts';
 import { t as _t } from '@/core/locale.uts';
-function t(value: string): string { return _t(value); }
-const error = ref(''), created = ref(false);
-function back() { uni.reLaunch({ url: '/pages/login/index' }); }
+function t(value: string): string {
+  return _t(value);
+}
+const error = ref(''),
+  created = ref(false);
+function back() {
+  uni.reLaunch({ url: '/pages/login/index' });
+}
 async function registered(account: string, password: string) {
   created.value = true;
   try {
@@ -35,14 +41,37 @@ async function registered(account: string, password: string) {
     uni.reLaunch({ url: '/pages/chat/index' });
   } catch (e) {
     uni.setStorageSync('last-account', account);
-    toast('注册成功，请返回登录'); error.value = message(e);
+    toast('注册成功，请返回登录');
+    error.value = message(e);
   }
 }
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
-.page-content { padding: 18px 18px 40px; }
-.registration-card { padding: 24px 20px; }
-.welcome { font-size: 24px; font-weight: 700; color: #273452; margin-bottom: 10px; }
-.intro { font-size: 13px; line-height: 21px; color: #7c869c; margin-bottom: 24px; }
-.back-link { text-align: center; font-size: 14px; color: #4c5cff; padding: 22px; }
+.page-content {
+  padding: 18px 18px 40px;
+}
+.registration-card {
+  padding: 24px 20px;
+}
+.welcome {
+  font-size: 24px;
+  font-weight: 700;
+  color: #273452;
+  margin-bottom: 10px;
+}
+.intro {
+  font-size: 13px;
+  line-height: 21px;
+  color: #7c869c;
+  margin-bottom: 24px;
+}
+.back-link {
+  text-align: center;
+  font-size: 14px;
+  color: #4c5cff;
+  padding: 22px;
+}
 </style>

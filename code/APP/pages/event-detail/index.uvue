@@ -8,7 +8,9 @@
     <template #right>
       <view
         v-if="b(detail, 'creator') && s(event, 'event_status') == 'ACTIVE'"
-        class="stop-button" role="button" :aria-label="t('停止')"
+        class="stop-button"
+        role="button"
+        :aria-label="t('停止')"
         @click="stop()"
       >
         <text class="app-font stop-label">{{ t('停止') }}</text>
@@ -257,6 +259,18 @@
             {{ s(row, 'content') }}
           </text>
           <rich-text v-else class="dialog-rich-text" :nodes="s(row, 'renderedContent')" />
+          <view v-if="strings(row, 'fileIds').length > 0" class="dialog-images">
+            <ChatImage
+              v-for="(fileId, index) in strings(row, 'fileIds')"
+              :key="fileId"
+              :file-id="fileId"
+              :name="strings(row, 'fileNames')[index] ?? ''"
+              :size="96"
+              :event-id="id"
+              :participant-user-id="s(obj(conversationData, 'participant'), 'id')"
+              :message-id="s(row, 'id')"
+            />
+          </view>
           <text
             class="app-font"
             :class="['dialog-time', s(row, 'messageRole') == 'user' ? 'dialog-user-time' : '']"
@@ -269,10 +283,12 @@
   </Popup>
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 // #ifdef WEB
 defineOptions({ inheritAttrs: false });
 // #endif
 import UiIcon from '@/components/UiIcon.uvue';
+import ChatImage from '@/components/ChatImage.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { eventOverview, eventTimeline, eventIsAi } from '@/core/event-view.uts';
@@ -281,7 +297,7 @@ import Popup from '@/components/Popup.uvue';
 import AlarmControl from '@/components/AlarmControl.uvue';
 import { reminder, bootstrap } from '@/api/request.uts';
 import { SessionState, session as _session, requireSession } from '@/store/session.uts';
-import { s as _s, b as _b, obj, arr as _arr, message } from '@/core/json.uts';
+import { s as _s, b as _b, obj, strings, arr as _arr, message } from '@/core/json.uts';
 import { displayTime as _displayTime, statusText as _statusText } from '@/core/time.uts';
 import { asset as _asset, confirm, toast, openEvent as _openEvent } from '@/core/ui.uts';
 import { markdown as _markdown } from '@/core/markdown.uts';
@@ -436,16 +452,22 @@ async function conversation(userId: string, name: string) {
       conversationData.value = obj(data, 'value');
       // Finish the popup transition before mounting rich text. Yield between small batches.
       while (!conversationReady.value && current == conversationTicket) {
-        await new Promise<void>((resolve) => { setTimeout(() => resolve(), 16); });
+        await new Promise<void>((resolve) => {
+          setTimeout(() => resolve(), 16);
+        });
       }
       const rows = arr(conversationData.value, 'messages');
       for (let index = 0; index < rows.length; index += 8) {
         if (current != conversationTicket) return;
         const batch = rows.slice(index, index + 8);
-        batch.forEach((row: UTSJSONObject) => { row['renderedContent'] = markdown(s(row, 'content')); });
+        batch.forEach((row: UTSJSONObject) => {
+          row['renderedContent'] = markdown(s(row, 'content'));
+        });
         conversationRows.value = conversationRows.value.concat(batch);
         conversationLoading.value = false;
-        await new Promise<void>((resolve) => { setTimeout(() => resolve(), 16); });
+        await new Promise<void>((resolve) => {
+          setTimeout(() => resolve(), 16);
+        });
       }
       if (current != conversationTicket) return;
       const participantName = s(obj(conversationData.value, 'participant'), 'displayName');
@@ -492,6 +514,9 @@ function closeConversation() {
   conversationOpen.value = false;
   conversationTicket++;
 }
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .overview-collapsed {
@@ -775,7 +800,25 @@ function closeConversation() {
   padding-bottom: 8px;
 }
 /* #ifdef APP-IOS */
-.heading, .creator-title, .node-title, .conversation-button, .branch-conversation, .timeline-tab { font-family: 'PingFangSC-Semibold'; }
-.body-text, .muted, .node-copy, .node-time, .creator-subtitle { font-family: 'PingFangSC-Medium'; }
+.heading,
+.creator-title,
+.node-title,
+.conversation-button,
+.branch-conversation,
+.timeline-tab {
+  font-family: 'PingFangSC-Semibold';
+}
+.body-text,
+.muted,
+.node-copy,
+.node-time,
+.creator-subtitle {
+  font-family: 'PingFangSC-Medium';
+}
 /* #endif */
+.dialog-images {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
 </style>

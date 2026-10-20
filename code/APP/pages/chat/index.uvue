@@ -188,6 +188,7 @@
   </Popup>
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 import { messageKey } from '@/core/messages.uts';
 import { pickImages, prepareChatImage } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
@@ -1214,6 +1215,9 @@ watch((): UTSJSONObject[] => chat.messages, scrollLatest);
 watch((): boolean => chat.reasoning.length > 0, scrollLatest);
 watch((): string => chat.reply, scrollLatest);
 watch((): string => s(chat.pending, 'requestId'), scrollLatest);
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .toolbar {

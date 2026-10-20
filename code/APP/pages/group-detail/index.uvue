@@ -184,7 +184,7 @@
     <view
       v-for="friend in availableFriends"
       :key="s(friend, 'id')"
-      class="picker-row"
+      :class="['picker-row', canInviteFriend(friend) ? '' : 'invite-disabled']"
       @click="toggleInvite(s(friend, 'id'))"
     >
       <image
@@ -195,6 +195,9 @@
       <view class="grow">
         <text class="app-font member-name">{{ groupPersonName(friend) }}</text>
         <text class="app-font small-muted">@{{ s(friend, 'account') }}</text>
+        <text v-if="!canInviteFriend(friend)" class="app-font invite-reason">
+          {{ t('暂无向对方发起提醒的权限') }}
+        </text>
       </view>
       <view :class="['check-circle', inviteIds.includes(s(friend, 'id')) ? 'check-selected' : '']">
         <UiIcon v-if="inviteIds.includes(s(friend, 'id'))" name="check" tone="white" :size="18" />
@@ -467,6 +470,7 @@
   </Popup>
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 import { ref, computed } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
@@ -653,7 +657,12 @@ async function openInvite() {
     friendsLoading.value = false;
   }
 }
+function canInviteFriend(person: UTSJSONObject): boolean {
+  return ['MUTUAL', 'I_CAN_REMIND'].includes(s(person, 'permissionMode'));
+}
 function toggleInvite(id: string): void {
+  const person = friends.value.find((p: UTSJSONObject): boolean => s(p, 'id') == id);
+  if (saving.value || person == null || !canInviteFriend(person)) return;
   inviteIds.value = toggleGroupSelection(inviteIds.value, id);
 }
 async function invite() {
@@ -784,6 +793,9 @@ onShow(() => {
 onUnload(() => {
   ticket++;
 });
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .group-nav {
@@ -959,11 +971,11 @@ onUnload(() => {
 }
 .tag-label {
   font-size: 12px;
-  color: inherit;
+  color: #1766ff;
 }
 .tag-count {
   font-size: 10px;
-  color: inherit;
+  color: #1766ff;
   margin-left: 7px;
   background-color: #ffffff90;
   border-radius: 8px;
@@ -987,6 +999,26 @@ onUnload(() => {
 }
 .tone-4 {
   background-color: #fff4e2;
+  color: #dc9217;
+}
+.tone-0 .tag-label,
+.tone-0 .tag-count {
+  color: #1766ff;
+}
+.tone-1 .tag-label,
+.tone-1 .tag-count {
+  color: #9446e8;
+}
+.tone-2 .tag-label,
+.tone-2 .tag-count {
+  color: #149951;
+}
+.tone-3 .tag-label,
+.tone-3 .tag-count {
+  color: #ef536b;
+}
+.tone-4 .tag-label,
+.tone-4 .tag-count {
   color: #dc9217;
 }
 .member-heading {
@@ -1327,4 +1359,43 @@ onUnload(() => {
   align-self: flex-start;
   margin-bottom: 0;
 }
+.nav-title,
+.hero-name,
+.section-title,
+.member-name,
+.person-profile-name,
+.modal-section-title {
+  font-weight: 700;
+}
+.hero-action-text,
+.unified-text,
+.row-action-text,
+.tag-label,
+.form-button {
+  font-weight: 600;
+}
+.invite-disabled {
+  opacity: 0.45;
+}
+.invite-reason {
+  font-size: 11px;
+  line-height: 18px;
+  color: #7d8799;
+  margin-top: 3px;
+}
+/* #ifdef APP-IOS */
+.nav-title,
+.hero-name,
+.section-title,
+.member-name,
+.person-profile-name,
+.modal-section-title,
+.hero-action-text,
+.unified-text,
+.row-action-text,
+.tag-label,
+.form-button {
+  font-family: 'PingFangSC-Semibold';
+}
+/* #endif */
 </style>

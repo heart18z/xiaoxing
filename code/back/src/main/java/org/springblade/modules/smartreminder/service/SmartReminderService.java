@@ -1062,7 +1062,7 @@ public class SmartReminderService {
 
 		List<Map<String, Object>> direct = conversationRows(evaluation,"""
 			select m.id,m.message_role as messageRole,m.message_type as messageType,m.content,m.payload_json as payloadJson,m.event_id as eventId,m.create_time as createTime,
-            u.id as sourceId,u.content as sourceContent,u.create_time as sourceTime,
+            u.id as sourceId,u.content as sourceContent,u.payload_json as sourcePayload,u.create_time as sourceTime,
             exists(select 1 from blade_smart_timeline t where t.event_id=m.event_id and t.actor_user_id=m.user_id
              and t.node_type in ('RECIPIENT_FEEDBACK','EVENT_UPDATED','EVENT_STOPPED','BRANCH_STOPPED')
              and t.create_time between m.create_time - interval '2' minute and m.create_time + interval '2' minute) as hasRelatedAction
@@ -1085,7 +1085,7 @@ public class SmartReminderService {
 			if (message.get("sourceId") != null) {
                 Map<String,Object> source = new LinkedHashMap<>();
                 source.put("id", message.get("sourceId")); source.put("messageRole", "user"); source.put("messageType", "TEXT");
-                source.put("content", message.get("sourceContent")); source.put("createTime", message.get("sourceTime"));
+                source.put("content", message.get("sourceContent")); source.put("payloadJson", message.get("sourcePayload")); source.put("createTime", message.get("sourceTime"));
                 selected.put(Objects.toString(source.get("id")), source);
             }
 		}
@@ -1096,7 +1096,7 @@ public class SmartReminderService {
 			if (event.get("conversationContext") == null) {
 				List<Long> sourceIds = jdbcTemplate.query("select source_message_id from blade_smart_candidate where id=? and user_id=?", (rs,n)->rs.getLong(1), candidateId, targetUserId);
 				if (!sourceIds.isEmpty()) {
-					List<Map<String,Object>> source = jdbcTemplate.queryForList("select id,message_role as messageRole,message_type as messageType,content,create_time as createTime from blade_smart_chat_message where user_id=? and id=?",targetUserId,sourceIds.get(0));
+					List<Map<String,Object>> source = jdbcTemplate.queryForList("select id,message_role as messageRole,message_type as messageType,content,payload_json as payloadJson,create_time as createTime from blade_smart_chat_message where user_id=? and id=?",targetUserId,sourceIds.get(0));
 					for (Map<String,Object> row : source) selected.put(Objects.toString(row.get("id")), row);
 				}
 			}
@@ -1114,7 +1114,7 @@ public class SmartReminderService {
 		for (Map<String,Object> message : linked) selected.put(Objects.toString(message.get("id")), message);
 
 		List<Map<String, Object>> messages = new ArrayList<>(selected.values());
-		messages.forEach(message -> { ConflictPrivacy.sanitize(message); if(!evaluation)eventContent.personalizeAssignment(message, targetUserId); message.keySet().removeAll(Set.of("payloadJson","payload","sourceId","sourceContent","sourceTime","hasRelatedAction")); });
+		messages.forEach(message -> { if(!evaluation)addConversationAttachments(message); ConflictPrivacy.sanitize(message); if(!evaluation)eventContent.personalizeAssignment(message, targetUserId); message.keySet().removeAll(Set.of("payloadJson","payload","sourceId","sourceContent","sourceTime","sourcePayload","hasRelatedAction")); });
 		messages.sort(Comparator.comparing(row -> asLocalDateTime(row.get("createTime")), Comparator.nullsLast(Comparator.naturalOrder())));
 		messages.forEach(this::normalizeMapIds);
 		normalizeMapIds(event);
@@ -1129,6 +1129,32 @@ public class SmartReminderService {
 		if (!targetIsCreator) event.put("eventSummary", eventContent.storedBranchTask(eventId, targetUserId));
 		return result;
 	}
+
+    /** Return attachment references only, never the model/private candidate payload. */
+    private void addConversationAttachments(Map<String,Object> message) {
+        if(!"user".equals(message.get("messageRole")))return;
+        List<Long> ids=attachmentIds(message.get("payloadJson"));
+        if(ids.isEmpty())return;
+        JsonNode payload=parseObject(Objects.toString(message.get("payloadJson"),"{}"));
+        List<String> names=new ArrayList<>();
+        for(int index=0;index<ids.size();index++)names.add(payload.path("fileNames").path(index).asText(""));
+        message.put("fileIds",ids.stream().map(String::valueOf).toList());message.put("fileNames",names);
+    }
+
+    /** Authorize a file through a specific message in a conversation the viewer may see. */
+    public Long conversationAttachmentOwner(Long eventId,Long participantId,Long messageId,Long fileId) {
+        var conversation=eventConversation(eventId,participantId);
+        @SuppressWarnings("unchecked") var messages=(List<Map<String,Object>>)conversation.get("messages");
+        for(var message:messages) {
+            if(!messageId.toString().equals(Objects.toString(message.get("id"))))continue;
+            Object files=message.get("fileIds");
+            if(files instanceof List<?> ids&&ids.contains(fileId.toString())) {
+                @SuppressWarnings("unchecked") var participant=(Map<String,Object>)conversation.get("participant");
+                return Long.valueOf(participant.get("id").toString());
+            }
+        }
+        throw new ServiceException("图片不属于该事件对话或无权查看");
+    }
 
 	/** Bound each source at the database too; the final merged window is deduplicated separately. */
 	private List<Map<String,Object>> conversationRows(boolean bounded,String sql,Object... args) {

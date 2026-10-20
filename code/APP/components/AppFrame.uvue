@@ -98,11 +98,13 @@
   </view>
   <PageLoading :active="loading" />
   <TopTip />
+  <UpdatePrompt />
 </template>
 <script setup lang="uts">
 import { startupReady } from '@/store/startup.uts';
 import PageLoading from './PageLoading.uvue';
 import TopTip from '@/components/TopTip.uvue';
+import UpdatePrompt from '@/components/UpdatePrompt.uvue';
 import RingingAlarm from '@/components/RingingAlarm.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
@@ -277,7 +279,6 @@ function go(tab: string) {
 }
 /* #ifdef APP-IOS */
 .dock {
-
 }
 /* #endif */
 .tab {

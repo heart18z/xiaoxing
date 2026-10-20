@@ -100,6 +100,7 @@
   <TopTip />
 </template>
 <script setup lang="uts">
+import { updates } from '@/services/updates.uts';
 import { startupReady } from '@/store/startup.uts';
 import TopTip from '@/components/TopTip.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
@@ -279,6 +280,9 @@ onReady(() => {
   }
   void loadCaptchaMode().finally(() => startupReady());
 });
+// #ifdef APP-ANDROID
+onBackPress((): boolean => updates.required && updates.available);
+// #endif
 </script>
 <style scoped>
 .login {
