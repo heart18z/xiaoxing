@@ -45,12 +45,7 @@
     </view>
     <text class="app-font field-title avatar-title">{{ t('选择头像') }}</text>
     <view class="avatar-grid">
-      <view
-        v-for="url in groupAvatars"
-        :key="url"
-        class="avatar-cell"
-        @click="!saving && (avatar = url)"
-      >
+      <view v-for="url in groupAvatars" :key="url" class="avatar-cell" @click="chooseAvatar(url)">
         <view :class="['avatar-border', avatar == url ? 'avatar-selected' : '']">
           <image class="preset-image" :src="asset(url)" mode="aspectFit" />
           <view v-if="avatar == url" class="selected-dot">
@@ -81,12 +76,20 @@
 import { ref, watch } from 'vue';
 import Popup from './Popup.uvue';
 import UiIcon from './UiIcon.uvue';
-import { t } from '@/core/locale.uts';
+import { t as _t } from '@/core/locale.uts';
 import { s, obj, message } from '@/core/json.uts';
 import { reminder, upload } from '@/api/request.uts';
-import { asset } from '@/core/ui.uts';
+import { asset as _asset } from '@/core/ui.uts';
 import { pickImages } from '@/services/images.uts';
 import { groupAvatars } from '@/core/groups.uts';
+// Local methods keep template calls compatible with the Android UTS compiler.
+function t(value: string): string {
+  return _t(value);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+
 const props = defineProps({
   open: { type: Boolean, default: false },
   group: { type: Object, default: (): UTSJSONObject => ({}) },
@@ -111,16 +114,7 @@ watch(
     error.value = '';
   },
 );
-function pickAvatar(): void {
-  if (saving.value) return;
-  pickImages(1, (result) => {
-    if (result.tempFiles[0].size > 2 * 1024 * 1024) {
-      error.value = '头像不能超过2MB';
-      return;
-    }
-    void uploadAvatar(result.tempFilePaths[0]);
-  });
-}
+
 async function uploadAvatar(path: string) {
   saving.value = true;
   error.value = '';
@@ -134,6 +128,16 @@ async function uploadAvatar(path: string) {
   } finally {
     saving.value = false;
   }
+}
+function pickAvatar(): void {
+  if (saving.value) return;
+  pickImages(1, (result) => {
+    if (result.tempFiles[0].size > 2 * 1024 * 1024) {
+      error.value = '头像不能超过2MB';
+      return;
+    }
+    void uploadAvatar(result.tempFilePaths[0]);
+  });
 }
 async function save() {
   if (saving.value) return;
@@ -160,6 +164,10 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+function chooseAvatar(url: string): void {
+  if (!saving.value) avatar.value = url;
 }
 </script>
 <style scoped>

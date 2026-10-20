@@ -17,7 +17,10 @@
 </template>
 <script setup lang="uts">
 import { updates } from '@/services/updates.uts';
-import { t } from '@/core/locale.uts';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string {
+  return _t(value);
+}
 </script>
 <style scoped>
 .download-progress {

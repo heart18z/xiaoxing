@@ -297,11 +297,25 @@ import Popup from '@/components/Popup.uvue';
 import AlarmControl from '@/components/AlarmControl.uvue';
 import { reminder, bootstrap } from '@/api/request.uts';
 import { SessionState, session as _session, requireSession } from '@/store/session.uts';
-import { s as _s, b as _b, obj, strings, arr as _arr, message } from '@/core/json.uts';
+import {
+  s as _s,
+  b as _b,
+  obj as _obj,
+  strings as _strings,
+  arr as _arr,
+  message,
+} from '@/core/json.uts';
 import { displayTime as _displayTime, statusText as _statusText } from '@/core/time.uts';
 import { asset as _asset, confirm, toast, openEvent as _openEvent } from '@/core/ui.uts';
 import { markdown as _markdown } from '@/core/markdown.uts';
 import { reconcileAlarms } from '@/services/native.uts';
+function strings(row: UTSJSONObject, key: string): string[] {
+  return _strings(row, key);
+}
+function obj(row: UTSJSONObject, key: string): UTSJSONObject {
+  return _obj(row, key);
+}
+
 const session: SessionState = _session;
 function asset(value: string): string {
   return _asset(value);

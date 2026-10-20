@@ -39,6 +39,6 @@ export const groupAvatars: string[] = [
 ];
 export function groupTagTone(name: string): string {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash + name.charCodeAt(i)) % 3;
+  for (let i = 0; i < name.length; i++) hash = (hash + (name.charCodeAt(i) ?? 0)) % 3;
   return 'tone-' + (hash + 1).toString();
 }

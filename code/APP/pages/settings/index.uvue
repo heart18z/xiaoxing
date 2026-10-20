@@ -46,7 +46,15 @@
             :loading="checkingNotification"
             @click="checkNotification()"
           >
-            {{ t(checkingNotification ? '正在检查通知…' : pushState.permission == 'authorized' ? '通知已开启' : '开启通知') }}
+            {{
+              t(
+                checkingNotification
+                  ? '正在检查通知…'
+                  : pushState.permission == 'authorized'
+                    ? '通知已开启'
+                    : '开启通知',
+              )
+            }}
           </button>
           <text
             v-if="notificationFeedback.length > 0"
@@ -184,9 +192,13 @@ import {
   callNative,
   refreshNotificationPermission,
   requestNotificationPermission,
-  needsNotificationPermission,
+  needsNotificationPermission as _needsNotificationPermission,
   logout,
 } from '@/services/native.uts';
+function needsNotificationPermission(): boolean {
+  return _needsNotificationPermission();
+}
+
 function syncPush(requestPermission: boolean = false): Promise<void> {
   return _syncPush(requestPermission);
 }
@@ -372,8 +384,10 @@ async function openSettings() {
 }
 function notificationStatus(): string {
   if (!pushState.checked) return t('正在检查通知权限…');
-  if (needsNotificationPermission()) return t('通知权限尚未开启，可能无法收到事件提醒。点击下方按钮开启。');
-  if (pushState.supported && !pushState.registered) return t('通知权限已开启，正在准备设备提醒服务。');
+  if (needsNotificationPermission())
+    return t('通知权限尚未开启，可能无法收到事件提醒。点击下方按钮开启。');
+  if (pushState.supported && !pushState.registered)
+    return t('通知权限已开启，正在准备设备提醒服务。');
   // #ifdef APP-ANDROID
   return pushState.registered
     ? t('后台接收已开启。请保留应用在后台运行，系统限制后台运行时可能延迟接收。')
@@ -399,9 +413,12 @@ async function checkNotification(): Promise<void> {
     } else {
       const result = await requestNotificationPermission();
       notificationFeedback.value = t(
-        !pushState.supported ? '请在手机 App 中开启通知'
-          : pushState.permission == 'authorized' ? '通知已开启'
-            : result['settingsOpened'] == true ? '请在系统设置中允许通知，返回后将重新检查'
+        !pushState.supported
+          ? '请在手机 App 中开启通知'
+          : pushState.permission == 'authorized'
+            ? '通知已开启'
+            : result['settingsOpened'] == true
+              ? '请在系统设置中允许通知，返回后将重新检查'
               : '通知尚未开启，可再次点击开启通知',
       );
     }
@@ -410,10 +427,7 @@ async function checkNotification(): Promise<void> {
     notificationFeedback.value = message(e);
   } finally {
     checkingNotification.value = false;
-    toast(
-      notificationFeedback.value,
-      pushState.permission == 'authorized' ? 'success' : 'info',
-    );
+    toast(notificationFeedback.value, pushState.permission == 'authorized' ? 'success' : 'info');
   }
 }
 function updateNotes(): string {
@@ -436,9 +450,21 @@ onBackPress((): boolean => updates.required && updates.available);
 // #endif
 </script>
 <style scoped>
-.notification-title { flex-direction: row; align-items: center; margin-bottom: 16px; }
-.notification-heading { margin-bottom: 0; }
-.notification-dot { width: 7px; height: 7px; border-radius: 4px; background-color: #ef536b; margin-left: 8px; }
+.notification-title {
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.notification-heading {
+  margin-bottom: 0;
+}
+.notification-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background-color: #ef536b;
+  margin-left: 8px;
+}
 .update-dot {
   width: 8px;
   height: 8px;

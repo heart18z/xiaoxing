@@ -13,7 +13,15 @@
   </text>
 </template>
 <script setup lang="uts">
-import { uiIconGlyph, uiIconColor } from '@/core/ui-icons.uts';
+import { uiIconGlyph as _uiIconGlyph, uiIconColor as _uiIconColor } from '@/core/ui-icons.uts';
+// Local methods keep template calls compatible with the Android UTS compiler.
+function uiIconColor(tone: string): string {
+  return _uiIconColor(tone);
+}
+function uiIconGlyph(name: string): string {
+  return _uiIconGlyph(name);
+}
+
 defineProps({
   name: { type: String, default: 'note' },
   tone: { type: String, default: 'muted' },

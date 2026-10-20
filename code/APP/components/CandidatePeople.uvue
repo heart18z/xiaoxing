@@ -71,16 +71,39 @@
 <script setup lang="uts">
 import { ref, watch } from 'vue';
 import Popup from './Popup.uvue';
-import { t } from '@/core/locale.uts';
-import { s, arr, strings, obj, b, message } from '@/core/json.uts';
+import { t as _t } from '@/core/locale.uts';
+import { s as _s, arr, strings, obj, b as _b, message } from '@/core/json.uts';
 import {
-  groupPersonName,
-  groupSources,
-  permissionIssue,
+  groupPersonName as _groupPersonName,
+  groupSources as _groupSources,
+  permissionIssue as _permissionIssue,
   toggleGroupSelection,
 } from '@/core/groups.uts';
 import { reminder } from '@/api/request.uts';
-import { asset, confirm, toast } from '@/core/ui.uts';
+import { asset as _asset, confirm, toast } from '@/core/ui.uts';
+// Local methods keep template calls compatible with the Android UTS compiler.
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function b(row: UTSJSONObject, key: string): boolean {
+  return _b(row, key);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+function groupPersonName(person: UTSJSONObject): string {
+  return _groupPersonName(person);
+}
+function groupSources(person: UTSJSONObject): string {
+  return _groupSources(person);
+}
+function permissionIssue(person: UTSJSONObject): string {
+  return _permissionIssue(person);
+}
+
 const props = defineProps<{ open: boolean; candidateId: string; eventIndex: number }>();
 const emit = defineEmits(['close', 'saved']);
 const people = ref<UTSJSONObject[]>([]),
@@ -89,16 +112,7 @@ const people = ref<UTSJSONObject[]>([]),
   saving = ref(false),
   error = ref('');
 let ticket = 0;
-watch(
-  (): boolean => props.open,
-  (value: boolean) => {
-    if (value) {
-      people.value = [];
-      selected.value = [];
-      void load();
-    } else ticket++;
-  },
-);
+
 async function load() {
   const current = ++ticket;
   loading.value = true;
@@ -166,6 +180,17 @@ async function save() {
     saving.value = false;
   }
 }
+
+watch(
+  (): boolean => props.open,
+  (value: boolean) => {
+    if (value) {
+      people.value = [];
+      selected.value = [];
+      void load();
+    } else ticket++;
+  },
+);
 </script>
 <style scoped>
 .summary {

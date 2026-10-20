@@ -64,10 +64,27 @@
 </template>
 <script setup lang="uts">
 import UiIcon from './UiIcon.uvue';
-import { t } from '@/core/locale.uts';
-import { s, n, arr } from '@/core/json.uts';
-import { asset } from '@/core/ui.uts';
-import { groupRoleLabel, groupAvatars } from '@/core/groups.uts';
+import { t as _t } from '@/core/locale.uts';
+import { s as _s, n as _n, arr } from '@/core/json.uts';
+import { asset as _asset } from '@/core/ui.uts';
+import { groupRoleLabel as _groupRoleLabel, groupAvatars } from '@/core/groups.uts';
+// Local methods keep template calls compatible with the Android UTS compiler.
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function n(row: UTSJSONObject, key: string): number {
+  return _n(row, key);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+function groupRoleLabel(role: string): string {
+  return _groupRoleLabel(role);
+}
+
 defineProps<{ rows: UTSJSONObject[]; loading: boolean; error: string }>();
 const emit = defineEmits(['create', 'retry']);
 const compact = uni.getWindowInfo().windowWidth < 360;

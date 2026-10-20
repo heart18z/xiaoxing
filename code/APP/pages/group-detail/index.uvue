@@ -16,7 +16,7 @@
         <view v-else-if="s(group, 'id').length > 0">
           <view class="surface hero-card">
             <view class="hero-row">
-              <view class="hero-picture" @click="manager && (editing = true)">
+              <view class="hero-picture" @click="editMetadata()">
                 <image
                   class="hero-avatar"
                   :src="asset(s(group, 'avatar', groupAvatars[0]))"
@@ -27,13 +27,13 @@
                 </text>
               </view>
               <view class="hero-copy">
-                <view class="hero-title-row" @click="manager && (editing = true)">
+                <view class="hero-title-row" @click="editMetadata()">
                   <text class="app-font hero-name">{{ s(group, 'name') }}</text>
                   <view v-if="manager" class="pencil-dot">
                     <UiIcon name="edit" tone="muted" :size="15" />
                   </view>
                 </view>
-                <view class="hero-title-row intro-row" @click="manager && (editing = true)">
+                <view class="hero-title-row intro-row" @click="editMetadata()">
                   <text class="app-font introduction">
                     {{
                       s(group, 'introduction').length > 0 ? s(group, 'introduction') : t('暂无介绍')
@@ -462,7 +462,7 @@
         class="app-font primary"
         :disabled="saving"
         :loading="saving"
-        @click="tagEditing ? saveTag() : editTag({})"
+        @click="submitCatalog()"
       >
         {{ t(tagEditing ? '保存标签与人员' : '新增标签') }}
       </button>
@@ -476,20 +476,49 @@ import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
 import GroupEditor from '@/components/GroupEditor.uvue';
-import { t } from '@/core/locale.uts';
-import { s, n, arr, obj, message } from '@/core/json.uts';
+import { t as _t } from '@/core/locale.uts';
+import { s as _s, n as _n, arr as _arr, obj, message } from '@/core/json.uts';
 import {
-  groupRoleLabel,
-  groupMemberRole,
-  groupPersonName,
+  groupRoleLabel as _groupRoleLabel,
+  groupMemberRole as _groupMemberRole,
+  groupPersonName as _groupPersonName,
   groupCanManage,
   toggleGroupSelection,
   groupAvatars,
-  groupTagTone,
+  groupTagTone as _groupTagTone,
 } from '@/core/groups.uts';
-import { asset, toast, confirm, back } from '@/core/ui.uts';
+import { asset as _asset, toast, confirm, back } from '@/core/ui.uts';
 import { reminder } from '@/api/request.uts';
 import { session, requireSession } from '@/store/session.uts';
+// Local methods keep template calls compatible with the Android UTS compiler.
+function t(value: string): string {
+  return _t(value);
+}
+function s(row: UTSJSONObject, key: string, fallback: string = ''): string {
+  return _s(row, key, fallback);
+}
+function n(row: UTSJSONObject, key: string): number {
+  return _n(row, key);
+}
+function arr(row: UTSJSONObject, key: string): UTSJSONObject[] {
+  return _arr(row, key);
+}
+function asset(value: string): string {
+  return _asset(value);
+}
+function groupPersonName(person: UTSJSONObject): string {
+  return _groupPersonName(person);
+}
+function groupMemberRole(role: string): string {
+  return _groupMemberRole(role);
+}
+function groupTagTone(name: string): string {
+  return _groupTagTone(name);
+}
+function groupRoleLabel(role: string): string {
+  return _groupRoleLabel(role);
+}
+
 const groupId = ref(''),
   group = ref<UTSJSONObject>({}),
   loading = ref(false),
@@ -537,6 +566,9 @@ const availableAdmins = computed((): UTSJSONObject[] =>
       s(p, 'memberRole') != 'OWNER' && !adminIds.value.includes(s(p, 'id')),
   ),
 );
+function editMetadata(): void {
+  if (manager.value) editing.value = true;
+}
 function goBack(): void {
   back();
 }
@@ -561,20 +593,7 @@ function openAdmins(): void {
 function toggleAdmin(id: string): void {
   if (!saving.value) adminIds.value = toggleGroupSelection(adminIds.value, id);
 }
-async function saveAdmins() {
-  if (await mutate('admins', { userIds: adminIds.value })) {
-    adminsOpen.value = false;
-    toast('管理员已更新', 'success');
-  }
-}
-function editCatalogTag(tag: UTSJSONObject): void {
-  catalogOpen.value = true;
-  editTag(tag);
-}
-async function removePerson(person: UTSJSONObject) {
-  selected.value = person;
-  await removeMember();
-}
+
 const adminHeight = computed((): number => Math.min(640, 260 + members.value.length * 60));
 const inviteHeight = computed((): number =>
   Math.min(
@@ -743,6 +762,20 @@ function editTag(tag: UTSJSONObject): void {
   tagEditing.value = true;
   formError.value = '';
 }
+async function saveAdmins() {
+  if (await mutate('admins', { userIds: adminIds.value })) {
+    adminsOpen.value = false;
+    toast('管理员已更新', 'success');
+  }
+}
+function editCatalogTag(tag: UTSJSONObject): void {
+  catalogOpen.value = true;
+  editTag(tag);
+}
+async function removePerson(person: UTSJSONObject) {
+  selected.value = person;
+  await removeMember();
+}
 function toggleTagPerson(id: string): void {
   tagPeople.value = toggleGroupSelection(tagPeople.value, id);
 }
@@ -760,6 +793,13 @@ async function saveTag() {
   ) {
     tagEditing.value = false;
     toast('标签已保存', 'success');
+  }
+}
+function submitCatalog(): void {
+  if (tagEditing.value) {
+    void saveTag();
+  } else {
+    editTag({} as UTSJSONObject);
   }
 }
 async function deleteTag() {

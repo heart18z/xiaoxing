@@ -479,7 +479,7 @@
 </template>
 <script setup lang="uts">
 import { updates, checkUpdates } from '@/services/updates.uts';
-import { needsNotificationPermission } from '@/services/native.uts';
+import { needsNotificationPermission as _needsNotificationPermission } from '@/services/native.uts';
 // #ifdef WEB
 import { scanBrowserQr, stopBrowserQr } from '@/services/browser-qr.uts';
 // #endif
@@ -501,6 +501,10 @@ import { reminder, bootstrap, upload } from '@/api/request.uts';
 import { firstText, s as _s, arr as _arr, obj, message } from '@/core/json.uts';
 import { asset as _asset, toast, confirm } from '@/core/ui.uts';
 import { logout } from '@/services/native.uts';
+function needsNotificationPermission(): boolean {
+  return _needsNotificationPermission();
+}
+
 const session: SessionState = _session;
 const navigation: NavigationState = _navigation;
 function originalName(person: UTSJSONObject): string {
@@ -625,12 +629,7 @@ function permission(mode: string, incoming: boolean = false): string {
 function socialPageChanged(e: UniSwiperChangeEvent): void {
   tab.value = e.detail.current;
 }
-async function groupCreated(group: UTSJSONObject) {
-  creatingGroup.value = false;
-  tab.value = 1;
-  void load(true);
-  uni.navigateTo({ url: '/pages/group-detail/index?id=' + s(group, 'id') });
-}
+
 async function loadSocialPart(kind: string, current: number, owner: string) {
   try {
     const response = await reminder(kind);
@@ -669,6 +668,12 @@ async function load(silent: boolean = false) {
       socialLoading = false;
     }
   }
+}
+async function groupCreated(group: UTSJSONObject) {
+  creatingGroup.value = false;
+  tab.value = 1;
+  void load(true);
+  uni.navigateTo({ url: '/pages/group-detail/index?id=' + s(group, 'id') });
 }
 function editProfile() {
   profileName.value = s(session.profile, 'name');
