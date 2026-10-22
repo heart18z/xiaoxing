@@ -16,6 +16,7 @@ import org.springblade.modules.smartreminder.service.SmartReminderService;
 import org.springblade.modules.smartreminder.service.SmartSocialService;
 import org.springblade.modules.smartreminder.support.AppRoleGuard;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -224,6 +225,24 @@ public class SmartReminderController {
 		AppRoleGuard.requireAppUser();
 		return R.data(fileService.upload(file));
 	}
+
+    @PostMapping("/event/attachments")
+    public R<Object> eventAttachments(@RequestParam Long eventId) {
+        AppRoleGuard.requireAppUser();
+        return R.data(reminderService.eventAttachments(eventId));
+    }
+
+    @PostMapping("/files/content")
+    public R<Object> attachmentContent(@RequestParam Long eventId,@RequestParam Long id) {
+        AppRoleGuard.requireAppUser();
+        return R.data(fileService.content(id,reminderService.eventAttachmentOwner(eventId,id)));
+    }
+
+    @GetMapping("/files/download")
+    public org.springframework.http.ResponseEntity<byte[]> attachmentDownload(@RequestParam Long eventId,@RequestParam Long id) {
+        AppRoleGuard.requireAppUser();
+        return fileService.download(id,reminderService.eventAttachmentOwner(eventId,id));
+    }
 
 	@PostMapping("/files/preview")
 	public R<Object> filePreview(@RequestParam Long id, @RequestParam(defaultValue="false") boolean full,

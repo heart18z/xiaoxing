@@ -92,18 +92,22 @@
                 {{ t('添加好友') }}
               </button>
             </view>
-            <view class="friend-card">
+            <view :class="['friend-card', filteredFriends.length == 0 ? 'friend-card-empty' : '']">
+              <view v-if="filteredFriends.length == 0" class="social-empty">
+                <text class="app-font social-empty-title">
+                  {{ loading ? t('正在读取…') : friendKeyword.trim().length > 0 ? t('暂无匹配好友') : t('暂无好友') }}
+                </text>
+                <text v-if="!loading" class="app-font social-empty-description">
+                  {{ friendKeyword.trim().length > 0 ? t('换个名称或账号试试') : t('点击“添加好友”开始查找') }}
+                </text>
+              </view>
               <scroll-view
+                v-else
                 :key="'friends-' + friendKeyword + '-' + filteredFriends.length"
                 :scroll-y="true"
                 class="friend-scroll"
                 :bounces="false"
               >
-                <view v-if="filteredFriends.length == 0" class="card empty">
-                  <text class="app-font muted">
-                    {{ loading ? t('正在读取…') : t('暂无匹配好友，点击“添加好友”开始查找') }}
-                  </text>
-                </view>
                 <view v-for="friend in filteredFriends" :key="s(friend, 'id')" class="friend-row">
                   <image
                     v-if="s(friend, 'avatar').length > 0"
@@ -145,10 +149,10 @@
               class="applications-scroll"
               :bounces="false"
             >
-              <view class="applications-card">
-                <view v-if="requestItems.length == 0" class="application-empty">
-                  <text class="app-font application-name">{{ t('暂无好友申请') }}</text>
-                  <text class="app-font application-description">
+              <view :class="['applications-card', requestItems.length == 0 ? 'applications-card-empty' : '']">
+                <view v-if="requestItems.length == 0" class="social-empty">
+                  <text class="app-font social-empty-title">{{ loading ? t('正在读取…') : t('暂无好友申请') }}</text>
+                  <text v-if="!loading" class="app-font social-empty-description">
                     {{ t('收到和发出的申请会显示在这里') }}
                   </text>
                 </view>
@@ -495,6 +499,7 @@ import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
 import AvatarPicker from '@/components/AvatarPicker.uvue';
 import GroupList from '@/components/GroupList.uvue';
+import { openGroup } from '@/core/group-navigation.uts';
 import GroupEditor from '@/components/GroupEditor.uvue';
 import { SessionState, session as _session, requireSession } from '@/store/session.uts';
 import { reminder, bootstrap, upload } from '@/api/request.uts';
@@ -673,7 +678,7 @@ async function groupCreated(group: UTSJSONObject) {
   creatingGroup.value = false;
   tab.value = 1;
   void load(true);
-  uni.navigateTo({ url: '/pages/group-detail/index?id=' + s(group, 'id') });
+  openGroup(s(group, 'id'));
 }
 function editProfile() {
   profileName.value = s(session.profile, 'name');
@@ -1464,9 +1469,34 @@ onBackPress((): boolean => updates.required && updates.available);
   max-width: 80px;
   flex-shrink: 0;
 }
-.application-empty {
+.friend-card-empty {
+  flex: 0;
+  padding: 0;
+  background-color: #f6f7f9;
+}
+.applications-card-empty {
+  background-color: #f6f7f9;
+  border-width: 0;
+}
+.social-empty {
   padding: 28px 16px;
   align-items: center;
+  justify-content: center;
+  min-height: 100px;
+}
+.social-empty-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+  color: #8590a3;
+  text-align: center;
+}
+.social-empty-description {
+  font-size: 12px;
+  line-height: 18px;
+  color: #929bac;
+  margin-top: 4px;
+  text-align: center;
 }
 /* #ifdef APP-IOS */
 .application-name {

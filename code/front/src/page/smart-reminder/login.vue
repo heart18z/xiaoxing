@@ -1,6 +1,10 @@
 <template>
   <div class="login-page">
     <div class="login-canvas">
+      <button class="login-language" type="button" :aria-label="mt('切换语言')" @click="languageOpen=true"><span :class="{current:mobileLanguage==='zh-cn'}">中</span><i>/</i><span :class="{current:mobileLanguage==='en-us'}">EN</span></button>
+      <el-dialog v-model="languageOpen" :title="mt('切换语言')" width="min(360px,90vw)" align-center append-to-body class="login-language-dialog">
+        <button v-for="mode in ['system','zh-cn','en-us']" :key="mode" type="button" class="language-option" :class="{chosen:mobileLanguageMode===mode}" @click="setMobileLanguage(mode);languageOpen=false"><span>{{ mode==='system'?mt('跟随系统'):mode==='zh-cn'?'中文':'English' }}</span><span v-if="mobileLanguageMode===mode">✓</span></button>
+      </el-dialog>
       <header class="login-brand">
         <img class="brand-icon" src="/avatars/assistant/A3.png" :alt="mt('智能提醒')" width="80" height="80" />
         <span class="brand-spark" aria-hidden="true"><i></i><i></i></span>
@@ -26,7 +30,7 @@
           <span v-if="loading" class="submit-spinner" aria-hidden="true"></span>
           {{ loading ? mt('正在登录…') : mt('登录') }}
         </button>
-        <button class="register-entry" type="button" :disabled="loading" @click="registerVisible=true">没有账号？注册账号</button>
+        <button class="register-entry" type="button" :disabled="loading" @click="registerVisible=true">{{ mt('没有账号？注册账号') }}</button>
       </form>
       <AccountForm v-model="registerVisible" register @success="registered" />
       <footer>{{ mt("更智能的提醒") }}<span>·</span>{{ mt("更从容的生活") }}</footer>
@@ -35,7 +39,7 @@
 </template>
 
 <script setup>
-import {mt} from './mobileLocale';
+import {mt,mobileLanguage,mobileLanguageMode,setMobileLanguage} from './mobileLocale';
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -45,6 +49,7 @@ import AccountForm from './AccountForm.vue';
 import {lastLoginAccount,rememberLoginAccount} from './loginMemory';
 import {mobileError} from './mobileError.mjs';
 const registerVisible = ref(false);
+const languageOpen = ref(false);
 const registered = async ({account,password}) => { form.username=account; form.password=password; ElMessage.success('注册成功，正在登录…'); await login(); form.password=''; };
 
 const router = useRouter(); const store = useStore(); const loading = ref(false), showPassword = ref(false);
@@ -71,6 +76,7 @@ const login = async () => {
 .register-entry{display:block;margin:18px auto 0;padding:8px;border:0;background:none;color:#4264e9;font-size:14px}
 .login-page{min-height:100vh;min-height:100dvh;background:#eef3ff;font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#222945}
 .login-canvas{container-type:inline-size;position:relative;width:100%;max-width:560px;min-height:100vh;min-height:100dvh;margin:auto;padding-bottom:max(30px,env(safe-area-inset-bottom));background:#f8fbff url('/images/login-background.png') top center/100% auto no-repeat;overflow:hidden}
+.login-language{position:absolute;z-index:2;top:max(16px,calc(env(safe-area-inset-top) + 12px));right:22px;width:84px;height:36px;display:flex;align-items:center;justify-content:center;gap:9px;padding:0;border:1px solid #ffffff99;border-radius:18px;background:#ffffffeb;color:#8794b4;font-family:inherit;font-size:13px;cursor:pointer}.login-language .current{color:#3d5dd4;font-weight:700}.login-language i{font-size:12px;color:#c1c9dc;font-style:normal}.language-option{display:flex;align-items:center;justify-content:space-between;width:100%;padding:15px 16px;margin-bottom:8px;border:0;border-radius:14px;background:#f6f8fc;font:inherit;font-size:16px;color:#354563;text-align:left;cursor:pointer}.language-option.chosen{background:#edf2ff;color:#5269ed}
 .login-brand{position:relative;height:73cqw;padding:12.4cqw 10cqw 0;color:white}
 .brand-icon{width:20cqw;height:20cqw;border-radius:4cqw;display:block;box-shadow:0 5px 15px #2356ef35}
 .brand-spark{position:absolute;left:32cqw;top:13cqw;width:4.5cqw;height:5cqw;pointer-events:none}

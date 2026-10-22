@@ -1,4 +1,26 @@
 export const english: UTSJSONObject = {
+  "点击图片放大": "Tap image to enlarge",
+  "左右滑动查看附件": "Swipe to view attachments",
+  "上一张": "Previous image",
+  "下一张": "Next image",
+  "下载图片": "Download image",
+  "图片已保存到相册": "Image saved to Photos",
+  "图片保存失败，请检查相册权限后重试": "Could not save the image. Check photo permissions and try again.",
+  "暂无文字预览，可下载原文件查看": "No text preview. Download the original file to view.",
+  "附件记录": "Attachments",
+
+  "查看附件": "View attachments",
+  "事件附件": "Event attachments",
+  "暂无附件": "No attachments",
+  "反馈附件": "Feedback attachments",
+  "发送附件": "Sent attachments",
+  "附件加载中…": "Loading attachment\u2026",
+  "打开原文件": "Open original file",
+  "下载原文件": "Download original file",
+  "附件读取失败，请稍后重试": "Could not read attachment. Please retry.",
+  "无法打开原文件，可查看文字预览": "Unable to open the file. You can read the text preview.",
+  "请在APP中打开原文件": "Open the original file in the app",
+
   事件概述: 'Event overview',
   我的任务: 'My task',
   展开完整概述: 'Show full overview',
@@ -586,6 +608,10 @@ english['你申请调整提醒权限'] = 'You requested a permission change';
 english['对方已通过你的权限申请'] = 'Your permission request was accepted';
 english['你已接受对方的权限申请'] = 'You accepted the permission request';
 english['暂无好友申请'] = 'No friend requests';
+english['暂无好友'] = 'No friends yet';
+english['暂无匹配好友'] = 'No matching friends';
+english['换个名称或账号试试'] = 'Try another name or account';
+english['点击“添加好友”开始查找'] = 'Tap “Add friend” to find someone';
 english['收到和发出的申请会显示在这里'] = 'Incoming and outgoing requests appear here';
 english['接受'] = 'Accept';
 english['已添加'] = 'Added';
@@ -796,3 +822,4 @@ english["开启通知"] = "Enable notifications";
 english["通知尚未开启，可再次点击开启通知"] = "Notifications are still off. Tap Enable notifications to try again.";
 english["通知权限申请失败，请重试"] = "Could not request notification permission. Please try again.";
 english["请在系统设置中允许通知，返回后将重新检查"] = "Allow notifications in system settings. We will check again when you return.";
+english['切换语言'] = 'Language';

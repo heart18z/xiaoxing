@@ -109,7 +109,7 @@ public class SmartScheduleService {
             // never a client-provided approval flag. Changes/additions/removals invalidate the digest.
             ArrayNode proposed=events.deepCopy();
             for(JsonNode event:proposed)if(event instanceof com.fasterxml.jackson.databind.node.ObjectNode object)
-                object.remove(List.of("scheduleConflicts","relatedMessageIds","reasoningContent"));
+                object.remove(List.of("scheduleConflicts","relatedMessageIds","reasoningContent","attachmentIds","attachmentMode"));
             schedules.sort(Comparator.comparing(row->row.get("recipientId")+":"+row.get("eventId")));
             String input=mapper.writeValueAsString(Map.of("proposed",proposed,"existing",schedules,"timezone","Asia/Shanghai",
                 "currentDate",java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString()));

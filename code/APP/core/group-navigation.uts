@@ -1,0 +1,12 @@
+// Keep group-card taps from stacking detail pages while native navigation is busy.
+let openingGroup = false;
+export function openGroup(id: string): void {
+  if (openingGroup || !/^[1-9]\d{0,19}$/.test(id)) return;
+  const pages = getCurrentPages();
+  if (pages.length > 0 && pages[pages.length - 1].route == 'pages/group-detail/index') return;
+  openingGroup = true;
+  uni.navigateTo({
+    url: '/pages/group-detail/index?id=' + id,
+    complete: () => { openingGroup = false; },
+  });
+}

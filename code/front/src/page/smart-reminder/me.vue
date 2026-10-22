@@ -60,13 +60,13 @@
               <button type="button" class="permission-change" @click="openFriend(user)">{{ mt('管理') }}</button>
             </div>
           </section>
-          <div v-else class="sr-card sr-empty">{{ mt(friends.length?'没有匹配的好友':'暂无好友，点击“添加好友”开始查找') }}</div>
+          <div v-else class="sr-card social-empty"><b>{{ mt(friendKeyword.trim()?'暂无匹配好友':'暂无好友') }}</b><p>{{ mt(friendKeyword.trim()?'换个名称或账号试试':'点击“添加好友”开始查找') }}</p></div>
         </div>
       </div>
 
 </div>
         <div class="social-page"><GroupList :rows="groups" :loading="groupsLoading" :error="groupsError" @create="creatingGroup=true" @retry="loadGroups"/></div>
-        <div class="social-page"><div class="friend-area"><div class="friend-scroll pending-scroll"><section class="sr-card people-card"><div v-for="item in requestItems" :key="item.id" class="person"><div class="sr-avatar"><img v-if="item.avatar" :src="item.avatar" alt=""/><template v-else>{{userInitial(item)}}</template></div><div><b>{{userDisplay(item)}}</b><p>{{mt(applicationDescription(item))}}</p></div><div v-if="item.direction==='incoming'&&item.requestStatus==='PENDING'" class="reply"><button @click="reply(item.id,false)">{{mt('拒绝')}}</button><button @click="reply(item.id,true)">{{mt('接受')}}</button></div><span v-else class="relation">{{mt(applicationStatus(item))}}</span></div><div v-if="!requestItems.length" class="sr-empty">{{mt('暂无好友申请')}}</div></section></div></div></div>
+        <div class="social-page"><div class="friend-area"><div class="friend-scroll pending-scroll"><section v-if="requestItems.length" class="sr-card people-card"><div v-for="item in requestItems" :key="item.id" class="person"><div class="sr-avatar"><img v-if="item.avatar" :src="item.avatar" alt=""/><template v-else>{{userInitial(item)}}</template></div><div><b>{{userDisplay(item)}}</b><p>{{mt(applicationDescription(item))}}</p></div><div v-if="item.direction==='incoming'&&item.requestStatus==='PENDING'" class="reply"><button @click="reply(item.id,false)">{{mt('拒绝')}}</button><button @click="reply(item.id,true)">{{mt('接受')}}</button></div><span v-else class="relation">{{mt(applicationStatus(item))}}</span></div></section><div v-else class="sr-card social-empty"><b>{{mt('暂无好友申请')}}</b><p>{{mt('收到和发出的申请会显示在这里')}}</p></div></div></div></div>
       </div></div>
       <GroupEditor :open="creatingGroup" :creating="true" @close="creatingGroup=false" @saved="groupCreated"/>
       <el-dialog v-model="friendDetailVisible" :title="mt('好友资料')" width="min(92vw,460px)" align-center append-to-body class="friend-search-dialog" :close-on-click-modal="!remarkSaving" :show-close="!remarkSaving" :close-on-press-escape="!remarkSaving">
@@ -265,4 +265,7 @@ onDeactivated(()=>{editingProfile.value=false;searchVisible.value=false;friendDe
 .me-page .friend-scroll{flex:1;min-height:0;overflow-y:auto}
 .me-page .logout{position:static;transform:none;width:100%;flex:0 0 46px;margin:12px 0 0}
 .me-page .profile,.me-page .ai-profile{flex-shrink:0}
+.me-page .social-empty{min-height:100px;padding:28px 16px;background:#f6f7f9;border:0;border-radius:22px;box-shadow:none;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.me-page .social-empty b{font-size:15px;font-weight:500;line-height:22px;color:#8590a3}
+.me-page .social-empty p{font-size:12px;line-height:18px;color:#929bac;margin:4px 0 0}
 </style>

@@ -471,7 +471,7 @@
 </template>
 <script setup lang="uts">
 import { updates } from '@/services/updates.uts';
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
 import UiIcon from '@/components/UiIcon.uvue';
@@ -487,7 +487,7 @@ import {
   groupAvatars,
   groupTagTone as _groupTagTone,
 } from '@/core/groups.uts';
-import { asset as _asset, toast, confirm, back } from '@/core/ui.uts';
+import { asset as _asset, toast, confirm } from '@/core/ui.uts';
 import { reminder } from '@/api/request.uts';
 import { session, requireSession } from '@/store/session.uts';
 // Local methods keep template calls compatible with the Android UTS compiler.
@@ -569,9 +569,6 @@ const availableAdmins = computed((): UTSJSONObject[] =>
 function editMetadata(): void {
   if (manager.value) editing.value = true;
 }
-function goBack(): void {
-  back();
-}
 function canEdit(person: UTSJSONObject): boolean {
   return manager.value || s(person, 'id') == session.userId;
 }
@@ -618,62 +615,86 @@ const availableFriends = computed((): UTSJSONObject[] =>
         .includes(inviteQuery.value.trim().toLowerCase()),
   ),
 );
-let ticket = 0;
+let ticket = 0, pageEpoch = 0, inviteTicket = 0;
+let closing = false, disposed = false;
+function acceptsResult(epoch: number, owner: string): boolean {
+  return !closing && !disposed && epoch == pageEpoch && owner == session.userId;
+}
 async function load() {
-  if (groupId.value.length == 0 || !requireSession()) return;
+  if (closing || disposed || groupId.value.length == 0 || !requireSession()) return;
   const current = ++ticket,
-    owner = session.userId;
+    owner = session.userId, epoch = pageEpoch;
   loading.value = s(group.value, 'id').length == 0;
   try {
     const result = obj(await reminder('groups/detail', null, { groupId: groupId.value }), 'value');
-    if (current != ticket || owner != session.userId) return;
+    if (current != ticket || !acceptsResult(epoch, owner)) return;
     group.value = result;
     error.value = '';
   } catch (e) {
-    if (current == ticket) error.value = message(e);
+    if (current == ticket && acceptsResult(epoch, owner)) error.value = message(e);
   } finally {
-    if (current == ticket) loading.value = false;
+    if (current == ticket && acceptsResult(epoch, owner)) loading.value = false;
   }
 }
+function goBack(): void {
+  if (closing || disposed) return;
+  closing = true;
+  pageEpoch++;
+  ticket++;
+  const failed = () => {
+    if (disposed) return;
+    closing = false;
+    saving.value = false;
+    friendsLoading.value = false;
+    toast('返回失败，请重试');
+    void load();
+  };
+  if (getCurrentPages().length > 1) uni.navigateBack({ fail: (_) => failed() });
+  else uni.switchTab({ url: '/pages/me/index', fail: (_) => failed() });
+}
 async function mutate(action: string, data: UTSJSONObject): Promise<boolean> {
-  if (saving.value) return false;
+  if (closing || disposed || saving.value) return false;
   saving.value = true;
   formError.value = '';
-  const owner = session.userId;
+  const owner = session.userId, epoch = pageEpoch;
   try {
     const result = await reminder('groups/' + action, { ...data, groupId: groupId.value });
-    if (owner != session.userId) return false;
+    if (!acceptsResult(epoch, owner)) return false;
     if (action != 'member/remove' && action != 'dissolve') group.value = obj(result, 'value');
     return true;
   } catch (e) {
+    if (!acceptsResult(epoch, owner)) return false;
     formError.value = message(e);
     toast(message(e));
     return false;
   } finally {
-    saving.value = false;
+    if (acceptsResult(epoch, owner)) saving.value = false;
   }
 }
 function metadataSaved(value: UTSJSONObject): void {
+  if (closing || disposed) return;
   group.value = value;
   editing.value = false;
   toast('群组资料已保存', 'success');
 }
 async function openInvite() {
-  if (role.value != 'OWNER') return;
+  if (closing || disposed || role.value != 'OWNER') return;
   friends.value = [];
   friendsLoading.value = true;
-  const owner = session.userId;
+  const owner = session.userId, epoch = pageEpoch, current = ++inviteTicket;
   inviteIds.value = [];
   inviteQuery.value = '';
   formError.value = '';
   inviting.value = true;
   try {
     const result = await reminder('friends/list');
-    if (owner == session.userId) friends.value = (result['value'] as UTSJSONObject[]) ?? [];
+    if (current == inviteTicket && acceptsResult(epoch, owner) && inviting.value)
+      friends.value = (result['value'] as UTSJSONObject[]) ?? [];
   } catch (e) {
-    formError.value = message(e);
+    if (current == inviteTicket && acceptsResult(epoch, owner) && inviting.value)
+      formError.value = message(e);
   } finally {
-    friendsLoading.value = false;
+    if (current == inviteTicket && acceptsResult(epoch, owner)) friendsLoading.value = false;
   }
 }
 function canInviteFriend(person: UTSJSONObject): boolean {
@@ -816,13 +837,13 @@ async function dissolve() {
     return;
   if (await mutate('dissolve', {})) {
     toast('群组已解散', 'success');
-    uni.navigateBack();
+    goBack();
   }
 }
 async function leave() {
   if (!(await confirm('退出群组', '退出后不能再查看该群组或以它发起新提醒，已创建事件保留。')))
     return;
-  if (await mutate('member/remove', { userId: session.userId })) uni.navigateBack();
+  if (await mutate('member/remove', { userId: session.userId })) goBack();
 }
 onLoad((options) => {
   groupId.value = options['id'] ?? '';
@@ -830,9 +851,15 @@ onLoad((options) => {
 onShow(() => {
   void load();
 });
-onUnload(() => {
+function disposePage(): void {
+  disposed = true;
+  pageEpoch++;
   ticket++;
-});
+}
+// Native swipe-back does not go through our button handler. Invalidate pending
+// callbacks before Vue tears down the component tree as well as on page unload.
+onBeforeUnmount(disposePage);
+onUnload(disposePage);
 // #ifdef APP-ANDROID
 onBackPress((): boolean => updates.required && updates.available);
 // #endif

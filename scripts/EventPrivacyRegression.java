@@ -34,7 +34,7 @@ public class EventPrivacyRegression extends Stage1Regression {
     check(recent.contains("通知陈颖开会"),"privacy test reads actual history before checking redaction");
     check(!recent.contains("PRIVATE"),"legacy conflict is also removed from future LLM chat context");
     String schedules=(String)invoke("recipientScheduleContext",new Class<?>[]{Long.class,Long.class},81L,2L);
-    check(!schedules.contains("PRIVATE")&&!schedules.contains("eventId")&&!schedules.contains("eventNo"),"scheduled evaluation only receives anonymous occupancy times");
+    check(!schedules.contains("PRIVATE")&&schedules.contains("eventId")&&!schedules.contains("eventNo"),"scheduled evaluation gets own branch references but never another event's parent summary");
     Map<String,Object> data=new HashMap<>();data.put("event_id",81L);data.put("creator_user_id",-1L);data.put("recipient_user_id",2L);data.put("recipient_name","陈颖");data.put("event_no","E81");data.put("event_summary","开会");
     invoke("sendTimeConflict",new Class<?>[]{Map.class,Long.class,String.class,String.class,com.fasterxml.jackson.databind.node.ObjectNode.class},data,10081L,secret,secret,mapper.readTree(payload));
     var newest=db.queryForMap("select content,payload_json from blade_smart_chat_message where user_id=-1 order by id desc limit 1");

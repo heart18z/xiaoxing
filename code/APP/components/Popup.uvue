@@ -26,6 +26,7 @@
         'panel',
         sheet ? 'sheet-panel' : '',
         variant == 'conversation' ? 'conversation-panel' : '',
+        variant == 'attachment' ? 'attachment-panel' : '',
         variant == 'account' ? 'account-panel' : '',
         variant == 'friend-edit' ? 'friend-edit-panel' : '',
         variant == 'friend-search' ? 'friend-search-panel' : '',
@@ -304,4 +305,5 @@ function noop() {}
 }
 /* #endif */
 .group-compact-panel{max-width:338px;border-radius:23px;}.group-compact-panel .popup-head{padding:14px 16px 10px;}.group-compact-panel .popup-head .title{font-size:19px;}.group-compact-panel .popup-body{padding:0 16px 12px;}.group-compact-panel .popup-footer{min-height:65px;padding:10px 16px 15px;}
+.attachment-panel{max-width:420px;border-radius:26px;background-color:#fbfcff;}.attachment-panel .popup-head{padding:19px 20px 14px;}.attachment-panel .popup-head .title{font-size:18px;font-weight:600;color:#1d2c47;}.attachment-panel .close{width:32px;height:32px;background-color:#f0f3f9;}.attachment-panel .popup-body{padding:0 18px 20px;}
 </style>

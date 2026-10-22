@@ -33,7 +33,7 @@ import {pendingTab,tabPaths} from './mobileNavigation';
 import { onBeforeRouteLeave,useRouter } from 'vue-router';
 import { silentReminder } from '@/api/smartReminder';
 import { setAvatars } from './avatarState';
-import {setMobileLanguage,mobileLanguage} from './mobileLocale';
+import {mobileLanguage} from './mobileLocale';
 import elementEn from 'element-plus/es/locale/lang/en';
 import elementZh from 'element-plus/es/locale/lang/zh-cn';
 
@@ -46,7 +46,7 @@ onActivated(async()=>{await nextTick();if(active&&shell.value?.isConnected)for(c
 const tabIndex=computed(()=>Math.max(0,tabPaths.indexOf(pendingTab.value||router.currentRoute.value.path)));
 const selectTab=(event,path)=>{if(router.currentRoute.value.path===path){event.preventDefault();return;}pendingTab.value=path;};
 let active=true,badgeRevision=0;
-const refreshBadge=async()=>{const revision=++badgeRevision;try{const data=(await silentReminder('bootstrap')).data.data||{};if(!active||revision!==badgeRevision)return;if(data.language)setMobileLanguage(data.language);setAvatars(data);activeEventCount.value=Number(data.activeEventCount||0);pendingFriendCount.value=Number(data.pendingFriendRequests||0);}catch{/* Keep the last known badge while offline. */}};
+const refreshBadge=async()=>{const revision=++badgeRevision;try{const data=(await silentReminder('bootstrap')).data.data||{};if(!active||revision!==badgeRevision)return;if(data.language!==mobileLanguage.value)void silentReminder('settings/language',{language:mobileLanguage.value}).catch(()=>{});setAvatars(data);activeEventCount.value=Number(data.activeEventCount||0);pendingFriendCount.value=Number(data.pendingFriendRequests||0);}catch{/* Keep the last known badge while offline. */}};
 const goBack=()=>props.backTo?router.replace(props.backTo):router.back();
 const refreshIfActive=()=>{if(active)void refreshBadge();};
 let mountedActivation=false;

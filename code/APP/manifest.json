@@ -2,8 +2,8 @@
   "name": "AI小醒",
   "appid": "__UNI__93FE60B",
   "description": "AI 智能提醒助手",
-  "versionName": "1.0.140",
-  "versionCode": "140",
+  "versionName": "1.0.141",
+  "versionCode": "141",
   "vueVersion": "3",
   "uni-app-x": {},
   "app-ios": {
@@ -16,6 +16,7 @@
       "privacyDescription": {
         "NSCameraUsageDescription": "拍摄图片以识别提醒内容，或扫描二维码添加好友",
         "NSPhotoLibraryUsageDescription": "选择图片附件或个人头像",
+        "NSPhotoLibraryAddUsageDescription": "将你选择下载的附件图片保存到相册",
         "NSMicrophoneUsageDescription": "录制语音并转换为提醒文字"
       },
       "icons": {

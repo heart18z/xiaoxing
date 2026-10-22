@@ -160,7 +160,7 @@
             <span v-if="isAiAction(item)" class="ai-mark">AI</span>
             {{ item.nodeType === 'BRANCH_TASK_UPDATED' ? mt('任务已更新') : mt(nodeName(item)) }}
           </b>
-          <p>{{ item.content }}</p>
+          <p><EventAttachments :content="item.content" :event-id="String(detail.event.id)" :ids="item.attachmentIds" :tone="item.nodeType === 'RECIPIENT_FEEDBACK' ? 'green' : 'blue'" /></p>
           <small>{{ mt('操作人：') }}{{ timelineActor(item) }} ·</small>
           <small>{{ item.createTime }}</small>
         </div>
@@ -279,6 +279,7 @@
 </style>
 
 <script setup>
+import EventAttachments from './EventAttachments.vue';
 import ChatImage from './ChatImage.vue';
 import { mt } from './mobileLocale';
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
@@ -462,6 +463,7 @@ const nodeName = (item) => {
     {
       CREATOR_EVALUATION_REQUESTED: '发起人反馈触发评估',
       AI_BRANCH_RESUMED: '恢复提醒分支',
+      EVENT_ATTACHMENTS: '附件记录',
       EVENT_CREATED: '事件创建',
       EVENT_MERGED: '事件合并',
       FIRST_EVALUATION_PLANNED: '首次评估',

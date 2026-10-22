@@ -64,6 +64,7 @@
 </template>
 <script setup lang="uts">
 import UiIcon from './UiIcon.uvue';
+import { openGroup } from '@/core/group-navigation.uts';
 import { t as _t } from '@/core/locale.uts';
 import { s as _s, n as _n, arr } from '@/core/json.uts';
 import { asset as _asset } from '@/core/ui.uts';
@@ -95,7 +96,7 @@ function remaining(group: UTSJSONObject): number {
   return Math.max(0, n(group, 'memberCount') - previews(group).length);
 }
 function open(group: UTSJSONObject): void {
-  uni.navigateTo({ url: '/pages/group-detail/index?id=' + s(group, 'id') });
+  openGroup(s(group, 'id'));
 }
 </script>
 <style scoped>

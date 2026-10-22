@@ -34,6 +34,7 @@
           ]"
         >
           <text v-if="user" class="app-font user-text" selectable>{{ s(item, 'content') }}</text>
+          <EventAttachments v-else-if="s(item, 'messageType') == 'EVENT_ASSIGNED'" :content="s(item, 'content')" :event-id="s(item, 'eventId')" :ids="strings(payload(item), 'attachmentIds')" />
           <rich-text v-else :nodes="markdown(replyText(item))" />
         </view>
         <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
@@ -104,13 +105,7 @@
             s(item, 'messageType') == 'REMINDER' ? 'reminder-focus' : '',
           ]"
         >
-          <text class="app-font notification-content" selectable>
-            {{
-              s(item, 'messageType') == 'FEEDBACK'
-                ? s(payload(item), 'fact', s(item, 'content'))
-                : s(item, 'content')
-            }}
-          </text>
+          <EventAttachments :content="s(item, 'messageType') == 'FEEDBACK' ? s(payload(item), 'fact', s(item, 'content')) : s(item, 'content')" :event-id="s(item, 'eventId')" :ids="strings(payload(item), 'attachmentIds')" :tone="noticeTone" :strong="true" />
           <text
             v-if="s(item, 'messageType') == 'FEEDBACK' && s(payload(item), 'actor').length > 0"
             class="app-font notification-actor"
@@ -224,6 +219,7 @@ import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import ThinkingPanel from './ThinkingPanel.uvue';
 import ReplyProgress from './ReplyProgress.uvue';
+import EventAttachments from './EventAttachments.uvue';
 import ChatImage from './ChatImage.uvue';
 import { timeOf, dayOf } from '@/core/time.uts';
 import { candidateAlarmAvailable } from '@/core/alarms.uts';

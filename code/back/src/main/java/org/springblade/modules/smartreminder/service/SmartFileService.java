@@ -209,6 +209,29 @@ public class SmartFileService {
 		} catch(ServiceException e) { throw e; } catch(Exception e) { throw new ServiceException("图片读取失败"); }
 	}
 
+    public Map<String,Object> content(Long id,Long owner) {
+        var rows=jdbcTemplate.queryForList("select original_name,extension,extracted_text from blade_smart_file where id=? and user_id=?",id,owner);
+        if(rows.isEmpty())throw new ServiceException("附件不存在或无权查看");
+        var row=rows.get(0);var result=new LinkedHashMap<String,Object>();
+        result.put("name",row.get("original_name"));result.put("extension",row.get("extension"));
+        if(IMAGES.contains(Objects.toString(row.get("extension"),"")))result.putAll(preview(id,owner,true));
+        else result.put("text",Objects.toString(row.get("extracted_text"),""));
+        return result;
+    }
+
+    public org.springframework.http.ResponseEntity<byte[]> download(Long id,Long owner) {
+        var rows=jdbcTemplate.queryForList("select original_name,file_path from blade_smart_file where id=? and user_id=?",id,owner);
+        if(rows.isEmpty())throw new ServiceException("附件不存在或无权查看");
+        try {
+            var row=rows.get(0);Path path=Path.of(row.get("file_path").toString());
+            if(Files.size(path)>MAX_SIZE)throw new ServiceException("附件超出大小限制");
+            return org.springframework.http.ResponseEntity.ok()
+                .header("Cache-Control","private, no-store").header("X-Content-Type-Options","nosniff")
+                .header("Content-Disposition",org.springframework.http.ContentDisposition.attachment().filename(row.get("original_name").toString(),StandardCharsets.UTF_8).build().toString())
+                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM).body(Files.readAllBytes(path));
+        }catch(Exception ex){throw new ServiceException("附件读取失败，请稍后重试");}
+    }
+
 	private String extractDocx(Path path) throws Exception {
 		StringBuilder text = new StringBuilder();
 		try (InputStream input = Files.newInputStream(path); XWPFDocument document = new XWPFDocument(input)) {

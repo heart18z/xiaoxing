@@ -1,0 +1,112 @@
+<template>
+  <view>
+    <text class="app-font inline-body" :style="{fontSize: bodySize + 'px', lineHeight: '25px'}"><text :class="['app-font', strong ? 'body-strong' : 'body-normal']" :style="{fontSize: bodySize + 'px', color: bodyColor}">{{ content }}</text><text v-if="(ids ?? []).length > 0" class="app-font inline-link" :class="'tone-' + tone" :style="{fontSize: (bodySize - 1) + 'px'}" @click.stop="openList()">{{ '  ' + t('查看附件') + '  ' }}</text></text>
+    <Popup v-if="opened" :open="opened" :title="t('查看附件')" variant="attachment" @close="close()">
+      <text v-if="loading" class="app-font loading">{{ t('附件加载中…') }}</text>
+      <view v-else-if="files.length == 0" class="empty">
+        <text class="app-font muted">{{ error.length > 0 ? error : t('暂无附件') }}</text>
+        <text v-if="error.length > 0" class="app-font inline-link" @click="openList()">{{ t('重试') }}</text>
+      </view>
+      <view v-else>
+        <view class="photo-stack" :style="{paddingTop: files.length > 1 ? '16px' : '0px'}">
+          <view v-if="files.length > 1" class="stack-back back-far" />
+          <view v-if="files.length > 1" class="stack-back back-near" />
+          <swiper :current="active" :duration="240" class="photo-pager" :style="{height: photoHeight + 'px'}" @change="pageChanged">
+            <swiper-item v-for="(file,index) in files" :key="s(file,'id')">
+              <view class="photo-face" :style="{height: photoHeight + 'px'}">
+                <text v-if="index != active || reading" class="app-font loading">{{ t('附件加载中…') }}</text>
+                <view v-else-if="error.length > 0" class="empty" @click="loadCurrent()"><text class="app-font muted">{{ error }}</text><text class="app-font inline-link">{{ t('重试') }}</text></view>
+                <image v-else-if="image.length > 0" :src="image" mode="aspectFit" class="photo" @click="previewImage()" />
+                <scroll-view v-else :scroll-y="true" class="document"><text class="app-font document-text" selectable>{{ documentText.length > 0 ? documentText : t('暂无文字预览，可下载原文件查看') }}</text></scroll-view>
+                <text v-if="files.length > 1" class="app-font image-count">{{ (index + 1) + ' / ' + files.length }}</text>
+              </view>
+            </swiper-item>
+          </swiper>
+        </view>
+        <text class="app-font file-name">{{ s(selected,'name') }}</text>
+        <text class="app-font caption">{{ t(s(selected,'kind') == 'FEEDBACK' ? '反馈附件' : '发送附件') }}{{ image.length > 0 ? ' · ' + t('点击图片放大') : '' }}</text>
+        <view v-if="files.length > 1" class="gallery-navigation">
+          <view class="nav-button" :style="{opacity: active == 0 ? 0.3 : 1}" role="button" :aria-label="t('上一张')" @click="move(-1)"><text class="app-font nav-label">‹</text></view>
+          <view class="dots"><view v-for="(file,index) in files" :key="s(file,'id')" :class="['dot', index == active ? 'dot-active' : '']" /></view>
+          <view class="nav-button" :style="{opacity: active == files.length-1 ? 0.3 : 1}" role="button" :aria-label="t('下一张')" @click="move(1)"><text class="app-font nav-label">›</text></view>
+        </view>
+        <text v-if="files.length > 1" class="app-font swipe-hint">{{ t('左右滑动查看附件') }}</text>
+        <view class="download-row"><view class="download-button" role="button" @click="download()"><text class="app-font download-label">{{ downloading ? t('正在下载…') : image.length > 0 ? t('下载图片') : t('打开原文件') }}</text></view></view>
+      </view>
+    </Popup>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, computed, onBeforeUnmount, watch, PropType } from 'vue';
+import Popup from './Popup.uvue';
+import { post, headers } from '@/api/request.uts';
+import { BASE_URL } from '@/config/environment.uts';
+import { s as _s, obj, arr, message } from '@/core/json.uts';
+import { session } from '@/store/session.uts';
+import { toast } from '@/core/ui.uts';
+import { t as translate } from '@/core/locale.uts';
+function t(value: string): string { return translate(value); }
+function s(row: UTSJSONObject, key: string): string { return _s(row, key); }
+const props = defineProps({eventId:{type:String,default:''},ids:{type:Array as PropType<string[]>,default:():string[]=>[]},content:{type:String,default:''},tone:{type:String,default:'blue'},strong:{type:Boolean,default:false},bodySize:{type:Number,default:14},bodyColor:{type:String,default:'#243149'}});
+const opened=ref(false),loading=ref(false),reading=ref(false),downloading=ref(false);
+const files=ref<UTSJSONObject[]>([]),active=ref(0),error=ref(''),image=ref(''),documentText=ref('');
+const selected=computed(():UTSJSONObject=>files.value[active.value] ?? {});
+const info=uni.getWindowInfo();
+const photoHeight=Math.max(150,Math.min(330,info.windowWidth-80,info.windowHeight*0.42));
+let generation=0,selection=0;
+let downloadTask:DownloadTask|null=null;
+function close(){generation++;selection++;opened.value=false;files.value=[];image.value='';documentText.value='';error.value='';loading.value=false;reading.value=false;downloading.value=false;downloadTask?.abort();downloadTask=null;}
+async function loadCurrent():Promise<void>{
+  if(s(selected.value,'id').length==0)return;
+  const run=++selection,page=generation,owner=session.userId,id=s(selected.value,'id');
+  reading.value=true;error.value='';image.value='';documentText.value='';
+  try{const response=await post('/app/reminder/files/content',null,{eventId:props.eventId,id:id});if(run!=selection||page!=generation||owner!=session.userId)return;image.value=s(obj(response,'data'),'image');documentText.value=s(obj(response,'data'),'text');}
+  catch(e){if(run==selection&&page==generation)error.value=message(e);}
+  finally{if(run==selection&&page==generation)reading.value=false;}
+}
+async function openList():Promise<void>{
+  if(loading.value||props.ids.length==0)return;
+  opened.value=true;loading.value=true;error.value='';const run=++generation,owner=session.userId;
+  try{
+    const response=await post('/app/reminder/event/attachments',null,{eventId:props.eventId});
+    if(run!=generation||owner!=session.userId)return;
+    const seen=new Set<string>();
+    files.value=arr(response,'data').filter((file:UTSJSONObject):boolean=>{const id=s(file,'id');if(!props.ids.includes(id)||seen.has(id))return false;seen.add(id);return true;});
+    active.value=0;if(files.value.length>0)await loadCurrent();
+  }catch(e){if(run==generation)error.value=message(e);}
+  finally{if(run==generation)loading.value=false;}
+}
+function move(delta:number){const next=active.value+delta;if(next<0||next>=files.value.length)return;active.value=next;void loadCurrent();}
+function pageChanged(e:UniSwiperChangeEvent){if(active.value==e.detail.current)return;active.value=e.detail.current;void loadCurrent();}
+function previewImage(){if(image.value.length>0)uni.previewImage({urls:[image.value]});}
+function download(){
+  if(downloading.value||reading.value||error.value.length>0||s(selected.value,'id').length==0)return;
+  // #ifdef APP
+  const page=generation,owner=session.userId,id=s(selected.value,'id'),extension=s(selected.value,'extension'),photo=image.value.length>0;
+  downloading.value=true;
+  downloadTask=uni.downloadFile({
+    url:BASE_URL+'/app/reminder/files/download?eventId='+encodeURIComponent(props.eventId)+'&id='+encodeURIComponent(id),header:headers(false),
+    success:(res)=>{
+      if(page!=generation||owner!=session.userId)return;
+      if(res.statusCode!=200){toast('附件读取失败，请稍后重试');return;}
+      if(photo){uni.saveImageToPhotosAlbum({filePath:res.tempFilePath,success:(_)=>{if(page==generation)toast('图片已保存到相册');},fail:(_)=>{if(page==generation)toast('图片保存失败，请检查相册权限后重试');}});}
+      else uni.openDocument({filePath:res.tempFilePath,fileType:extension,fail:(_)=>{if(page==generation)toast('无法打开原文件，可查看文字预览');}});
+    },
+    fail:(_)=>{if(page==generation)toast('附件读取失败，请稍后重试');},
+    complete:(_)=>{if(page==generation){downloading.value=false;downloadTask=null;}},
+  });
+  // #endif
+  // #ifdef WEB
+  toast('请在APP中打开原文件');
+  // #endif
+}
+watch(():string=>props.eventId+':'+JSON.stringify(props.ids)+':'+session.userId,()=>close());
+onBeforeUnmount(()=>close());
+</script>
+<style scoped>
+.inline-body{line-height:25px}.body-strong{font-weight:600}.body-normal{font-weight:400}.inline-link{font-weight:600;color:#4963df;background-color:#edf1ff}.tone-amber{color:#bc7b15;background-color:#fff0cf}.tone-green{color:#209775;background-color:#e1f5ed}.tone-red{color:#d35960;background-color:#ffeded}
+.photo-stack{position:relative;margin:4px 4px 0}.stack-back{position:absolute;height:80%;border:1px solid #dfe6f6;border-radius:20px}.back-far{top:0;left:20px;right:20px;background-color:#e9eef9}.back-near{top:8px;left:10px;right:10px;background-color:#f4f6fc}.photo-pager{width:100%;border-radius:18px;overflow:hidden}.photo-face{width:100%;border-radius:18px;background-color:#f3f6fb;border:1px solid #e6eaf3;align-items:center;justify-content:center;overflow:hidden}.photo{width:100%;height:100%}.image-count{position:absolute;right:12px;top:12px;border-radius:16px;background-color:#ffffffed;padding:4px 10px;font-size:12px;color:#53617c;font-weight:600}
+.loading{font-size:13px;color:#8290a8;text-align:center;padding:50px 14px}.empty{padding:36px 16px;align-items:center}.muted{font-size:13px;color:#8290a8;text-align:center;margin-bottom:12px}.file-name{font-size:14px;font-weight:600;color:#27354f;text-align:center;margin-top:15px;lines:1;text-overflow:ellipsis}.caption{font-size:11px;color:#8b97ab;text-align:center;margin-top:6px}
+.gallery-navigation{flex-direction:row;align-items:center;justify-content:center;margin-top:12px}.nav-button{width:28px;height:28px;border-radius:14px;background-color:#edf1f8;align-items:center;justify-content:center}.nav-label{font-size:23px;line-height:25px;color:#657592}.dots{flex-direction:row;align-items:center;justify-content:center;margin:0 20px}.dot{width:5px;height:5px;border-radius:4px;background-color:#d8deeb;margin:0 3px}.dot-active{width:17px;background-color:#6480e8}.swipe-hint{font-size:11px;color:#98a3b6;text-align:center;margin-top:7px}
+.download-row{align-items:center;margin-top:18px}.download-button{border:1px solid #dae4ff;background-color:#eef3ff;border-radius:13px;padding:10px 30px}.download-label{font-size:13px;font-weight:600;color:#4d67da}.document{height:100%;width:100%}.document-text{font-size:14px;line-height:24px;color:#3c465a;padding:18px}
+</style>

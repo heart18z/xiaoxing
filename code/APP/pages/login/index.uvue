@@ -2,6 +2,11 @@
   <scroll-view :scroll-y="true" class="login">
     <view class="canvas">
       <image class="login-bg" src="/static/images/login-background.png" mode="widthFix" />
+      <view class="language-switch" :style="{ top: (top + 12) + 'px' }" role="button" :aria-label="t('切换语言')" @click="languageOpen = true">
+        <text class="app-font language-label" :class="{ 'language-current': session.language == 'zh-cn' }">中</text>
+        <text class="app-font language-divider">/</text>
+        <text class="app-font language-label" :class="{ 'language-current': session.language == 'en-us' }">EN</text>
+      </view>
       <view class="brand" :style="{ marginTop: top + 'px' }">
         <view class="brand-logo">
           <image class="brand-icon" src="/static/avatars/assistant/A3.png" />
@@ -80,6 +85,12 @@
       <text class="app-font slogan">{{ t('更智能的提醒\u3000·\u3000更从容的生活') }}</text>
     </view>
   </scroll-view>
+  <Popup :open="languageOpen" :title="t('切换语言')" @close="languageOpen = false">
+    <view v-for="(mode,index) in languageModes" :key="mode" class="language-option" :class="{ 'language-selected': session.languageMode == mode }" @click="chooseLanguage(mode)">
+      <text class="app-font language-option-label">{{ index == 0 ? t('跟随系统') : index == 1 ? '中文' : 'English' }}</text>
+      <text v-if="session.languageMode == mode" class="app-font language-check">✓</text>
+    </view>
+  </Popup>
   <Popup :open="confirmOpen" :title="t('确认在此设备登录？')" :busy="busy" @close="cancelLogin">
     <text class="app-font dialog-copy">{{ t('账号已在其他设备登录，继续将退出其他设备。') }}</text>
 
@@ -110,13 +121,20 @@ import LoginButton from '@/components/LoginButton.uvue';
 import EmailCodeField from '@/components/EmailCodeField.uvue';
 import { login, emailLogin, post, ApiError } from '@/api/request.uts';
 import Popup from '@/components/Popup.uvue';
-import { hasSession } from '@/store/session.uts';
+import { hasSession, session, setLanguageMode } from '@/store/session.uts';
 import { syncPush } from '@/services/native.uts';
 import { message, s, obj } from '@/core/json.uts';
 import { toast } from '@/core/ui.uts';
 function t(value: string): string {
   return _t(value);
 }
+const languageOpen = ref(false);
+const languageModes: string[] = ['system', 'zh-cn', 'en-us'];
+function chooseLanguage(mode: string) {
+  setLanguageMode(mode);
+  languageOpen.value = false;
+}
+onHide(() => { languageOpen.value = false; });
 const codeMode = ref(false),
   emailCode = ref('');
 function openRegister() {
@@ -291,6 +309,7 @@ onBackPress((): boolean => updates.required && updates.available);
   height: 100%;
 }
 .canvas {
+  position: relative;
   width: 100%;
   max-width: 560px;
   align-self: center;
@@ -302,6 +321,14 @@ onBackPress((): boolean => updates.required && updates.available);
   top: 0;
   width: 100%;
 }
+.language-switch { position: absolute; right: 22px; z-index: 2; flex-direction: row; align-items: center; justify-content: center; width: 84px; height: 36px; border-radius: 18px; border: 1px solid #ffffff99; background-color: #ffffffeb; }
+.language-label { font-size: 13px; color: #8794b4; }
+.language-current { color: #3d5dd4; font-weight: 700; }
+.language-divider { font-size: 12px; color: #c1c9dc; margin: 0 9px; }
+.language-option { flex-direction: row; align-items: center; justify-content: space-between; padding: 15px 16px; margin-bottom: 8px; border-radius: 14px; background-color: #f6f8fc; }
+.language-selected { background-color: #edf2ff; }
+.language-option-label { font-size: 16px; color: #354563; }
+.language-check { font-size: 17px; font-weight: 600; color: #5269ed; }
 .brand {
   height: 548rpx;
   padding: 94rpx 75rpx 0;

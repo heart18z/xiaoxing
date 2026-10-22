@@ -124,3 +124,7 @@ export const getAdminNotifications = params => post('/api/blade-smart/admin/noti
 export const getAdminEvaluations = params => post('/api/blade-smart/admin/evaluations', null, params);
 
 export const getFilePreview = (id, context = {}) => post('/api/app/reminder/files/preview', null, { ...context, id });
+
+export const getEventAttachments = eventId => post('/api/app/reminder/event/attachments', null, { eventId });
+export const getAttachmentContent = (eventId, id) => post('/api/app/reminder/files/content', null, { eventId, id });
+export const downloadEventAttachment = (eventId, id) => request({url:'/api/app/reminder/files/download',method:'get',params:{eventId,id},responseType:'blob',meta:{noProgress:true}});

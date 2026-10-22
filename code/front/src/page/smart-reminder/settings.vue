@@ -10,7 +10,7 @@
       <p v-if="loading" class="sr-card" role="status">{{ mt("正在读取设置…") }}</p>
       <template v-else>
         <p v-if="error" class="settings-error sr-card" role="alert">{{ mt(error) }}</p>
-        <section class="sr-card language-settings"><label for="app-language">{{ mt("界面语言") }}</label><el-select id="app-language" v-model="form.language" class="settings-select" popper-class="model-choice-menu" :show-arrow="false" :aria-label="mt('界面语言')"><el-option value="zh-cn" :label="mt('中文')" /><el-option value="en-us" label="English" /></el-select><small>{{ mt("保存后生效，历史消息保持原文。") }}</small></section>
+        <section class="sr-card language-settings"><label for="app-language">{{ mt("界面语言") }}</label><el-select id="app-language" v-model="form.language" class="settings-select" popper-class="model-choice-menu" :show-arrow="false" :aria-label="mt('界面语言')"><el-option value="system" :label="mt('跟随系统')" /><el-option value="zh-cn" :label="mt('中文')" /><el-option value="en-us" label="English" /></el-select><small>{{ mt("保存后生效，历史消息保持原文。") }}</small></section>
         <section v-for="kind in kinds" :key="kind.key" class="sr-card model-settings">
           <h2>{{ mt(kind.title) }}</h2>
           <div class="model-source"><label><input v-model="form[kind.key+'Mode']" type="radio" :name="kind.key+'-source'" value="SYSTEM" />{{ mt("使用系统配置") }}</label><label><input v-model="form[kind.key+'Mode']" type="radio" :name="kind.key+'-source'" value="PERSONAL" />{{ mt("使用个人配置") }}</label></div>
@@ -41,14 +41,14 @@ const router=useRouter(),store=useStore(),passwordVisible=ref(false);
 const passwordChanged=async()=>{ElMessage.success('密码已修改，请重新登录');try{await store.dispatch('LogOut');}catch{await store.dispatch('FedLogOut');}router.replace('/app/login');};
 import NotificationSettings from '@/native/NotificationSettings.vue';
 import {getModelSettings,saveModelSettings} from '@/api/smartReminder';
-import {setMobileLanguage} from './mobileLocale';
+import {setMobileLanguage,mobileLanguageMode,effectiveMobileLanguage} from './mobileLocale';
 const blank=()=>({baseUrl:'',modelName:'',apiKey:'',extraBody:'{}',showThinking:true});
 const kinds=[{key:'llm',title:'LLM 对话模型'},{key:'speech',title:'语音识别模型'}];
 const models=ref([]);
 const loading=ref(true),saving=ref(false),error=ref(''),failed=ref(false),form=reactive({language:'zh-cn',llmConfigId:'',speechConfigId:'',llmMode:'SYSTEM',speechMode:'SYSTEM',llm:blank(),speech:blank()});
-const apply=data=>{models.value=data.models||[];for(const key of ['llm','speech']){const id=String(data[key+'ConfigId']||'');form[key+'ConfigId']=models.value.some(m=>String(m.id)===id&&m.configType===key.toUpperCase())?id:'';}form.language=data.language||'zh-cn';for(const key of ['llm','speech']){form[key+'Mode']=data[key+'Mode']||'SYSTEM';form[key]={...blank(),...data[key]};}};
+const apply=data=>{models.value=data.models||[];for(const key of ['llm','speech']){const id=String(data[key+'ConfigId']||'');form[key+'ConfigId']=models.value.some(m=>String(m.id)===id&&m.configType===key.toUpperCase())?id:'';}form.language=mobileLanguageMode.value;for(const key of ['llm','speech']){form[key+'Mode']=data[key+'Mode']||'SYSTEM';form[key]={...blank(),...data[key]};}};
 const load=async()=>{loading.value=true;error.value='';failed.value=false;try{apply((await getModelSettings()).data.data||{});}catch{failed.value=true;error.value='读取设置失败，请重试';}finally{loading.value=false;}};
-const save=async()=>{if(saving.value||failed.value)return;error.value='';if(form.llmMode==='PERSONAL'){try{const value=JSON.parse(form.llm.extraBody||'{}');if(!value||Array.isArray(value)||typeof value!=='object'||['model','messages','stream'].some(k=>k in value))throw Error();}catch{error.value='额外 body 必须是 JSON 对象，且不能覆盖 model、messages、stream';return;}}saving.value=true;try{const data={llmConfigId:form.llmConfigId||null,speechConfigId:form.speechConfigId||null,language:form.language,llmMode:form.llmMode,speechMode:form.speechMode,llm:form.llmMode==='PERSONAL'?form.llm:null,speech:form.speechMode==='PERSONAL'?form.speech:null};apply((await saveModelSettings(data)).data.data||{});setMobileLanguage(form.language);ElMessage.success(mt('设置已保存'));}catch(e){error.value=e?.response?.data?.msg||'保存失败，请重试';}finally{saving.value=false;}};
+const save=async()=>{if(saving.value||failed.value)return;error.value='';if(form.llmMode==='PERSONAL'){try{const value=JSON.parse(form.llm.extraBody||'{}');if(!value||Array.isArray(value)||typeof value!=='object'||['model','messages','stream'].some(k=>k in value))throw Error();}catch{error.value='额外 body 必须是 JSON 对象，且不能覆盖 model、messages、stream';return;}}saving.value=true;try{const data={llmConfigId:form.llmConfigId||null,speechConfigId:form.speechConfigId||null,language:effectiveMobileLanguage(form.language),llmMode:form.llmMode,speechMode:form.speechMode,llm:form.llmMode==='PERSONAL'?form.llm:null,speech:form.speechMode==='PERSONAL'?form.speech:null};const mode=form.language;apply((await saveModelSettings(data)).data.data||{});setMobileLanguage(mode);form.language=mode;ElMessage.success(mt('设置已保存'));}catch(e){error.value=e?.response?.data?.msg||'保存失败，请重试';}finally{saving.value=false;}};
 onMounted(load);
 </script>
 <style scoped>

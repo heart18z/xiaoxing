@@ -203,7 +203,7 @@
                   }}{{ nodeLabel(s(node, 'nodeType')) }}
                 </text>
               </view>
-              <text class="app-font node-copy">{{ s(node, 'content') }}</text>
+              <view class="node-copy"><EventAttachments :content="s(node, 'content')" :event-id="s(event, 'id')" :ids="strings(node, 'attachmentIds')" :tone="s(node, 'nodeType') == 'RECIPIENT_FEEDBACK' ? 'green' : 'blue'" :body-size="16" body-color="#66717f" /></view>
               <text class="app-font node-time">
                 {{ t('操作人：') }}{{ isAi(node) ? 'AI' : s(node, 'actorName', t('系统')) }} ·
                 {{ displayTime(s(node, 'createTime')) }}
@@ -288,6 +288,7 @@ import { updates } from '@/services/updates.uts';
 defineOptions({ inheritAttrs: false });
 // #endif
 import UiIcon from '@/components/UiIcon.uvue';
+import EventAttachments from '@/components/EventAttachments.uvue';
 import ChatImage from '@/components/ChatImage.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
@@ -393,6 +394,7 @@ function name(row: UTSJSONObject): string {
 }
 function nodeLabel(type: string): string {
   const labels: UTSJSONObject = {
+    EVENT_ATTACHMENTS: '附件记录',
     EVENT_CREATED: '事件创建',
     EVENT_UPDATED: '事件更新',
     BRANCH_TASK_UPDATED: '任务已更新',

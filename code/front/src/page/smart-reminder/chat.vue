@@ -39,7 +39,7 @@
           </div>
         </div>
         <div v-else-if="item.messageType==='EVENT_ASSIGNED'" class="bubble assigned-message">
-          <div class="markdown-content" v-html="renderMarkdown(item.content||'')"></div>
+          <div class="markdown-content"><EventAttachments :content="item.content" :event-id="String(item.eventId)" :ids="payload(item).attachmentIds" /></div>
           <div class="card-footer"><button type="button" class="event-text-link" @click="openEvent(item)">{{ mt("查看事件详情 ›") }}</button><time>{{ formatMessageTime(item.createTime) }}</time></div>
         </div>
         <div v-else-if="['REMINDER','QUESTION','FEEDBACK','CONFLICT'].includes(item.messageType)" :class="['notify','sr-card','card-'+cardType(item)]" @click="openEvent(item)">
@@ -47,20 +47,20 @@
           <div class="card-heading"><span class="card-icon">{{ cardIcon(item) }}</span><span class="sr-chip">{{ mt(cardLabel(item)) }}</span></div>
           <template v-if="item.messageType==='FEEDBACK'">
             <div class="notification-focus">
-              <p class="notification-content">{{ payload(item).fact || item.content }}</p>
+              <p class="notification-content"><EventAttachments :content="payload(item).fact || item.content" :event-id="String(item.eventId)" :ids="payload(item).attachmentIds" tone="green" /></p>
               <p v-if="payload(item).actor" class="notification-actor">{{ mt("反馈人：") }}{{ payload(item).actor }}</p>
               <p v-if="payload(item).eventSummary" class="notification-event"><span>{{ mt("关联事件") }}</span>{{ payload(item).eventSummary }}</p>
             </div>
           </template>
           <template v-else-if="item.messageType==='CONFLICT'||item.messageType==='QUESTION'">
             <div class="notification-focus">
-              <p class="notification-content">{{ item.content }}</p>
+              <p class="notification-content"><EventAttachments :content="item.content" :event-id="String(item.eventId)" :ids="payload(item).attachmentIds" tone="red" /></p>
               <p v-if="payload(item).eventSummary" class="notification-event"><span>{{ mt("关联事件") }}</span>{{ payload(item).eventSummary }}</p>
             </div>
           </template>
           <template v-else-if="item.messageType==='REMINDER'">
             <div class="reminder-focus">
-              <strong>{{ item.content }}</strong>
+              <strong><EventAttachments :content="item.content" :event-id="String(item.eventId)" :ids="payload(item).attachmentIds" tone="amber" /></strong>
               <p v-if="payload(item).eventSummary"><span>{{ mt("关联事件") }}</span>{{ payload(item).eventSummary }}</p>
             </div>
           </template>
@@ -136,6 +136,7 @@ import {setEventAlarm} from '@/native/alarms';
 import {getEventDetail} from '@/api/smartReminder';
 import ThinkingPanel from './ThinkingPanel.vue';
 import ReplyProgress from './ReplyProgress.vue';
+import EventAttachments from './EventAttachments.vue';
 import ChatImage from './ChatImage.vue';
 import { avatarState } from './avatarState';
 import { clearChatContext, confirmCandidate, getMessages, syncMessages, readMessages, streamMessage, stopMessage, uploadFile } from '@/api/smartReminder';
