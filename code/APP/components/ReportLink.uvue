@@ -1,0 +1,16 @@
+<template>
+  <view class="report-reply">
+    <ReportMarkdown :content="content" :font-size="16" />
+    <text class="app-font report-paragraph" selectable>{{ t('完整报告已生成，点击') }}<text class="app-font report-link" role="link" @click.stop="viewReport()">{{ t('查看报告') }}</text>{{ t('，也可') }}<text class="app-font report-link" role="link" @click.stop="download('pdf')">{{ t('下载 PDF') }}</text>{{ t('或') }}<text class="app-font report-link" role="link" @click.stop="download('docx')">{{ t('下载 Word') }}</text>{{ t('。') }}</text>
+    <text v-if="busy" class="app-font downloading">{{ t('正在下载…') }}</text>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref } from 'vue';import ReportMarkdown from './ReportMarkdown.uvue';import { downloadReport } from '@/services/reports.uts';import { toast } from '@/core/ui.uts';import { message } from '@/core/json.uts';import { t as _t } from '@/core/locale.uts';import { openReport } from '@/store/report.uts';
+const props=defineProps<{reportId:string;content:string}>();const busy=ref(false);function t(v:string):string{return _t(v);}
+async function download(format:string){if(busy.value)return;busy.value=true;try{await downloadReport(props.reportId,format);}catch(e){toast(message(e));}finally{busy.value=false;}}
+function viewReport(){openReport(props.reportId);}
+</script>
+<style scoped>
+.report-reply{align-self:stretch}.report-paragraph{font-size:16px;line-height:25px;color:#405477;margin-top:3px}.report-link{font-size:16px;line-height:25px;color:#3779df;text-decoration:underline}.downloading{font-size:16px;line-height:25px;color:#8b98ad}
+</style>

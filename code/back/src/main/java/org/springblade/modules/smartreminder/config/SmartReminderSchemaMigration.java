@@ -22,6 +22,7 @@ public class SmartReminderSchemaMigration {
 	public void migrate() {
         addColumnIfMissing("blade_app_release","force_update","alter table blade_app_release add column force_update tinyint not null default 0 comment '是否强制更新'");
 		org.springblade.modules.smartreminder.push.PushSchema.migrate(jdbcTemplate);
+        org.springblade.modules.smartreminder.push.LiveActivitySchema.migrate(jdbcTemplate);
 		for(String column:java.util.List.of("overview_summary text","overview_source_hash varchar(64)","overview_updated_at datetime(6)","overview_retry_after datetime"))
 			addColumnIfMissing("blade_smart_event",column.split(" ")[0],"alter table blade_smart_event add column "+column+" null");
 		jdbcTemplate.execute("""

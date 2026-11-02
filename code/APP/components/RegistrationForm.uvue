@@ -98,6 +98,7 @@
       />
     </view>
     <text class="app-font error" v-if="error.length > 0">{{ error }}</text>
+    <LegalConsent v-if="register" v-model="accepted" :open="consentOpen" :disabled="busy" :confirm-label="t('同意并注册')" @cancel="consentOpen = false" @confirm="agreeAndRegister" />
     <view class="registration-submit">
       <LoginButton :busy="busy" :label="register ? t('注册') : t('修改密码')"
         :busy-label="register ? t('正在注册…') : t('正在修改…')" @click="submit()" />
@@ -105,6 +106,8 @@
   </view>
 </template>
 <script setup lang="uts">
+import LegalConsent from './LegalConsent.uvue';
+import { LEGAL_VERSION } from '@/core/legal.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, watch, onUnmounted } from 'vue';
@@ -119,6 +122,8 @@ const props = defineProps({
   register: { type: Boolean, default: true },
 });
 const emit = defineEmits(['close', 'success']);
+const accepted = ref(false), consentOpen = ref(false);
+
 const account = ref(''),
   name = ref(''),
   password = ref(''),
@@ -240,8 +245,10 @@ async function submit() {
     error.value = '请填写原密码，并确认两次新密码一致';
     return;
   }
+  if (props.register && !accepted.value) { consentOpen.value = true; return; }
   busy.value = true;
   try {
+    if (props.register) uni.setStorageSync('xiaoxing:legal-consent', { version: LEGAL_VERSION, acceptedAt: Date.now(), account: account.value });
     if (props.register) {
       clearTimeout(emailTimer); clearTimeout(phoneTimer);
       if (!await checkContact('email') || !await checkContact('phone')) { error.value = '请检查邮箱和手机号的提示'; return; }
@@ -278,6 +285,10 @@ async function submit() {
   }
 }
 
+function agreeAndRegister() {
+  if (!consentOpen.value || busy.value) return;
+  consentOpen.value = false; accepted.value = true; void submit();
+}
 watch(
   (): boolean => props.open,
   (value: boolean) => {

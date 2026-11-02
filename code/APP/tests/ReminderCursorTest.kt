@@ -10,5 +10,7 @@ fun main() {
     check(cursor.select("bob", listOf("" to "REMINDER")).isEmpty())
     check(cursor.select("bob", listOf("6" to "FRIEND_REQUEST")) == setOf("6"))
     check(cursor.select("bob", listOf("6" to "FRIEND_REQUEST")).isEmpty())
+    check(cursor.select("bob", listOf("7" to "WEEKLY_REPORT")) == setOf("7"))
+    check(cursor.select("bob", listOf("7" to "WEEKLY_REPORT")).isEmpty())
     println("PASS: backlog suppression, duplicate suppression, account isolation, notification types")
 }

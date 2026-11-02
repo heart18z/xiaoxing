@@ -3,7 +3,7 @@ import { reactive } from 'vue';
 import { nativeCall, secureRead, randomHex } from '@/uni_modules/xiaoxing-native';
 import { session, persist, clearSession } from '@/store/session.uts';
 import { post, reminder } from '@/api/request.uts';
-import { s, b, obj, arr, parseObject, message } from '@/core/json.uts';
+import { s, n, b, obj, arr, parseObject, message } from '@/core/json.uts';
 import { openEvent } from '@/core/ui.uts';
 import { alarmPlan } from '@/core/alarms.uts';
 import {
@@ -167,6 +167,7 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
       baseUrl: BASE_URL,
       basicAuth: BASIC_AUTH,
       tenant: TENANT,
+      language: session.language,
     });
     pushState.supported = b(androidState, 'supported');
     pushState.permission = s(androidState, 'permission');
@@ -184,7 +185,12 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
         persist('pushBinding', '');
       }
       await revokePending();
-      if (owner.length == 0) return;
+      if (owner.length == 0) {
+        // #ifdef APP-IOS
+        await callNative('live.clear');
+        // #endif
+        return;
+      }
       const state = await callNative(requestPermission ? 'push.request' : 'push.status');
       if (owner != session.userId || revision != session.revision) return;
       pushState.supported = b(state, 'supported');
@@ -223,6 +229,16 @@ export async function syncPush(requestPermission: boolean = false): Promise<void
         return;
       }
       persist('pushBinding', JSON.stringify(binding));
+      // #ifdef APP-IOS
+      const liveConfig = installation();
+      liveConfig['bindingId'] = s(binding, 'bindingId');
+      liveConfig['owner'] = owner;
+      liveConfig['baseUrl'] = BASE_URL;
+      liveConfig['basicAuth'] = BASIC_AUTH;
+      liveConfig['tenant'] = TENANT;
+      // Optional ActivityKit setup must never break ordinary device registration.
+      try { await callNative('live.configure', liveConfig); } catch (_) {}
+      // #endif
       pushState.registered = b(binding, 'backendReady');
       if (!pushState.registered) pushState.error = '设备已绑定，服务器推送通道尚未配置';
     });
@@ -236,7 +252,13 @@ export async function checkNotificationTap(): Promise<void> {
   const tap = await callNative('push.tap');
   if (s(tap, 'recipientUserId') != session.userId || session.userId.length == 0) return;
   if (s(tap, 'type') == 'FRIEND_REQUEST') openFriendRequests();
+  else if (s(tap, 'type') == 'WEEKLY_REPORT') uni.reLaunch({url:'/pages/chat/index'});
   else openEvent(s(tap, 'eventId'));
+}
+export async function clearLiveActivities(): Promise<void> {
+  // #ifdef APP-IOS
+  await callNative('live.clear');
+  // #endif
 }
 export async function startNative(): Promise<void> {
   await callNative('initialize');
@@ -261,27 +283,41 @@ export async function alarmList(): Promise<UTSJSONObject> {
   if (!alarmState.supported) return state;
   return await callNative('alarm.list', { owner: session.userId });
 }
-export async function setAlarm(detail: UTSJSONObject): Promise<void> {
+let alarmEditRevision = 0;
+let alarmEditsInFlight = 0;
+export async function setAlarm(detail: UTSJSONObject, customTimestamp: number = 0): Promise<void> {
+  const editRevision = ++alarmEditRevision;
+  alarmEditsInFlight++;
+  try {
   const owner = session.userId,
     version = session.revision;
   const state = await alarmList();
   if (!b(state, 'supported')) throw new Error('当前安装包暂不支持系统闹铃，普通提醒仍可使用');
-  const plan = alarmPlan(detail, owner);
+  if (version != session.revision || owner != session.userId) throw new Error('账号已变化');
+  if (editRevision != alarmEditRevision) throw new Error('闹铃设置已变化，请重试');
+  const plan = alarmPlan(detail, owner, Date.now(), customTimestamp);
   const result = await callNative('alarm.schedule', plan);
   if (version != session.revision || owner != session.userId)
     throw new Error('账号已变化，请检查闹铃状态');
   if (s(result, 'id').length == 0) throw new Error('系统未确认设置成功');
+  } finally { alarmEditsInFlight--; }
 }
 export async function cancelAlarm(eventId: string): Promise<void> {
-  await callNative('alarm.cancel', { owner: session.userId, eventId: eventId });
+  alarmEditRevision++;
+  alarmEditsInFlight++;
+  try { await callNative('alarm.cancel', { owner: session.userId, eventId: eventId }); }
+  finally { alarmEditsInFlight--; }
 }
 export async function reconcileAlarms(): Promise<void> {
-  if (session.userId.length == 0) return;
+  if (session.userId.length == 0 || alarmEditsInFlight > 0) return;
+  let editRevision = alarmEditRevision;
   const owner = session.userId,
     version = session.revision,
     state = await alarmList();
   if (!b(state, 'supported')) return;
   for (const item of arr(state, 'alarms')) {
+    if (!b(item, 'active')) continue;
+    if (editRevision != alarmEditRevision || alarmEditsInFlight > 0) return;
     if (owner != session.userId || version != session.revision) return;
     let detail: UTSJSONObject;
     try {
@@ -289,18 +325,38 @@ export async function reconcileAlarms(): Promise<void> {
     } catch (_) {
       continue;
     }
+    if (owner != session.userId || version != session.revision) return;
+    const manualTime = s(item, 'timeMode') == 'manual' ? n(item, 'timestamp') : 0;
+    if (editRevision != alarmEditRevision || alarmEditsInFlight > 0) return;
     let plan: UTSJSONObject;
     try {
-      plan = alarmPlan(detail, owner);
+      plan = alarmPlan(detail, owner, 0, manualTime);
     } catch (_) {
       await cancelAlarm(s(item, 'eventId'));
+      if (alarmEditRevision != editRevision + 1) return;
+      editRevision = alarmEditRevision;
       continue;
     }
-    if (plan['timestamp'] != item['timestamp'] || plan['title'] != item['title'])
-      await setAlarm(detail);
+    if (n(plan, 'timestamp') <= Date.now() / 1000 + 2) continue;
+    if (plan['timestamp'] != item['timestamp'] || plan['title'] != item['title']) {
+      await setAlarm(detail, manualTime);
+      if (alarmEditRevision != editRevision + 1) return;
+      editRevision = alarmEditRevision;
+    }
   }
 }
-export async function logout(): Promise<void> {
+export async function logout(serverAlreadyRevoked: boolean = false): Promise<void> {
+  const owner = session.userId, logoutRevision = session.revision;
+  if (!serverAlreadyRevoked && session.token.length > 0) {
+    try {
+      await post('/blade-auth/oauth/logout', null, {}, 10000);
+    } catch (e) {
+      // An explicitly rejected/expired session is already cleared by request.uts.
+      // On a network failure keep credentials so the user can retry a real logout.
+      if (session.token.length > 0) throw e;
+    }
+  }
+  if (session.userId.length > 0 && (session.userId != owner || session.revision != logoutRevision)) throw new Error('账号已变化');
   alarmState.ringing = false;
   queueRevoke(read('pushBinding'));
   persist('pushBinding', '');

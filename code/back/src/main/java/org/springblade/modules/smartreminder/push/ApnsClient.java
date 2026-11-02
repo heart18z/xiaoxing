@@ -53,16 +53,22 @@ public class ApnsClient {
         jwts.put(environment,new CachedJwt(token,now)); return token;
     }
     public Result send(String environment, String deviceToken, String apnsId, String messageId, Instant expiresAt, Map<String,Object> payload) {
+        return sendPayload(environment,deviceToken,apnsId,"message-"+messageId,expiresAt,payload,false);
+    }
+    public Result sendLive(String environment,String activityToken,String activityId,Instant expiresAt,Map<String,Object> payload) {
+        return sendPayload(environment,activityToken,UUID.randomUUID().toString(),"live-"+activityId,expiresAt,payload,true);
+    }
+    private Result sendPayload(String environment,String deviceToken,String apnsId,String collapseId,Instant expiresAt,Map<String,Object> payload,boolean live) {
         if(!ready(environment)) return new Result(0,"NotConfigured");
         try {
             byte[] body=json.writeValueAsBytes(payload);
             if(body.length>4096) return new Result(413,"PayloadTooLarge");
-            if(!deviceToken.matches("[a-fA-F0-9]{32,512}")) return new Result(400,"BadDeviceToken");
+            if(!deviceToken.matches("[a-fA-F0-9]{32,1024}")) return new Result(400,"BadDeviceToken");
             String host="production".equals(environment)?"api.push.apple.com":"api.sandbox.push.apple.com";
             HttpRequest request=HttpRequest.newBuilder(URI.create("https://"+host+"/3/device/"+deviceToken))
                 .timeout(Duration.ofSeconds(15)).header("authorization","bearer "+jwt(environment))
-                .header("apns-topic",properties.getBundleId()).header("apns-push-type","alert")
-                .header("apns-priority","10").header("apns-id",apnsId).header("apns-collapse-id","message-"+messageId)
+                .header("apns-topic",properties.getBundleId()+(live?".push-type.liveactivity":"")).header("apns-push-type",live?"liveactivity":"alert")
+                .header("apns-priority","10").header("apns-id",apnsId).header("apns-collapse-id",collapseId)
                 .header("apns-expiration",Long.toString(expiresAt.getEpochSecond()))
                 .header("content-type","application/json").POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
             HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString());

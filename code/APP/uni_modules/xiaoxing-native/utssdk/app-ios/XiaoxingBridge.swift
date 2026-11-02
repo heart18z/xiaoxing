@@ -84,11 +84,13 @@ public final class XiaoxingBridge: NSObject, UNUserNotificationCenterDelegate, U
         let call=XiaoxingCall(input,callback)
         DispatchQueue.main.async {
             switch action {
-            case "initialize": shared.install(); call.resolve(["supported":true])
+            case "initialize": shared.install(); if #available(iOS 17.2, *) { Task { @MainActor in XiaoxingLiveActivities.shared.install() } }; call.resolve(["supported":true])
+            case "live.configure": if #available(iOS 17.2, *) { Task { @MainActor in XiaoxingLiveActivities.shared.configure(call) } } else { call.resolve(["supported":false,"mode":"notification"]) }
+            case "live.clear": if #available(iOS 17.2, *) { Task { @MainActor in XiaoxingLiveActivities.shared.clear(); call.resolve() } } else {call.resolve()}
             case "push.permission", "push.authorize", "push.onboarding": shared.notificationPermission(call,action:action)
             case "push.status", "push.request": shared.push(call,request:action=="push.request")
             case "push.tap": let value=shared.tapped;shared.tapped=[:];call.resolve(value)
-            case "push.clear": shared.tapped=[:];UNUserNotificationCenter.current().removeAllDeliveredNotifications();call.resolve()
+            case "push.clear": if #available(iOS 17.2, *) { Task { @MainActor in XiaoxingLiveActivities.shared.clear() } }; shared.tapped=[:];UNUserNotificationCenter.current().removeAllDeliveredNotifications();call.resolve()
             case "settings": guard let url=URL(string:UIApplication.openSettingsURLString) else {call.reject("无法打开设置");return};UIApplication.shared.open(url){ok in ok ? call.resolve() : call.reject("无法打开设置")}
             case "speech.start": speech.start(call)
             case "speech.stop": speech.stop(call)
@@ -276,6 +278,7 @@ public final class XiaoxingAlarms: NSObject {
                 let account = call.getString("owner") ?? ""
                 let event = call.getString("eventId") ?? ""
                 let title = String((call.getString("title") ?? "").prefix(100))
+                let timeMode = call.getString("timeMode") == "manual" ? "manual" : "suggested"
                 guard self.valid(account), account == self.owner, self.valid(event),
                       let time = call.getDouble("timestamp"), time.isFinite,
                       time > Date().timeIntervalSince1970 + 2, !title.isEmpty else {
@@ -294,6 +297,11 @@ public final class XiaoxingAlarms: NSObject {
                     if let savedID = current?["id"] as? String,
                        current?["timestamp"] as? Double == time, current?["title"] as? String == title,
                        existing.contains(where: { $0.id.uuidString == savedID }) {
+                        var records = self.records
+                        var record = current ?? [:]
+                        record["timeMode"] = timeMode
+                        records[event] = record
+                        self.records = records
                         call.resolve(["id": savedID, "timestamp": time]); return
                     }
                     if let savedID = current?["id"] as? String, let oldID = UUID(uuidString: savedID),
@@ -311,7 +319,7 @@ public final class XiaoxingAlarms: NSObject {
                         call.reject("账号已变化，闹铃已撤销"); return
                     }
                     var records = self.records
-                    records[event] = ["id": id.uuidString, "timestamp": time, "title": title]
+                    records[event] = ["id": id.uuidString, "timestamp": time, "title": title, "timeMode": timeMode]
                     self.records = records
                     call.resolve(["id": id.uuidString, "timestamp": time])
                 } catch { call.reject("系统闹铃设置失败，请检查权限或稍后重试", "SCHEDULE_FAILED") }

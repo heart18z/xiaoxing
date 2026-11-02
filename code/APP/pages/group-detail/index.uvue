@@ -45,10 +45,10 @@
                 </view>
               </view>
             </view>
-            <view class="hero-actions">
-              <view v-if="role == 'OWNER'" class="hero-action" @click="openInvite()">
+            <view v-if="manager" class="hero-actions">
+              <view class="hero-action" @click="openInvite()">
                 <UiIcon name="userPlus" tone="blue" :size="22" />
-                <text class="app-font hero-action-text">{{ t('邀请好友') }}</text>
+                <text class="app-font hero-action-text">{{ t('新增人员') }}</text>
               </view>
               <view v-if="role == 'OWNER'" class="hero-action" @click="openAdmins()">
                 <UiIcon name="settings" tone="blue" :size="21" />
@@ -57,10 +57,6 @@
               <view v-if="role == 'OWNER'" class="hero-action action-danger" @click="dissolve()">
                 <UiIcon name="trash" tone="red" :size="21" />
                 <text class="app-font hero-action-text danger-text">{{ t('解散群') }}</text>
-              </view>
-              <view v-else class="hero-action" @click="editSelfTags()">
-                <UiIcon name="tag" tone="blue" :size="21" />
-                <text class="app-font hero-action-text">{{ t('我的标签') }}</text>
               </view>
             </view>
           </view>
@@ -96,6 +92,7 @@
             <view v-for="person in members" :key="s(person, 'id')" class="member-row">
               <image
                 class="member-avatar"
+                @click="openProfile(person)"
                 :src="asset(s(person, 'avatar', '/avatars/user/B1.png'))"
                 mode="aspectFill"
               />
@@ -153,10 +150,52 @@
       </view>
     </scroll-view>
   </AppFrame>
+  <Popup :open="profileOpen" :title="t('成员资料')" variant="group-compact"
+    :fixed-footer="true" :panel-height="profileRequest ? 560 : 410" :busy="profileBusy" @close="profileOpen = false">
+    <view class="member-profile-hero">
+      <image class="member-profile-picture" :src="asset(s(profile, 'avatar', '/avatars/user/B1.png'))" mode="aspectFill" />
+      <view class="member-profile-copy">
+        <text class="app-font member-profile-name">{{ groupPersonName(profile) }}</text>
+        <text class="app-font member-profile-account">@{{ s(profile, 'account') }}</text>
+        <view :class="['tag-pill', s(profile, 'memberRole') == 'OWNER' ? 'tone-4' : 'tone-0']">
+          <text class="app-font tag-label">{{ t(groupMemberRole(s(profile, 'memberRole'))) }}</text>
+        </view>
+      </view>
+    </view>
+    <view class="member-profile-section">
+      <text class="app-font member-profile-label">{{ t('群内标签') }}</text>
+      <view class="tag-wrap">
+        <view v-for="tag in arr(profile, 'tags')" :key="s(tag, 'id')" :class="['tag-pill', groupTagTone(s(tag, 'name'))]">
+          <text class="app-font tag-label">{{ s(tag, 'name') }}</text>
+        </view>
+        <text v-if="arr(profile, 'tags').length == 0" class="app-font small-muted">{{ t('未设置标签') }}</text>
+      </view>
+    </view>
+    <view class="member-profile-section">
+      <text class="app-font member-profile-label">{{ t('好友关系') }}</text>
+      <text class="app-font member-profile-note">{{ t(profileRelation) }}</text>
+    </view>
+    <view v-if="profileRequest" class="member-profile-section">
+      <text class="app-font member-profile-label">{{ t('提醒权限') }}</text>
+      <view v-for="mode in ['MUTUAL', 'I_CAN_REMIND', 'THEY_CAN_REMIND']" :key="mode"
+        :class="['profile-permission', profilePermission == mode ? 'profile-permission-selected' : '']" @click="profilePermission = mode">
+        <text class="app-font profile-permission-label">{{ t(mode == 'MUTUAL' ? '互相提醒' : mode == 'I_CAN_REMIND' ? '我可以提醒对方' : '对方可以提醒我') }}</text>
+        <UiIcon v-if="profilePermission == mode" name="check" tone="blue" :size="17" />
+      </view>
+    </view>
+    <text v-if="profileError.length > 0" class="app-font error">{{ profileError }}</text>
+    <template #footer>
+      <button v-if="s(profile, 'id') != session.userId && n(profile, 'isFriend') != 1 && !profileSent"
+        class="app-font primary" :disabled="profileBusy" @click="requestProfileFriend()">
+        {{ t(profileBusy ? '正在发送…' : profileRequest ? '发送好友申请' : '添加好友') }}
+      </button>
+      <button v-else class="app-font secondary" @click="profileOpen = false">{{ t(profileSent ? '申请已发送' : '完成') }}</button>
+    </template>
+  </Popup>
   <GroupEditor :open="editing" :group="group" @close="editing = false" @saved="metadataSaved" />
   <Popup
     :open="inviting"
-    :title="t('邀请好友')"
+    :title="t('新增人员')"
     variant="group"
     :busy="saving"
     :fixed-footer="true"
@@ -483,6 +522,7 @@ import {
   groupMemberRole as _groupMemberRole,
   groupPersonName as _groupPersonName,
   groupCanManage,
+  groupPersonMatches,
   toggleGroupSelection,
   groupAvatars,
   groupTagTone as _groupTagTone,
@@ -549,8 +589,25 @@ const tags = computed((): UTSJSONObject[] => arr(group.value, 'tags'));
 const role = computed((): string => s(group.value, 'myRole'));
 const manager = computed((): boolean => groupCanManage(role.value));
 const canEditPerson = computed(
-  (): boolean => manager.value || s(selected.value, 'id') == session.userId,
+  (): boolean => manager.value,
 );
+const profileOpen = ref(false), profileRequest = ref(false), profileBusy = ref(false), profileSent = ref(false);
+const profile = ref<UTSJSONObject>({}), profilePermission = ref('MUTUAL'), profileError = ref('');
+const profileRelation = computed((): string => {
+  if (s(profile.value, 'id') == session.userId) return '这是你在群组中的资料';
+  if (profileSent.value) return '好友申请已发送，等待对方确认';
+  if (n(profile.value, 'isFriend') != 1) return '你们还不是好友，添加后可按授权互相提醒';
+  const mode = s(profile.value, 'permissionMode');
+  return mode == 'MUTUAL' ? '已是好友 · 可以互相提醒' : mode == 'I_CAN_REMIND' ? '已是好友 · 你可以提醒对方' : '已是好友 · 对方可以提醒你';
+});
+function openProfile(person: UTSJSONObject): void {
+  profile.value = person;
+  profileRequest.value = false;
+  profileSent.value = false;
+  profilePermission.value = 'MUTUAL';
+  profileError.value = '';
+  profileOpen.value = true;
+}
 const availablePersonTags = computed((): UTSJSONObject[] =>
   tags.value.filter((tag: UTSJSONObject): boolean => !personTags.value.includes(s(tag, 'name'))),
 );
@@ -570,7 +627,7 @@ function editMetadata(): void {
   if (manager.value) editing.value = true;
 }
 function canEdit(person: UTSJSONObject): boolean {
-  return manager.value || s(person, 'id') == session.userId;
+  return manager.value;
 }
 function personSummary(person: UTSJSONObject): string {
   const labels = arr(person, 'tags')
@@ -610,15 +667,31 @@ const availableFriends = computed((): UTSJSONObject[] =>
   friends.value.filter(
     (person: UTSJSONObject): boolean =>
       !members.value.some((member: UTSJSONObject): boolean => s(member, 'id') == s(person, 'id')) &&
-      (groupPersonName(person) + ' ' + s(person, 'account'))
-        .toLowerCase()
-        .includes(inviteQuery.value.trim().toLowerCase()),
+      groupPersonMatches(person, inviteQuery.value),
   ),
 );
 let ticket = 0, pageEpoch = 0, inviteTicket = 0;
 let closing = false, disposed = false;
 function acceptsResult(epoch: number, owner: string): boolean {
   return !closing && !disposed && epoch == pageEpoch && owner == session.userId;
+}
+async function requestProfileFriend() {
+  if (profileBusy.value || closing || disposed) return;
+  if (!profileRequest.value) { profileRequest.value = true; return; }
+  const owner = session.userId, epoch = pageEpoch, target = s(profile.value, 'id');
+  profileBusy.value = true;
+  profileError.value = '';
+  try {
+    await reminder('friends/request', { targetUserId: target, permissionMode: profilePermission.value, message: '' });
+    if (!acceptsResult(epoch, owner) || s(profile.value, 'id') != target) return;
+    profileSent.value = true;
+    profileRequest.value = false;
+    toast('申请已发送', 'success');
+  } catch (e) {
+    if (acceptsResult(epoch, owner)) profileError.value = message(e);
+  } finally {
+    if (acceptsResult(epoch, owner)) profileBusy.value = false;
+  }
 }
 async function load() {
   if (closing || disposed || groupId.value.length == 0 || !requireSession()) return;
@@ -678,7 +751,7 @@ function metadataSaved(value: UTSJSONObject): void {
   toast('群组资料已保存', 'success');
 }
 async function openInvite() {
-  if (closing || disposed || role.value != 'OWNER') return;
+  if (closing || disposed || !manager.value) return;
   friends.value = [];
   friendsLoading.value = true;
   const owner = session.userId, epoch = pageEpoch, current = ++inviteTicket;
@@ -713,6 +786,7 @@ async function invite() {
   }
 }
 function openPerson(person: UTSJSONObject): void {
+  if (!manager.value) return;
   personHeight.value = Math.min(
     590,
     Math.max(
@@ -737,12 +811,6 @@ function openPerson(person: UTSJSONObject): void {
   formError.value = '';
   personOpen.value = true;
 }
-function editSelfTags(): void {
-  const self = members.value.find(
-    (person: UTSJSONObject): boolean => s(person, 'id') == session.userId,
-  );
-  if (self != null) openPerson(self);
-}
 function togglePersonTag(name: string): void {
   if (canEditPerson.value) personTags.value = toggleGroupSelection(personTags.value, name);
 }
@@ -754,6 +822,7 @@ function addPersonTag(): void {
   addingPersonTag.value = false;
 }
 async function savePersonTags() {
+  if (!manager.value) return;
   addPersonTag();
   if (await mutate('member/tags', { userId: s(selected.value, 'id'), tags: personTags.value })) {
     personOpen.value = false;
@@ -865,6 +934,23 @@ onBackPress((): boolean => updates.required && updates.available);
 // #endif
 </script>
 <style scoped>
+.member-profile-hero {
+  flex-direction: row;
+  align-items: center;
+  padding: 16px;
+  border-radius: 20px;
+  background-color: #f2f6ff;
+}
+.member-profile-picture { width: 76px; height: 76px; border-radius: 22px; flex-shrink: 0; }
+.member-profile-copy { flex: 1; margin-left: 16px; align-items: flex-start; }
+.member-profile-name { font-size: 21px; font-weight: 600; color: #172441; }
+.member-profile-account { font-size: 13px; color: #8b96ad; margin: 5px 0 8px; }
+.member-profile-section { margin-top: 20px; }
+.member-profile-label { font-size: 13px; font-weight: 600; color: #76829a; margin-bottom: 8px; }
+.member-profile-note { font-size: 14px; line-height: 23px; color: #4b5c77; }
+.profile-permission { flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 12px; margin-top: 6px; border-radius: 12px; background-color: #f5f7fa; }
+.profile-permission-selected { background-color: #edf2ff; }
+.profile-permission-label { font-size: 14px; color: #4b5c77; }
 .group-nav {
   flex-direction: row;
   align-items: center;

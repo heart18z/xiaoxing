@@ -1,0 +1,24 @@
+import { headers } from '@/api/request.uts';
+import { BASE_URL } from '@/config/environment.uts';
+import { session } from '@/store/session.uts';
+export async function downloadReport(id: string, format: string): Promise<void> {
+  if (!/^[0-9]{1,20}$/.test(id) || !['pdf', 'docx'].includes(format)) throw new Error('报告下载参数无效');
+  const url=BASE_URL+'/app/reminder/reports/download?id='+encodeURIComponent(id)+'&format='+format;
+  const owner=session.userId;
+  // #ifdef WEB
+  const response=await fetch(url,{headers:headers(false) as Record<string,string>});
+  if(response==null || !response.ok || !(response.headers.get('content-type') ?? '').includes(format=='pdf'?'application/pdf':'application/vnd.openxmlformats'))throw new Error('报告下载失败，请重试');
+  const blob=await response.blob();if(owner!=session.userId)return;
+  const local=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=local;link.download='小醒事件报告.'+format;link.click();setTimeout(()=>URL.revokeObjectURL(local),10000);
+  // #endif
+  // #ifdef APP
+  await new Promise<void>((resolve,reject)=>{
+    uni.downloadFile({url,header:headers(false),success:(res)=>{
+      if(owner!=session.userId){reject(new Error('登录账号已变更'));return;}
+      if(res.statusCode!=200){reject(new Error('报告下载失败，请重试'));return;}
+      uni.openDocument({filePath:res.tempFilePath,fileType:format,success:(_)=>resolve(),fail:(_)=>reject(new Error('无法打开报告，请安装支持该格式的应用'))});
+    },fail:(_)=>reject(new Error('报告下载失败，请检查网络'))});
+  });
+  // #endif
+}

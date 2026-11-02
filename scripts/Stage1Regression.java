@@ -88,7 +88,7 @@ public class Stage1Regression {
     FakeAi ai=new FakeAi();content=new SmartEventContentService(db,mapper,ai);
     service=new SmartReminderService(db,mapper,ai,new FakeConfig(),null,content,new SmartSocialService(db),new SmartScheduleService(db,mapper,ai),null);
     Class<?> type=Class.forName("org.springblade.modules.smartreminder.service.SmartReminderService$PreparedChat");
-    prepared=type.getDeclaredConstructors()[0];prepared.setAccessible(true);
+    prepared=type.getDeclaredConstructor(Long.class,Long.class,String.class,Long.class,Long.class,String.class,List.class);prepared.setAccessible(true);
     complete=SmartReminderService.class.getDeclaredMethod("completeChat",type,String.class,String.class);complete.setAccessible(true);
     event(11,1,2);event(12,1,3);
     var receipt=call("{\"intent\":\"stop_event\",\"reply\":\"虚假模型回复\",\"eventActions\":[{\"type\":\"stop_event\",\"eventId\":\"11\"},{\"type\":\"stop_event\",\"eventId\":\"12\"}]}");

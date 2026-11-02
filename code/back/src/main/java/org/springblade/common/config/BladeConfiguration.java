@@ -43,6 +43,9 @@ public class BladeConfiguration implements WebMvcConfigurer {
 		// This single endpoint uses a random installation secret + versioned binding proof,
 		// allowing logout cleanup after OAuth expires. Registration remains authenticated.
 		secureRegistry.excludePathPatterns("/app/push/revoke");
+        // ActivityKit background token rotations use the same installation-secret + current binding proof.
+        // Snapshot/business data stays OAuth authenticated.
+        secureRegistry.excludePathPatterns("/app/push/live/token");
 		secureRegistry.excludePathPatterns("/unified-oauth/**");
 		secureRegistry.excludePathPatterns("/open/unified-oauth/**");
 		secureRegistry.excludePathPatterns("/blade-system/menu/routes");

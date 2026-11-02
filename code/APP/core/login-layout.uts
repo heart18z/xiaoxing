@@ -1,0 +1,7 @@
+// Reserve room for the form first. Small screens may scroll; controls are never clipped.
+export function loginLayout(width: number, height: number, statusBar: number, captcha: boolean): number {
+  const compact = height < 740;
+  const reserved = compact ? 438 : 516;
+  const available = height - statusBar - reserved - (captcha ? 50 : 0);
+  return Math.max(134, Math.min(Math.min(width, 560) * 0.79, available));
+}

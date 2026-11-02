@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { dependency, root } from './loader.mjs';
 
-test('native startup bar moves before the minimum splash duration and releases its timer', async () => {
+test('startup breathing begins promptly and stops its clock on fade out or disposal', async () => {
   const source = fs.readFileSync(root + 'components/StartupMask.uvue', 'utf8');
   const script = source.match(/<script setup lang="uts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import .*;\r?\n/gm, '');
@@ -24,6 +24,9 @@ test('native startup bar moves before the minimum splash duration and releases i
   assert.ok(first>0, 'Must move within 100 ms, not wait until the splash closes');
   now=300; for(const tick of timers.values())tick();
   assert.ok(context.readPosition()>first);
+  startup.leaving=true;changed(false);
+  assert.equal(timers.size,0, 'Fade out must stop animation before the overlay is removed');
+  startup.leaving=false;
   startup.visible=false;changed(false);
   assert.equal(timers.size,0);
   startup.visible=true;changed(true);

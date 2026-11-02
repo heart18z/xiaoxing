@@ -1,0 +1,13 @@
+import { s, payload } from './json.uts';
+// Keep the explicit event separate from free text; never infer it from the latest notification.
+export function eventReply(row: UTSJSONObject): UTSJSONObject {
+  const data = payload(row);
+  const id = s(row, 'eventId', s(data, 'eventId'));
+  if (!/^[1-9][0-9]{0,18}$/.test(id)) return {};
+  return { replyEventId: id, replyEventSummary: s(data, 'eventSummary', s(row, 'content', '事件')).slice(0, 240) };
+}
+export function replyPayload(source: UTSJSONObject): UTSJSONObject {
+  const id = s(source, 'replyEventId');
+  if (!/^[1-9][0-9]{0,18}$/.test(id)) return {};
+  return { replyEventId: id, replyEventSummary: s(source, 'replyEventSummary').slice(0, 240) };
+}

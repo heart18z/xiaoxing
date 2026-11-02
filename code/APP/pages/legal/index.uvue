@@ -1,0 +1,35 @@
+<template>
+  <AppFrame :title="t(privacy ? '隐私政策' : '用户协议')" :subtitle="'AI小醒 · ' + LEGAL_VERSION" :back-button="true">
+    <scroll-view :scroll-y="true" class="legal-scroll">
+      <view class="legal-paper">
+        <text class="app-font legal-meta">{{ t('运营主体：陈通（个人）') }}</text>
+        <text class="app-font legal-contact" @click="copyContact">49823778@qq.com</text>
+        <view v-for="(section, index) in sections" :key="index" class="legal-section">
+          <text class="app-font legal-heading">{{ section.title }}</text>
+          <text class="app-font legal-body" :selectable="true">{{ section.body }}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </AppFrame>
+</template>
+<script setup lang="uts">
+import { ref, computed } from 'vue';
+import AppFrame from '@/components/AppFrame.uvue';
+import { LEGAL_VERSION, legalSections, LegalSection } from '@/core/legal.uts';
+import { session } from '@/store/session.uts';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
+const privacy = ref(false);
+const sections = computed((): LegalSection[] => legalSections(privacy.value, session.language == 'en-us'));
+onLoad((options) => { privacy.value = options['type'] == 'privacy'; });
+function copyContact() { uni.setClipboardData({ data: '49823778@qq.com' }); }
+</script>
+<style scoped>
+.legal-scroll { flex: 1; }
+.legal-paper { padding: 24px; margin: 12px 16px 32px; border-radius: 24px; background-color: #ffffff; }
+.legal-meta { font-size: 14px; line-height: 24px; color: #67758b; }
+.legal-contact { font-size: 14px; line-height: 28px; color: #326dde; }
+.legal-section { margin-top: 24px; }
+.legal-heading { font-size: 17px; line-height: 26px; font-weight: 700; color: #263750; margin-bottom: 10px; }
+.legal-body { font-size: 15px; line-height: 27px; color: #526079; }
+</style>

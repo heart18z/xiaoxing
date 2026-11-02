@@ -1,0 +1,22 @@
+<template>
+  <view class="message-text">
+    <text v-for="(block,index) in blocks" :key="index" class="app-font native-line" :class="'line-' + block.kind" selectable>{{ block.text }}</text>
+  </view>
+</template>
+<script setup lang="uts">
+import { computed, watch, nextTick, onMounted } from 'vue';
+import { messageBlocks, MessageBlock } from '@/core/message-text.uts';
+const props = defineProps<{ content: string }>();
+const emit = defineEmits(['layout']);
+const blocks = computed((): MessageBlock[] => messageBlocks(props.content));
+function layout() { nextTick(() => emit('layout')); }
+onMounted(layout);
+watch((): string => props.content, layout);
+</script>
+<style scoped>
+.message-text { align-self: stretch; flex-shrink: 0; }
+.native-line { align-self: stretch; flex-shrink: 0; font-size: 15px; line-height: 25px; color: #263451; }
+.line-heading { font-size: 16px; font-weight: 600; padding-top: 3px; padding-bottom: 3px; }
+.line-space { font-size: 6px; line-height: 9px; }
+.line-code { background-color: #f0f3f8; padding: 3px 7px; font-size: 13px; line-height: 22px; }
+</style>

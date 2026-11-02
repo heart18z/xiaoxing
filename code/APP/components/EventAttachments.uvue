@@ -1,6 +1,7 @@
 <template>
-  <view>
-    <text class="app-font inline-body" :style="{fontSize: bodySize + 'px', lineHeight: '25px'}"><text :class="['app-font', strong ? 'body-strong' : 'body-normal']" :style="{fontSize: bodySize + 'px', color: bodyColor}">{{ content }}</text><text v-if="(ids ?? []).length > 0" class="app-font inline-link" :class="'tone-' + tone" :style="{fontSize: (bodySize - 1) + 'px'}" @click.stop="openList()">{{ '  ' + t('查看附件') + '  ' }}</text></text>
+  <view @click.stop>
+    <!-- Keep text selection separate from the card's navigation click. -->
+    <text selectable class="app-font inline-body" :style="{fontSize: bodySize + 'px', lineHeight: '25px'}"><text selectable :class="['app-font', strong ? 'body-strong' : 'body-normal']" :style="{fontSize: bodySize + 'px', color: bodyColor}">{{ content }}</text><text v-if="(ids ?? []).length > 0" class="app-font inline-link" :class="'tone-' + tone" :style="{fontSize: (bodySize - 1) + 'px'}" @click.stop="openList()">{{ '  ' + t('查看附件') + '  ' }}</text></text>
     <Popup v-if="opened" :open="opened" :title="t('查看附件')" variant="attachment" @close="close()">
       <text v-if="loading" class="app-font loading">{{ t('附件加载中…') }}</text>
       <view v-else-if="files.length == 0" class="empty">

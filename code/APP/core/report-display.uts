@@ -1,0 +1,6 @@
+import { session } from '@/store/session.uts';
+export function reportRange(start:string,end:string):string {
+  if(start.length<10||end.length<10)return start+' – '+end;
+  if(session.language=='en-us')return start+' – '+end;
+  return parseInt(start.slice(5,7))+'月'+parseInt(start.slice(8,10))+'日 – '+parseInt(end.slice(5,7))+'月'+parseInt(end.slice(8,10))+'日';
+}

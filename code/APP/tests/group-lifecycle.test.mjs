@@ -14,7 +14,7 @@ async function pageFixture() {
     _t:v=>v, _asset:v=>v, _groupPersonName:p=>p.name, _groupMemberRole:v=>v,
     _groupRoleLabel:v=>v, _groupTagTone:()=>'', groupCanManage:r=>['OWNER','ADMIN'].includes(r),
     groupAvatars:[], toggleGroupSelection:()=>[], toast:v=>tips.push(v), confirm:async()=>true,
-    reminder:(path)=>new Promise((resolve,reject)=>requests.push({path,resolve,reject})),
+    reminder:(path,data)=>new Promise((resolve,reject)=>requests.push({path,data,resolve,reject})),
     getCurrentPages:()=>[{route:'pages/me/index'},{route:'pages/group-detail/index'}],
     uni:{navigateBack:options=>routes.push(options),switchTab:options=>routes.push(options)},
     onLoad:fn=>hooks.load=fn,onShow:fn=>hooks.show=fn,onUnload:fn=>hooks.unload=fn,
@@ -24,7 +24,8 @@ async function pageFixture() {
   const script=file.match(/<script setup lang="uts">([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"];\s*/gm,'');
   const {code}=await dependency('esbuild').transform(script+`
-    globalThis.api={load,mutate,openInvite,goBack,group,friends,inviting,loading,saving,formError};`,{loader:'ts'});
+    globalThis.api={load,mutate,openInvite,goBack,group,friends,inviting,loading,saving,formError,
+      openProfile,requestProfileFriend,profileRequest,profilePermission,profileSent,profileBusy,profileError};`,{loader:'ts'});
   vm.runInNewContext(code,env);hooks.load({id:'1001'});
   return {...env.api,hooks,requests,routes,tips,env};
 }
@@ -69,6 +70,25 @@ test('normal load and save still update an open group page',async()=>{
   p.requests[0].resolve({value:{id:'1001',name:'before'}});await reading;
   const saving=p.mutate('save',{});p.requests[1].resolve({value:{id:'1001',name:'after'}});
   assert.equal(await saving,true);assert.equal(p.group.value.name,'after');assert.equal(p.saving.value,false);
+});
+
+test('member profile asks for permission choice, prevents duplicate submits and survives swipe teardown',async()=>{
+  const p=await pageFixture();p.openProfile({id:'202',name:'成员',account:'test'});
+  await p.requestProfileFriend();assert.equal(p.requests.length,0);assert.equal(p.profileRequest.value,true);
+  p.profilePermission.value='I_CAN_REMIND';
+  const pending=p.requestProfileFriend();await p.requestProfileFriend();
+  assert.equal(p.requests.length,1);assert.equal(p.requests[0].path,'friends/request');
+  assert.equal(p.requests[0].data.targetUserId,'202');assert.equal(p.requests[0].data.permissionMode,'I_CAN_REMIND');
+  p.hooks.beforeUnmount();p.requests[0].resolve({});await pending;
+  assert.equal(p.profileSent.value,false);assert.equal(p.tips.length,0);
+});
+
+test('member profile reports request success or permits retry after failure',async()=>{
+  const p=await pageFixture();p.openProfile({id:'202',name:'成员'});await p.requestProfileFriend();
+  let pending=p.requestProfileFriend();p.requests[0].reject(new Error('网络错误'));await pending;
+  assert.equal(p.profileBusy.value,false);assert.equal(p.profileError.value,'网络错误');assert.equal(p.profileSent.value,false);
+  pending=p.requestProfileFriend();p.requests[1].resolve({});await pending;
+  assert.equal(p.profileSent.value,true);assert.equal(p.profileRequest.value,false);assert.equal(p.profileError.value,'');
 });
 
 test('group navigation suppresses double taps and unlocks after completion or failure',async()=>{

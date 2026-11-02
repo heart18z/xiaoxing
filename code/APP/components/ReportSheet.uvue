@@ -1,0 +1,103 @@
+<template>
+  <view v-if="mounted" class="report-overlay" :style="{backgroundColor: visible ? '#14213f66' : '#14213f00'}" @click="close()">
+    <view class="report-sheet" :style="{height: sheetHeight+'px',transitionDuration:dragging?'0ms':'260ms',transform:'translateY('+(visible?drag:sheetHeight+40)+'px)'}" @click.stop @touchstart="touchStart" @touchmove="touchMove" @touchend="touchEnd" @touchcancel="cancelDrag()">
+      <view class="sheet-atmosphere" /><view class="sheet-grip"><view class="grip" /></view>
+      <view class="sheet-close" role="button" :aria-label="t('关闭')" @click="close()"><UiIcon name="close" :size="23" tone="ink" /></view>
+      <view v-if="loading || error.length>0" class="sheet-state"><text class="app-font state-text">{{ loading?t('正在整理报告…'):error }}</text><text v-if="error.length>0" class="app-font retry" @click="load()">{{ t('重试') }}</text></view>
+      <swiper v-else class="report-pages" :style="{height:(sheetHeight-89-bottomInset)+'px'}" :current="active" :duration="300" @change="pageChanged">
+        <swiper-item v-for="(page,index) in pages" :key="s(page,'key')">
+          <view class="page-hero"><view class="hero-art-window" :style="{height:heroArtHeight+'px'}"><image class="page-banner" :style="{width:heroArtWidth+'px',height:heroArtHeight+'px'}" :src="'/static/reports/'+s(page,'banner')+'.png'" mode="aspectFit" /><view class="hero-left-fade" /></view><view class="hero-fade" /><text class="app-font page-title">{{ t(index==0 && s(report,'title')=='事件总结'?'本期概览':s(page,'title')) }}</text><text class="app-font page-date">{{ range(index==2?s(report,'nextStart'):s(report,'start'),index==2?s(report,'nextEnd'):s(report,'end')) }}</text></view>
+          <scroll-view :scroll-y="true" :show-scrollbar="false" class="page-body" :style="{height:(sheetHeight-233-bottomInset)+'px'}" @scroll="bodyScrolled">
+            <view v-if="index==0">
+              <view class="overview-stats"><view v-for="metric in metrics" :key="s(metric,'key')" class="overview-stat"><view class="metric-dot" :style="{backgroundColor:s(metric,'color')}"><UiIcon :name="s(metric,'icon')" tone="white" :size="15" /></view><text class="app-font metric-label">{{ t(s(metric,'label')) }} <text class="app-font metric-number" :style="{color:s(metric,'color')}">{{ n(obj(report,'counts'),s(metric,'key')) }}</text> {{ t('项') }}</text></view></view>
+              <view class="detail-card"><view class="detail-heading"><image class="detail-icon" src="/static/reports/overview.png" mode="aspectFit" /><text class="app-font detail-title">{{ t(s(report,'title')=='事件总结'?'本期概况':'本周概况') }}</text></view><ReportMarkdown :content="s(report,'overview')" :font-size="14" /><view class="insight"><UiIcon name="spark" :size="21" tone="purple" /><text class="app-font insight-text" selectable>{{ s(report,'insight') }}</text></view></view>
+
+            </view>
+            <view v-else-if="index==1">
+              <view class="detail-card"><view class="chart-row"><view class="chart"><image v-if="s(report,'chart').length>0" class="donut" :src="s(report,'chart')" mode="aspectFit" /><view v-else class="chart-placeholder" /><view class="chart-label"><text class="app-font total">{{ n(report,'total') }}</text><text class="app-font total-label">{{ t('总事项') }}</text></view></view><view class="legend"><view v-for="metric in allMetrics" :key="s(metric,'key')" class="legend-row"><view class="legend-dot" :style="{backgroundColor:s(metric,'color')}" /><text class="app-font legend-name">{{ t(s(metric,'label')) }}</text><text class="app-font legend-count">{{ n(obj(report,'counts'),s(metric,'key')) }}</text><text class="app-font legend-percent">{{ percent(s(metric,'key')) }}%</text></view></view></view>
+              <view class="progress-points"><text class="app-font detail-title">{{ t('进展与建议') }}</text><view v-for="(row,pointIndex) in arr(report,'progress')" :key="s(row,'eventId')+s(row,'title')" class="point" @click="expandedPoint=expandedPoint==pointIndex?-1:pointIndex"><UiIcon name="check" tone="blue" :size="17" /><view class="point-copy"><text class="app-font point-title">{{ s(row,'title') }}</text><text v-if="expandedPoint==pointIndex" class="app-font point-detail" selectable @click.stop>{{ s(row,'detail') }}</text><text v-if="expandedPoint==pointIndex" class="app-font point-event" @click.stop="event(s(row,'eventId'))">{{ t('查看事件') }} ›</text></view><view :style="{transform:expandedPoint==pointIndex?'rotate(90deg)':'rotate(0deg)'}"><UiIcon name="chevron" :size="15" /></view></view><text v-if="arr(report,'progress').length==0" class="app-font empty-text">{{ t('本期暂无事件进展') }}</text></view></view>
+            </view>
+            <view v-else>
+              <view v-for="group in nextGroups" :key="s(group,'category')" class="next-card" @click="suggestion(group)"><image class="next-illustration" :src="'/static/reports/next-'+s(group,'category')+'.png'" mode="aspectFit" /><view class="point-copy"><text class="app-font next-category">{{ t(categoryName(s(group,'category'))) }}</text><text class="app-font suggestion-summary">{{ s(group,'summary') }}</text></view><text class="app-font suggestion-count" :class="'count-'+s(group,'category')">{{ n(group,'count') }} <text class="app-font suggestion-unit" :class="'count-'+s(group,'category')">{{ t('项') }}</text></text></view><view v-if="arr(report,'nextWeek').length==0" class="detail-card"><text class="app-font empty-text">{{ t('暂无明确的下周安排') }}</text></view><text class="app-font scope-note">{{ t('建议仅供参考，点击事项可查看原事件。') }}</text>
+            </view>
+          </scroll-view>
+        </swiper-item>
+      </swiper>
+      <view class="sheet-navigation"><view role="button" :aria-label="t('上一页')" class="nav-arrow" :style="{opacity:active==0?0.35:1}" @click="move(-1)"><view style="transform:rotate(180deg)"><UiIcon name="chevron" tone="ink" :size="23" /></view></view><view class="page-dots"><view v-for="(part,index) in pages" :key="s(part,'key')" :class="['page-dot',active==index?'dot-current':'']" @click="active=index" /></view><view role="button" :aria-label="t('下一页')" class="nav-arrow" :style="{opacity:active==2?0.35:1}" @click="move(1)"><UiIcon name="chevron" tone="ink" :size="23" /></view></view>
+      <view class="report-footer" :style="{marginBottom:bottomInset+'px'}"><view class="download-report" role="button" :aria-label="t('下载报告')" @click="download()"><UiIcon name="arrowDown" :size="16" tone="blue" /><text class="app-font download-text">{{ downloading?t('正在下载…'):t('下载报告') }}</text></view><text v-if="s(report,'scopeNote').length>0" class="app-font scope-action" @click="showScope()">{{ t('统计口径') }}</text></view>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref,watch,computed,onBeforeUnmount } from 'vue';
+import UiIcon from './UiIcon.uvue';
+import ReportMarkdown from './ReportMarkdown.uvue';
+import { reminder } from '@/api/request.uts';
+import { s as _s,n as _n,obj as _obj,arr as _arr,message } from '@/core/json.uts';
+import { t as _t } from '@/core/locale.uts';
+import { openEvent } from '@/core/ui.uts';
+import { downloadReport } from '@/services/reports.uts';
+import { toast } from '@/core/ui.uts';
+import { session } from '@/store/session.uts';
+import { reportRange as _range } from '@/core/report-display.uts';
+const props=defineProps<{open:boolean;reportId:string;initialPage?:number}>();const emit=defineEmits(['close']);
+const dragging=ref(false),expandedPoint=ref(-1);
+const bodyPositions:number[]=[0,0,0];
+const mounted=ref(false),visible=ref(false),active=ref(0),drag=ref(0),loading=ref(false),downloading=ref(false),error=ref(''),report=ref<UTSJSONObject>({});
+const reportWindow=uni.getWindowInfo();
+const bottomInset=Math.max(8,reportWindow.safeAreaInsets.bottom+8);
+const sheetHeight=Math.min(760,Math.floor(reportWindow.windowHeight*0.74));
+const heroArtWidth=reportWindow.windowWidth*1.35;
+const heroArtHeight=heroArtWidth*450/1600;
+const pages:UTSJSONObject[]=[{key:'overview',title:'本周概览',banner:'overview-banner'},{key:'progress',title:'进展建议',banner:'progress-banner'},{key:'next',title:'下周建议',banner:'next-banner'}];
+const metrics:UTSJSONObject[]=[{key:'completed',label:'完成',color:'#18bd88',icon:'check'},{key:'active',label:'进行中',color:'#3179ff',icon:'reset'},{key:'followUp',label:'待跟进',color:'#ffa52f',icon:'clock'}];
+const allMetrics:UTSJSONObject[]=[...metrics,{key:'stopped',label:'已停止',color:'#b5c7eb',icon:'close'}];
+let timer=0,generation=0,startX=0,startY=0,canDrag=false,scrollTop=0,closing=false;
+function s(o:UTSJSONObject,k:string,d:string=''):string{return _s(o,k,d);}function n(o:UTSJSONObject,k:string):number{return _n(o,k);}function obj(o:UTSJSONObject,k:string):UTSJSONObject{return _obj(o,k);}function arr(o:UTSJSONObject,k:string):UTSJSONObject[]{return _arr(o,k);}function t(v:string):string{return _t(v);}
+async function load(){const ticket=++generation,owner=session.userId;loading.value=true;error.value='';try{const r=obj(await reminder('reports/detail',null,{id:props.reportId}),'value');if(ticket!=generation||owner!=session.userId)return;if(s(r,'status')!='READY')throw new Error('报告尚未生成完成，请稍后重试');report.value=r;}catch(e){if(ticket==generation)error.value=message(e);}finally{if(ticket==generation)loading.value=false;}}
+watch(():boolean=>props.open,(open:boolean)=>{clearTimeout(timer);closing=false;if(open){active.value=props.initialPage??0;expandedPoint.value=-1;drag.value=0;dragging.value=false;bodyPositions.fill(0);scrollTop=0;mounted.value=true;timer=setTimeout(()=>{visible.value=true;},24);void load();}else{visible.value=false;timer=setTimeout(()=>{mounted.value=false;},260);}},{immediate:true});
+function close(){if(closing)return;closing=true;generation++;visible.value=false;clearTimeout(timer);timer=setTimeout(()=>{mounted.value=false;emit('close');closing=false;},260);}
+function touchStart(e:UniTouchEvent){if(e.touches.length==0)return;startX=e.touches[0].clientX;startY=e.touches[0].clientY;canDrag=bodyPositions[active.value]<=1;}
+function touchMove(e:UniTouchEvent){if(!canDrag||e.touches.length==0)return;const x=e.touches[0].clientX-startX,y=e.touches[0].clientY-startY;if(y>12&&y>Math.abs(x)*1.5){dragging.value=true;drag.value=Math.min(y,350);}}
+function cancelDrag(){dragging.value=false;drag.value=0;}
+function touchEnd(){dragging.value=false;if(drag.value>85)close();else drag.value=0;}
+function bodyScrolled(e:UniScrollEvent){bodyPositions[active.value]=e.detail.scrollTop;}
+function pageChanged(e:UniSwiperChangeEvent){active.value=e.detail.current;drag.value=0;scrollTop=0;}
+function move(delta:number){active.value=Math.max(0,Math.min(2,active.value+delta));scrollTop=0;}
+function event(id:string){if(drag.value>8)return;close();setTimeout(()=>openEvent(id),280);}
+const nextGroups=computed(():UTSJSONObject[]=>{
+  const groups:UTSJSONObject[]=[];
+  for(const category of ['priority','continue','communicate','prepare']){
+    const entries:UTSJSONObject[]=[],ids:string[]=[],titles:string[]=[];
+    for(const row of arr(report.value,'nextWeek')){
+      if(s(row,'category')!=category)continue;
+      entries.push(row);if(!ids.includes(s(row,'eventId')))ids.push(s(row,'eventId'));
+      titles.push(s(row,'title'));
+    }
+    if(entries.length>0)groups.push({category:category,rows:entries,count:ids.length,summary:titles.join('；')});
+  }
+  return groups;
+});
+function suggestion(group:UTSJSONObject){
+  const rows=arr(group,'rows');if(rows.length==0)return;
+  if(n(group,'count')==1){event(s(rows[0],'eventId'));return;}
+  uni.showActionSheet({itemList:rows.map((row:UTSJSONObject):string=>s(row,'title')),success:(res)=>{event(s(rows[res.tapIndex],'eventId'));}});
+}
+function percent(key:string):number{const total=n(report.value,'total');return total==0?0:Math.round(n(obj(report.value,'counts'),key)*100/total);}
+function categoryIcon(category:string):string{return category=='priority'?'tipSuccess':category=='communicate'?'people':category=='prepare'?'spark':'note';}
+function categoryTone(category:string):string{return category=='priority'?'red':category=='communicate'?'amber':category=='prepare'?'purple':'blue';}
+function categoryName(category:string):string{return category=='priority'?'重点推进':category=='communicate'?'加强沟通':category=='prepare'?'建议关注':'持续跟进';}
+function showScope(){uni.showModal({title:t('统计口径'),content:s(report.value,'scopeNote'),showCancel:false});}
+function download(){if(downloading.value||loading.value||s(report.value,'status')!='READY')return;uni.showActionSheet({itemList:['PDF','Word'],success:(res)=>{downloading.value=true;downloadReport(props.reportId,res.tapIndex==0?'pdf':'docx').catch((e)=>toast(message(e))).finally(()=>{downloading.value=false;});}});}
+watch(():string=>session.userId,()=>{generation++;if(mounted.value)close();});
+onBeforeUnmount(()=>{generation++;clearTimeout(timer);});
+function range(start:string,end:string):string{return _range(start,end);}
+</script>
+<style scoped>
+.report-overlay{position:fixed;left:0;right:0;top:0;bottom:0;z-index:900;justify-content:flex-end;transition-property:background-color;transition-duration:260ms}.report-sheet{border-top-left-radius:26px;border-top-right-radius:26px;background-color:#edf6ff;background-image:linear-gradient(to bottom,#e7f2ff,#f5faff);overflow:hidden;transition-property:transform;transition-duration:260ms;transition-timing-function:ease-out}.sheet-atmosphere{position:absolute;left:0;right:0;top:0;height:230px;background-color:#e7f2ff}.sheet-grip{position:absolute;left:0;right:0;top:0;height:28px;align-items:center;justify-content:center;z-index:2}.grip{width:42px;height:5px;background-color:#b6cbed;border-radius:3px}.sheet-close{position:absolute;right:15px;top:13px;width:34px;height:34px;align-items:center;justify-content:center;z-index:2}.page-hero{height:144px;padding:55px 28px 0;position:relative}.hero-art-window{position:absolute;right:0;top:0;width:100%;overflow:hidden}.hero-left-fade{position:absolute;left:0;top:0;bottom:0;width:42%;background-image:linear-gradient(to right,#e7f2ff,#e7f2ff00)}.page-banner{position:absolute;right:0;top:0}.hero-fade{position:absolute;left:0;right:0;bottom:0;height:32px;background-image:linear-gradient(to bottom,#eaf4ff00,#eaf4ff)}.page-title{font-size:27px;line-height:37px;font-weight:700;color:#10204c}.page-date{font-size:15px;font-weight:500;line-height:26px;color:#7388ad}.page-body{padding:0 18px}.overview-stats{flex-direction:row;margin-bottom:10px}.overview-stat{flex:1;flex-direction:row;align-items:center;justify-content:center;padding:12px 2px;border-radius:15px;background-color:#ffffffc9;margin:0 3px}.metric-dot{width:22px;height:22px;border-radius:11px;align-items:center;justify-content:center;margin-right:5px}.metric-label{font-size:11px;color:#263553}.metric-number{font-size:18px;font-weight:700}.detail-card{padding:14px;border-radius:20px;background-color:#ffffffd9;margin-bottom:12px}.detail-heading{flex-direction:row;align-items:center;margin-bottom:6px}.detail-icon{width:38px;height:38px;margin-right:8px}.detail-title{font-size:16px;line-height:24px;font-weight:600;color:#14254a}.overview-text{font-size:14px;line-height:25px;color:#405477}.insight{flex-direction:row;align-items:flex-start;margin-top:9px;padding:12px;background-color:#f1edff;border-radius:16px}.insight-text{flex:1;font-size:14px;font-weight:500;line-height:23px;color:#58638e;margin-left:8px}.scope-note{font-size:10px;line-height:18px;color:#8595af;margin:3px 5px 15px}.chart-row{flex-direction:row;align-items:center;margin-bottom:10px}.chart{width:135px;height:135px;position:relative;align-items:center;justify-content:center}.donut{width:135px;height:135px}.chart-placeholder{width:125px;height:125px;border-radius:63px;border:15px solid #e0e8f7}.chart-label{position:absolute;left:0;right:0;top:35px;align-items:center}.total{font-size:32px;font-weight:700;color:#11234a}.total-label{font-size:12px;color:#8192b1}.legend{flex:1;margin-left:12px}.legend-row{flex-direction:row;align-items:center;margin-bottom:12px}.legend-dot{width:8px;height:8px;border-radius:4px;margin-right:6px}.legend-name{flex:1;font-size:12px;color:#263859}.legend-count{font-size:15px;font-weight:700;color:#102349;width:21px;text-align:right}.legend-percent{font-size:11px;color:#7f90b0;width:38px;text-align:right}.progress-points{padding:12px;border-radius:18px;background-color:#edf5ff}.point{flex-direction:row;align-items:flex-start;margin-top:10px}.point-copy{flex:1;min-width:0;margin-left:9px;margin-right:6px}.point-title{font-size:14px;line-height:22px;color:#354c73;font-weight:500}.point-detail{font-size:13px;line-height:22px;color:#647a9e}.empty-text{font-size:14px;line-height:24px;color:#8b9ab2;padding:16px 0}.next-card{background-color:#ffffffdc;border-radius:18px;margin-bottom:8px;padding:12px 11px;min-height:76px;flex-direction:row;align-items:center}.next-icon{width:43px;height:43px;border-radius:13px;align-items:center;justify-content:center;background-color:#e7f1ff}.category-priority{background-color:#ffedf0}.category-communicate{background-color:#fff6e4}.category-prepare{background-color:#f1eaff}.next-category{font-size:14px;line-height:23px;font-weight:600;color:#203459}.sheet-navigation{height:54px;flex-direction:row;align-items:center;justify-content:space-between;padding:0 24px}.nav-arrow{width:38px;height:38px;border-radius:19px;background-color:#ffffffd9;align-items:center;justify-content:center}.page-dots{flex-direction:row;align-items:center}.page-dot{width:9px;height:9px;margin:0 5px;border-radius:5px;background-color:#cbdcf7}.dot-current{background-color:#367bff}.report-footer{height:35px;flex-direction:row;align-items:center;justify-content:center}.scope-action{font-size:11px;color:#8b9db8;margin-left:18px;padding-left:18px;border-left:1px solid #d8e4f5}.point-event{font-size:12px;line-height:23px;color:#367bff;margin-top:4px}.download-report{height:35px;flex-direction:row;align-items:center;justify-content:center}.download-text{font-size:12px;color:#4978c8;margin-left:5px}.sheet-state{flex:1;align-items:center;justify-content:center}.state-text{font-size:14px;color:#6c809f}.retry{font-size:14px;color:#367bff;margin-top:15px}
+.next-illustration{width:46px;height:46px;border-radius:12px;flex-shrink:0}.suggestion-summary{font-size:13px;line-height:22px;color:#526b91}.suggestion-count{font-size:21px;font-weight:600;margin-left:5px;color:#347cff}.suggestion-unit{font-size:12px;font-weight:400;color:#347cff}.count-priority{color:#ff5871}.count-communicate{color:#f59b14}.count-prepare{color:#8552ff}
+/* #ifdef APP-IOS */
+.page-title,.detail-title,.next-category,.total,.metric-number,.legend-count,.suggestion-count{font-family:'PingFangSC-Semibold'}
+.page-date,.point-title,.insight-text,.legend-name,.suggestion-summary{font-family:'PingFangSC-Medium'}
+/* #endif */
+</style>

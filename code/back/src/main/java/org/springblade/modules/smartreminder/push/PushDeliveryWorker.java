@@ -35,7 +35,7 @@ public class PushDeliveryWorker {
             select o.*,d.device_token,d.environment,d.language,m.message_type,m.content as notification_content
             from blade_smart_push_delivery o
             join blade_smart_push_device d on d.id=o.device_id and d.user_id=o.user_id and d.binding_id=o.binding_id and d.enabled=1
-            join blade_smart_chat_message m on m.id=o.message_id and m.user_id=o.user_id and (m.event_id=o.event_id or (m.event_id is null and o.event_id is null and m.message_type='FRIEND_REQUEST')) and m.is_read=0
+            join blade_smart_chat_message m on m.id=o.message_id and m.user_id=o.user_id and (m.event_id=o.event_id or (m.event_id is null and o.event_id is null and m.message_type in ('FRIEND_REQUEST','WEEKLY_REPORT'))) and m.is_read=0
             join blade_user u on u.id=o.user_id and u.is_deleted=0 and u.status=1
             where o.id=? and o.lease_token=?
             """,id,lease);
@@ -70,6 +70,7 @@ public class PushDeliveryWorker {
         // Only the message already authorized for this recipient is used, never a global event summary.
         String body=switch(Objects.toString(row.get("message_type"),"")) {
             case "FRIEND_REQUEST" -> en?"You have a new friend or permission request. Tap to view.":"你有新的好友或权限申请，点击查看。";
+            case "WEEKLY_REPORT" -> en?"Your weekly report is ready. Tap to view.":"你的周报已生成，点击查看。";
             case "FEEDBACK" -> en?"You have new event feedback. Tap to view.":"你有新的事件反馈，点击查看。";
             case "QUESTION","CONFLICT" -> en?"An event needs your attention. Tap to view.":"有一项事件需要你确认，点击查看。";
             default -> en?"You have a new event reminder. Tap to view.":"你有一条新的事件提醒，点击查看。";

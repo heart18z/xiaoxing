@@ -23,11 +23,11 @@ public class ChatJobRegression {
     db.execute("create table blade_user(id bigint primary key,is_deleted int default 0)");db.update("insert into blade_user(id) values(1),(2)");
     db.execute("create table blade_app_chat_job(user_id bigint,request_id varchar(80),payload_hash varchar(64),job_status varchar(16),result_json clob,error_message varchar(240),created_at timestamp,updated_at timestamp,primary key(user_id,request_id))");
     db.execute("create table effects(user_id bigint,note varchar(80))");
-    var capability=new AtomicBoolean();var calls=new AtomicInteger();var gate=new CountDownLatch(1);var started=new CountDownLatch(1);
+    var capability=new AtomicBoolean();var quotedEvent=new AtomicReference<Long>();var calls=new AtomicInteger();var gate=new CountDownLatch(1);var started=new CountDownLatch(1);
     var cancelGate=new CountDownLatch(1);var cancelStarted=new CountDownLatch(1);
     var fake=new SmartReminderService(db,new ObjectMapper(),null,null,null,null,null,null,null){
       @Override public Map<String,Object> sendChatStream(ChatRequest r,Long user,String account,java.util.function.Consumer<String> reply,java.util.function.Consumer<String> reasoning){
-        capability.set(Boolean.TRUE.equals(r.getSupportsGroupRecipients()));calls.incrementAndGet();db.update("insert into effects values(?,?)",user,r.getContent());
+        capability.set(Boolean.TRUE.equals(r.getSupportsGroupRecipients()));quotedEvent.set(r.getReplyEventId());calls.incrementAndGet();db.update("insert into effects values(?,?)",user,r.getContent());
         if(r.getContent().equals("slow")){reasoning.accept("正在核对");started.countDown();try{gate.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){throw new RuntimeException(e);}}
         if(r.getContent().equals("cancel")){cancelStarted.countDown();try{cancelGate.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){throw new RuntimeException(e);}}
         ChatRunRegistry.check();
@@ -66,6 +66,10 @@ public class ChatJobRegression {
       var enhanced=request("5555555555555555","group-capability");enhanced.setSupportsGroupRecipients(true);jobs.submit(1L,"fixture",enhanced);await(jobs,enhanced.getRequestId());
       check(capability.get(),"group capability survives asynchronous job copying");
       enhanced.setSupportsGroupRecipients(false);try{jobs.submit(1L,"fixture",enhanced);throw new AssertionError("capability change reused request id");}catch(org.springblade.core.log.exception.ServiceException expected){}
+      var quoted=request("6666666666666666","event-reply");quoted.setReplyEventId(9601L);jobs.submit(1L,"fixture",quoted);await(jobs,quoted.getRequestId());
+      check(Objects.equals(quotedEvent.get(),9601L),"explicit event survives asynchronous job copying");
+      int beforeRetry=calls.get();jobs.submit(1L,"fixture",quoted);check(calls.get()==beforeRetry,"quoted retry never repeats mutation");
+      quoted.setReplyEventId(9602L);try{jobs.submit(1L,"fixture",quoted);throw new AssertionError("event change reused request id");}catch(org.springblade.core.log.exception.ServiceException expected){}
       var restarted=new ChatJobService(db,new ObjectMapper(),fake,new ChatRunRegistry(),tm);
       try{check(restarted.status(1L,request.getRequestId()).get("status").equals("SUCCEEDED"),"result survives service restart");}finally{restarted.close();}
       db.update("insert into blade_app_chat_job values(1,'3333333333333333','fixture','RUNNING',null,null,?,now())",new java.sql.Timestamp(System.currentTimeMillis()-1000000));

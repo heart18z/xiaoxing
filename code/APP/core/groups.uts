@@ -12,6 +12,12 @@ export function groupMemberRole(role: string): string {
 export function groupPersonName(person: UTSJSONObject): string {
   return firstText(person, ['friendRemark', 'name', 'realName', 'account']);
 }
+export function groupPersonMatches(person: UTSJSONObject, query: string): boolean {
+  const value = query.trim().toLowerCase();
+  return value.length == 0 || ['friendRemark', 'name', 'realName', 'account'].some(
+    (key: string): boolean => s(person, key).toLowerCase().includes(value),
+  );
+}
 export function groupSources(person: UTSJSONObject): string {
   return arr(person, 'groupSources')
     .map((source: UTSJSONObject): string => s(source, 'groupName'))

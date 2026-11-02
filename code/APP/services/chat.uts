@@ -1,4 +1,5 @@
 import { reconcileMessageKeys } from '@/core/messages.uts';
+import { replyPayload } from '@/core/event-reply.uts';
 import { reactive } from 'vue';
 import { session, persist, requestId } from '@/store/session.uts';
 import { secureRead, nativeCall } from '@/uni_modules/xiaoxing-native';
@@ -29,10 +30,11 @@ export const chat = reactive<ChatState>({
   reply: '',
   pending: {} as UTSJSONObject,
 });
+let deferredNotifications: UTSJSONObject[] = [];
 let pageVisible = false;
 let syncRevision = '',
   syncing = false;
-const notifications = ['REMINDER', 'QUESTION', 'FEEDBACK', 'CONFLICT', 'EVENT_ASSIGNED'];
+const notifications = ['REMINDER', 'QUESTION', 'FEEDBACK', 'CONFLICT', 'EVENT_ASSIGNED', 'WEEKLY_REPORT'];
 export function setChatVisible(value: boolean): void {
   pageVisible = value;
 }
@@ -91,6 +93,7 @@ export function resetChat(): void {
   pauseChat();
   historyTicket++;
   syncRevision = '';
+  deferredNotifications = [];
   chat.messages = [];
   chat.pending = {};
   chat.reasoning = '';
@@ -105,7 +108,8 @@ async function markRead(rows: UTSJSONObject[]): Promise<void> {
       (row: UTSJSONObject): boolean =>
         !b(row, 'read') &&
         !b(row, 'isRead') &&
-        (!chat.busy || notifications.includes(s(row, 'messageType'))),
+        s(row, 'id').length > 0 &&
+        chat.messages.some((shown: UTSJSONObject): boolean => s(shown, 'id') == s(row, 'id')),
     )
     .map((row: UTSJSONObject): string => s(row, 'id'));
   if (ids.length > 0) {
@@ -121,11 +125,26 @@ function applyHistory(rows: UTSJSONObject[]): void {
         notifications.includes(s(row, 'messageType')) &&
         !chat.messages.some((old: UTSJSONObject): boolean => s(old, 'id') == s(row, 'id'))
       )
-        chat.messages.push(row);
+      {
+        const id = s(row, 'id');
+        if (id.length == 0) continue;
+        const index = deferredNotifications.findIndex((old: UTSJSONObject): boolean => s(old, 'id') == id);
+        if (index >= 0) deferredNotifications[index] = row;
+        else deferredNotifications.push(row);
+      }
     }
   } else chat.messages = reconcileMessageKeys(rows, chat.messages);
 }
+function flushNotifications(): void {
+  const rows = deferredNotifications;
+  deferredNotifications = [];
+  for (const row of rows) {
+    if (!chat.messages.some((old: UTSJSONObject): boolean => s(old, 'id') == s(row, 'id'))) chat.messages.push(row);
+  }
+  void markRead(rows);
+}
 export function invalidateHistory(): void {
+  deferredNotifications = [];
   historyTicket++;
   syncRevision = '';
   chat.loading = false;
@@ -310,6 +329,7 @@ export async function submit(
   content: string,
   fileIds: string[],
   fileNames: string[] = [],
+  quote: UTSJSONObject = {},
 ): Promise<void> {
   if (chat.busy || running) return;
   if (s(savedPending(), 'requestId').length > 0) {
@@ -324,6 +344,11 @@ export async function submit(
     createdAt: Date.now(),
     userId: session.userId,
   };
+  const reference = replyPayload(quote);
+  if (s(reference, 'replyEventId').length > 0) {
+    pending['replyEventId'] = reference['replyEventId'];
+    pending['replyEventSummary'] = reference['replyEventSummary'];
+  }
   invalidateHistory();
   persist(key(), JSON.stringify(pending));
   chat.pending = pending;
@@ -373,6 +398,7 @@ export async function resume(): Promise<void> {
               content: s(pending, 'content'),
               fileIds: pending['fileIds'],
               supportsGroupRecipients: true,
+              replyEventId: s(pending, 'replyEventId').length > 0 ? s(pending, 'replyEventId') : null,
             }),
             'value',
           );
@@ -428,7 +454,7 @@ export async function resume(): Promise<void> {
           messageRole: 'user',
           messageType: 'TEXT',
           content: s(pending, 'content'),
-          payload: { fileNames: pending['fileNames'] ?? ([] as string[]), fileIds: pending['fileIds'] ?? ([] as string[]) },
+          payload: { fileNames: pending['fileNames'] ?? ([] as string[]), fileIds: pending['fileIds'] ?? ([] as string[]), replyEventId: s(pending, 'replyEventId'), replyEventSummary: s(pending, 'replyEventSummary') },
         });
         const hasCandidate =
           s(result, 'candidateId').length > 0 &&
@@ -442,7 +468,7 @@ export async function resume(): Promise<void> {
           id: 'completed-ai-' + id,
           _renderKey: 'live-ai-' + id,
           messageRole: 'assistant',
-          messageType: hasCandidate ? 'CANDIDATE' : 'TEXT',
+            messageType: hasCandidate ? 'CANDIDATE' : s(result,'messageType','TEXT'),
           content: text,
           reasoningContent: s(result, 'reasoningContent', chat.reasoning),
           payload: result,
@@ -450,6 +476,7 @@ export async function resume(): Promise<void> {
         persist(key(), '');
         chat.pending = {};
         chat.busy = false;
+        flushNotifications();
         void loadHistory();
         return;
       }
@@ -469,7 +496,11 @@ export async function resume(): Promise<void> {
     }
   } finally {
     running = false;
-    if (current == version) chat.busy = false;
+    if (current == version) {
+      chat.busy = false;
+      if (owner == session.userId && revision == session.revision && session.visible) flushNotifications();
+      else if (owner != session.userId || revision != session.revision) deferredNotifications = [];
+    }
     if (!active() && session.visible && session.userId.length > 0)
       setTimeout(() => {
         void resume().catch((error) => { chat.error = message(error); });
@@ -490,5 +521,6 @@ export async function dismissPending(): Promise<void> {
   chat.reasoning = '';
   chat.reply = '';
   chat.notice = '';
+  flushNotifications();
   await loadHistory();
 }

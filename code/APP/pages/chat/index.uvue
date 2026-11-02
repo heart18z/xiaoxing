@@ -5,10 +5,11 @@
     tab="chat"
     theme="chat"
     :keyboard-height="keyboard"
+    :loading="pageShown && chat.loading"
   >
     <template #left>
       <view class="toolbar" @click="drawer = true">
-        <UiIcon name="menu" tone="ink" :size="20" />
+        <UiIcon name="calendar" tone="ink" :size="22" />
       </view>
     </template>
     <template #right>
@@ -37,9 +38,6 @@
       @touchcancel="touchEnded()"
     >
       <view id="chat-messages" class="messages">
-        <view v-if="chat.loading" class="card">
-          <text class="app-font muted">{{ t('正在加载对话记录…') }}</text>
-        </view>
         <view v-if="chat.error.length > 0" class="card">
           <text class="app-font error">{{ chat.error }}</text>
           <button class="app-font secondary" @click="loadHistory()">{{ t('重新加载') }}</button>
@@ -68,6 +66,7 @@
           @reveal="revealThinking"
           @confirm="confirmCandidate"
           @people="openCandidatePeople"
+          @reply="selectReply"
         />
         <view id="latest" style="height: 12px" />
       </view>
@@ -91,6 +90,16 @@
         />
       </view>
       <view class="composer-box">
+        <view v-if="s(quotedEvent, 'replyEventId').length > 0" class="composer-quote">
+          <view class="quote-symbol" @click="viewQuotedEvent()"><UiIcon name="note" :size="20" tone="muted" /></view>
+          <view class="quote-copy" @click="viewQuotedEvent()">
+            <text class="app-font quote-caption">{{ t('回复事件') }}</text>
+            <text class="app-font quote-summary">{{ s(quotedEvent, 'replyEventSummary') }}</text>
+          </view>
+          <view class="quote-dismiss" role="button" :aria-label="t('取消引用')" @click="cancelReply()">
+            <UiIcon name="close" :size="17" tone="muted" />
+          </view>
+        </view>
         <view class="input-row">
           <image class="orb" src="/static/icons/input-orb.png" mode="aspectFit" />
           <text v-if="recording || transcribing" class="app-font voice-draft">
@@ -103,11 +112,13 @@
             :confirm-type="inputConfirmType"
             @confirm="confirmSend"
             :value="inputValue"
+            :focus="composerFocused"
+            @blur="composerFocused = false"
             @input="composerInput"
             :auto-height="true"
             :maxlength="20000"
             :disabled="recording || transcribing"
-            :placeholder="t('说说你想提醒的事…')"
+            :placeholder="s(quotedEvent, 'replyEventId').length > 0 ? t('回复这件事，或补充进展…') : t('说说你想提醒的事…')"
             :adjust-position="false"
             @keyboardheightchange="inputKeyboardChange"
             @focus="
@@ -151,6 +162,7 @@
     </view>
   </AppFrame>
   <ReminderDrawer :open="drawer" @close="drawer = false" />
+  <ReportSheet :open="reportViewer.open" :report-id="reportViewer.reportId" :initial-page="reportViewer.initialPage" @close="reportViewer.open=false" />
   <CandidatePeople
     :open="peopleOpen"
     :candidate-id="peopleCandidate"
@@ -190,6 +202,7 @@
 <script setup lang="uts">
 import { updates } from '@/services/updates.uts';
 import { messageKey } from '@/core/messages.uts';
+import { eventReply, replyPayload } from '@/core/event-reply.uts';
 import { pickImages, prepareChatImage } from '@/services/images.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import AttachmentTile from '@/components/AttachmentTile.uvue';
@@ -201,6 +214,9 @@ import ChatMessage from '@/components/ChatMessage.uvue';
 import CandidatePeople from '@/components/CandidatePeople.uvue';
 import ReminderDrawer from '@/components/ReminderDrawer.uvue';
 import Popup from '@/components/Popup.uvue';
+import ReportSheet from '@/components/ReportSheet.uvue';
+import { reportViewer as _reportViewer, ReportViewerState } from '@/store/report.uts';
+const reportViewer:ReportViewerState=_reportViewer;
 import {
   setChatVisible,
   syncHistory,
@@ -218,7 +234,7 @@ import { session, requireSession, requestId } from '@/store/session.uts';
 import { reminder, upload, bootstrap } from '@/api/request.uts';
 import { callNative, setAlarm } from '@/services/native.uts';
 import { s as _s, b, obj, arr, payload as _payload, strings, message } from '@/core/json.uts';
-import { confirm, toast } from '@/core/ui.uts';
+import { confirm, toast, openEvent } from '@/core/ui.uts';
 import { markdown as _markdown } from '@/core/markdown.uts';
 // #ifdef WEB
 import {
@@ -256,6 +272,8 @@ const pendingUser = computed((): UTSJSONObject => ({
   messageType: 'TEXT',
   content: s(chat.pending, 'content'),
   payload: {
+    replyEventId: s(chat.pending, 'replyEventId'),
+    replyEventSummary: s(chat.pending, 'replyEventSummary'),
     fileNames: chat.pending['fileNames'] ?? ([] as string[]),
     fileIds: chat.pending['fileIds'] ?? ([] as string[]),
   },
@@ -284,6 +302,8 @@ type Attachment = {
   id: string;
 };
 const pageShown = ref(false);
+const quotedEvent = ref<UTSJSONObject>({});
+const composerFocused = ref(false);
 const drawer = ref(false),
   draft = ref(''),
   inputValue = ref(''),
@@ -328,11 +348,12 @@ function releaseAttachment(file: Attachment) {
   // #endif
 }
 async function resume(): Promise<void> {
-  const content = s(savedPending(), 'content');
+  const pending = savedPending();
+  const content = s(pending, 'content');
   try {
     await _resume();
   } catch (e) {
-    if (draft.value.length == 0) setDraft(content);
+    if (draft.value.length == 0) { setDraft(content); quotedEvent.value = replyPayload(pending); }
     toast(message(e));
   }
 }
@@ -461,6 +482,8 @@ let revealTimer: number = 0;
 let actualScrollTop: number = 0;
 let touching = false;
 let userScrolling = false;
+let shownOwner = '';
+let restoringUntil: number = 0;
 function measureScroll() {
   if (!active || !session.visible) return;
   // #ifdef WEB
@@ -501,7 +524,7 @@ function scrollAfterLayout() {
   if (nativeContent != null) contentHeight = nativeContent.getBoundingClientRect().height;
   // #endif
   if (scrollHeight > 0 && contentHeight > 0)
-    moveScroll(contentHeight - scrollHeight, !chat.busy && !initialScrollPending);
+    moveScroll(contentHeight - scrollHeight, !chat.busy && !initialScrollPending && Date.now() >= restoringUntil);
 }
 function scrollLatest() {
   if (!active || !session.visible || !follow.value || touching || layoutTimer != 0) return;
@@ -555,6 +578,15 @@ function jumpLatest() {
   follow.value = true;
   scrollLatest();
 }
+function selectReply(row: UTSJSONObject) {
+  if (chat.busy || s(chat.pending, 'requestId').length > 0) { toast('请等待本轮回复结束后再引用'); return; }
+  if (!b(session.summary, 'supportsEventReply')) { toast('当前服务暂不支持引用回复'); return; }
+  quotedEvent.value = eventReply(row);
+  composerFocused.value = false;
+  nextTick(() => { composerFocused.value = true; jumpLatest(); });
+}
+function viewQuotedEvent() { openEvent(s(quotedEvent.value, 'replyEventId')); }
+function cancelReply() { quotedEvent.value = {}; }
 function settleInitialScroll() {
   if (!active || !session.visible || !initialScrollPending) return;
   clearInterval(scrollTimer);
@@ -609,6 +641,7 @@ function touchEnded() {
   touching = false;
 }
 function scrolling(event: UniScrollEvent) {
+  if (!active || !session.visible) return;
   const detail = event.detail;
   actualScrollTop = detail.scrollTop;
   if (!userScrolling || initialScrollPending || Date.now() < scrollLockedUntil) return;
@@ -641,6 +674,7 @@ async function send() {
   }
   const retained = files.value.slice(),
     text = draft.value,
+    reference = replyPayload(quotedEvent.value),
     ids = files.value.map((f: Attachment): string => f.id);
   follow.value = true;
   try {
@@ -648,8 +682,10 @@ async function send() {
       text,
       ids,
       retained.map((file: Attachment): string => file.name),
+      reference,
     );
     setDraft('');
+    quotedEvent.value = {};
     files.value = [];
     scrollLatest();
     await task;
@@ -657,7 +693,7 @@ async function send() {
     void bootstrap().catch(() => {});
   } catch (e) {
     if (s(chat.pending, 'requestId').length == 0) {
-      if (draft.value.length == 0) setDraft(text);
+      if (draft.value.length == 0) { setDraft(text); quotedEvent.value = reference; }
       files.value = retained.concat(files.value);
     }
     toast(message(e));
@@ -726,6 +762,7 @@ async function clearContext() {
   invalidateHistory();
   try {
     await reminder('chat/context/clear');
+    quotedEvent.value = {};
     clearOpen.value = false;
     setDraft('');
     files.value.forEach(releaseAttachment);
@@ -1103,6 +1140,11 @@ function cancelRecording() {
   recording.value = false;
 }
 function stopPage() {
+  reportViewer.open=false;
+  // Persist the user's actual position, not the last programmatic scroll command.
+  // On native resume an outdated binding otherwise briefly restores an older offset.
+  scrollAnimated.value = false;
+  scrollTop.value = actualScrollTop;
   touching = false;
   userScrolling = false;
   clearTimeout(revealTimer);
@@ -1178,16 +1220,24 @@ syncCallback = () => {
 };
 onShow(() => {
   if (!requireSession()) return;
+  const cold = shownOwner != session.userId || chat.messages.length == 0;
+  if (shownOwner != session.userId) {
+    actualScrollTop = 0;
+    scrollTop.value = 0;
+  }
+  shownOwner = session.userId;
   active = true;
   setChatVisible(true);
   pageShown.value = true;
-  initialScrollPending = true;
-  follow.value = true;
+  initialScrollPending = cold;
+  if (cold) follow.value = true;
+  scrollAnimated.value = false;
+  restoringUntil = Date.now() + 500;
   nextTick(() => {
     measureScroll();
-    scrollLatest();
+    if (follow.value) scrollAfterLayout();
   });
-  void loadHistory().then(() => {
+  if (cold) void loadHistory().then(() => {
     nextTick(settleInitialScroll);
   });
   void resume();
@@ -1198,6 +1248,7 @@ onShow(() => {
   scheduleSync(0);
 });
 onHide(stopPage);
+watch((): string => session.userId, () => { quotedEvent.value = {}; composerFocused.value = false; });
 onUnload(() => {
   stopPage();
   files.value.forEach(releaseAttachment);
@@ -1216,7 +1267,7 @@ watch((): boolean => chat.reasoning.length > 0, scrollLatest);
 watch((): string => chat.reply, scrollLatest);
 watch((): string => s(chat.pending, 'requestId'), scrollLatest);
 // #ifdef APP-ANDROID
-onBackPress((): boolean => updates.required && updates.available);
+onBackPress((): boolean => { if(reportViewer.open){reportViewer.open=false;return true;} return updates.required && updates.available; });
 // #endif
 </script>
 <style scoped>
@@ -1414,4 +1465,16 @@ onBackPress((): boolean => updates.required && updates.available);
   line-height: 23px;
   color: #344967;
 }
+
+.composer-quote { flex-direction: row; align-items: center; padding: 0 0 10px; margin: 0 2px 12px; border-bottom: 1px solid #edf0f5; }
+.quote-symbol { width: 28px; margin-right: 8px; align-items: center; justify-content: center; }
+.quote-copy { flex: 1; min-width: 0; }
+.quote-caption { font-size: 10px; line-height: 16px; color: #98a0b1; }
+.quote-summary { font-size: 13px; line-height: 20px; font-weight: 500; color: #526078; lines: 1; overflow: hidden; text-overflow: ellipsis;
+  /* #ifdef WEB */
+  white-space: nowrap;
+  /* #endif */
+}
+.quote-dismiss { width: 36px; height: 36px; margin-left: 6px; align-items: center; justify-content: center; }
+
 </style>

@@ -40,11 +40,12 @@ public class ReminderGroupRegression {
         invite(a,2L,3L,4L,5L);invite(b,2L,3L);
         db.update("update blade_friendship set permission_mode='THEY_CAN_REMIND' where owner_user_id=1 and friend_user_id=5");
         check(groups.list(2L).size()==2,"invited friend joins without approval");
-        check(groups.directory(2L).isEmpty(),"ordinary member has no AI send directory");
+        check(groups.directory(2L).size()==2,"ordinary member sees joined groups in AI send directory");
         var role=new ReminderGroupDtos.Member();role.setGroupId(a);role.setUserId(2L);role.setRole("ADMIN");groups.role(1L,role);
-        check(groups.directory(2L).isEmpty(),"admin does not receive a group reminder directory");
+        check(groups.directory(2L).size()==2,"administrator sees joined groups in AI send directory");
         var adminSelector=json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a)));
-        denied(()->groups.select(2L,adminSelector));denied(()->groups.lookup(2L,adminSelector));
+        check(groups.select(2L,adminSelector).size()==5,"admin can select joined group members");
+        check(groups.lookup(2L,adminSelector).size()==1,"admin can query real group roster");
         var preview=groups.list(1L).stream().filter(g->Long.toString(a).equals(g.get("id"))).findFirst().orElseThrow();
         check(preview.get("memberPreviews") instanceof List<?> avatars&&avatars.size()==4,"list supplies capped member avatars with total count");
         check(!groups.directory(1L).toString().contains("memberPreviews"),"avatar previews do not bloat AI context");
@@ -62,8 +63,8 @@ public class ReminderGroupRegression {
         var invalidInvite=new ReminderGroupDtos.Members();invalidInvite.setGroupId(a);invalidInvite.setUserIds(List.of(2L,6L));denied(()->groups.invite(1L,invalidInvite));
         check(groups.members(1L,a).size()==5,"nonfriend invitation fails transactionally");
         role.setUserId(3L);denied(()->groups.role(2L,role));
-        var memberTags=new ReminderGroupDtos.Member();memberTags.setGroupId(a);memberTags.setUserId(3L);memberTags.setTags(List.of("消防负责人","东校区"));groups.memberTags(3L,memberTags);
-        check(member(1L,a,3L).get("tags") instanceof List<?> labels&&labels.size()==2,"member can maintain multiple own tags");
+        var memberTags=new ReminderGroupDtos.Member();memberTags.setGroupId(a);memberTags.setUserId(3L);memberTags.setTags(List.of("消防负责人","东校区"));denied(()->groups.memberTags(3L,memberTags));groups.memberTags(2L,memberTags);
+        check(member(1L,a,3L).get("tags") instanceof List<?> labels&&labels.size()==2,"only manager can maintain member tags including own tags");
         memberTags.setUserId(4L);denied(()->groups.memberTags(3L,memberTags));groups.memberTags(2L,memberTags);
         var tag=new ReminderGroupDtos.Tag();tag.setGroupId(a);tag.setName("材料负责人");tag.setUserIds(List.of(3L,4L));groups.saveTag(2L,tag);
         long material=tag(a,"材料负责人"),fire=tag(a,"消防负责人");
@@ -80,7 +81,7 @@ public class ReminderGroupRegression {
         check(sources.size()==2,"both provenance groups retained");
         check(!Boolean.TRUE.equals(member(2L,a,3L).get("canRemind")),"admin role never grants friendship permission");
         check(!Boolean.TRUE.equals(member(1L,a,5L).get("canRemind")),"one-way permission respected");
-        denied(()->groups.select(3L,both));
+        check(groups.select(3L,both).size()==5,"ordinary member can select and deduplicate both joined groups");
         var lookup=groups.lookup(1L,json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a))));
         check(!lookup.toString().contains("phone")&&!lookup.toString().contains("email"),"model roster omits unrelated private fields");
         SmartEventContentService content=new SmartEventContentService(db,json,null);
@@ -98,19 +99,65 @@ public class ReminderGroupRegression {
         var adjusted=(ObjectNode)resolve.invoke(service,1L,manual);check(adjusted.path("recipients").size()==1&&"2".equals(adjusted.path("recipients").get(0).path("id").asText()),"manual review can add another member from authorized source groups");
         verifyModelLookup(a,fire,content);
         verifyLegacyCompatibility(content);
+        verifyMemberSending(a,b,service,resolve);
         groups.validateSavedRecipients(1L,candidate);
         denied(()->groups.validateSavedRecipients(2L,candidate));
         db.update("update blade_friendship set permission_mode='THEY_CAN_REMIND' where owner_user_id=1 and friend_user_id=3");denied(()->groups.validateSavedRecipients(1L,candidate));
         db.update("update blade_friendship set permission_mode='MUTUAL' where owner_user_id=1 and friend_user_id=3");
         var remove=new ReminderGroupDtos.Member();remove.setGroupId(a);remove.setUserId(4L);groups.remove(1L,remove);denied(()->groups.validateSavedRecipients(1L,candidate));
-        var ownerTag=new ReminderGroupDtos.Member();ownerTag.setGroupId(a);ownerTag.setUserId(3L);ownerTag.setTags(List.of("管理员"));groups.memberTags(3L,ownerTag);
-        check(!groups.directory(3L).iterator().hasNext(),"tag text cannot elevate role");
+        var ownerTag=new ReminderGroupDtos.Member();ownerTag.setGroupId(a);ownerTag.setUserId(3L);ownerTag.setTags(List.of("管理员"));denied(()->groups.memberTags(3L,ownerTag));groups.memberTags(1L,ownerTag);
+        check(groups.directory(3L).size()==2&&"MEMBER".equals(member(3L,a,3L).get("memberRole")),"member can send without label text elevating management role");
         denied(()->groups.dissolve(2L,a));groups.dissolve(1L,a);check(groups.list(2L).size()==1,"dissolved group disappears from member list");denied(()->groups.detail(2L,a));denied(()->groups.lookup(1L,json.createArrayNode().add(selector)));
         check(groups.directory(1L).size()==1,"dissolved group removed from AI context");
+        verifyAdminInvitations();
         content.closeSummaryWorker();
         System.out.println("PASS ReminderGroupRegression: "+assertions+" assertions; real isolated DB, transactional permissions, tags, multi-group recipients and revalidation");
     }
     static long create(String name){var input=new ReminderGroupDtos.Save();input.setName(name);return Long.parseLong(groups.create(1L,input).get("id").toString());}
+    static void verifyAdminInvitations() {
+        long group=create("管理员邀请测试");invite(group,2L,3L);
+        var role=new ReminderGroupDtos.Member();role.setGroupId(group);role.setUserId(2L);role.setRole("ADMIN");groups.role(1L,role);
+        db.update("insert into blade_friendship values(2,6,null,'I_CAN_REMIND','ACTIVE'),(2,5,null,'THEY_CAN_REMIND','ACTIVE')");
+        var input=new ReminderGroupDtos.Members();input.setGroupId(group);input.setUserIds(List.of(6L,5L));
+        denied(()->groups.invite(2L,input));check(groups.members(1L,group).size()==3,"admin invitation rolls back if one friend lacks own outgoing permission");
+        input.setUserIds(List.of(6L));groups.invite(2L,input);
+        check("MEMBER".equals(member(1L,group,6L).get("memberRole")),"admin can invite own permitted friend as ordinary member");
+        denied(()->groups.invite(3L,input));
+        role.setRole("MEMBER");groups.role(1L,role);denied(()->groups.invite(2L,input));
+    }
+    static void verifyMemberSending(long a,long b,SmartReminderService service,java.lang.reflect.Method resolve)throws Exception {
+        db.update("insert into blade_friendship values(2,3,null,'I_CAN_REMIND','ACTIVE'),(2,5,null,'THEY_CAN_REMIND','ACTIVE'),(3,4,null,'MUTUAL','ACTIVE')");
+        var selectors=json.createArrayNode();
+        for(long group:List.of(a,b)){var selector=selectors.addObject().put("groupId",Long.toString(group));selector.putArray("excludedUserIds").add("2");}
+        ObjectNode draft=json.createObjectNode().put("summary","群员提醒核验").put("groupTask","检查材料");draft.putArray("recipientNames");draft.set("groupSelectors",selectors);
+        var admin=(ObjectNode)resolve.invoke(service,2L,draft.deepCopy());
+        check(admin.path("recipients").size()==1&&"3".equals(admin.path("recipients").get(0).path("id").asText()),"admin sends only to own permitted friend across joined groups");
+        check(admin.path("recipientIssues").size()==3&&admin.path("recipientPool").size()==4,"blocked nonfriends and one-way friends stay visible for review");
+        check(admin.path("recipientIssues").findValuesAsText("permissionIssue").containsAll(List.of("NOT_FRIEND","NO_PERMISSION")),"blocked members explain friendship and permission direction separately");
+        groups.validateSavedRecipients(2L,admin);
+        var roster=groups.lookup(2L,json.createArrayNode().add(json.createObjectNode().put("groupId",Long.toString(a))));
+        check(roster.toString().contains("I_CAN_REMIND")==false&&roster.toString().contains("NO_PERMISSION"),"model receives permission outcomes without borrowing another member's authority");
+        db.update("update blade_friendship set permission_mode='THEY_CAN_REMIND' where owner_user_id=2 and friend_user_id=3");
+        denied(()->groups.validateSavedRecipients(2L,admin));
+        db.update("update blade_friendship set permission_mode='I_CAN_REMIND',status='REMOVED' where owner_user_id=2 and friend_user_id=3");
+        denied(()->groups.validateSavedRecipients(2L,admin));
+        db.update("update blade_friendship set status='ACTIVE' where owner_user_id=2 and friend_user_id=3");
+        var ownSelector=json.createObjectNode().put("groupId",Long.toString(a));ownSelector.putArray("excludedUserIds").add("3");
+        draft.set("groupSelectors",json.createArrayNode().add(ownSelector));
+        var member=(ObjectNode)resolve.invoke(service,3L,draft.deepCopy());
+        check(member.path("recipients").size()==1&&"4".equals(member.path("recipients").get(0).path("id").asText()),"ordinary member sends to own permitted friend without owner/admin role");
+        groups.validateSavedRecipients(3L,member);
+        check(!groups.canRemind(3L,2L),"permission of the opposite friendship direction cannot be reused");
+        var unauthorized=json.createArrayNode().add(ownSelector);
+        denied(()->groups.select(6L,unauthorized));denied(()->groups.lookup(6L,unauthorized));
+        denied(()->groups.validateSavedRecipients(6L,member));
+        db.update("update blade_reminder_group_member set status='LEFT' where group_id=? and user_id=3",a);
+        denied(()->groups.select(3L,unauthorized));denied(()->groups.lookup(3L,unauthorized));denied(()->groups.validateSavedRecipients(3L,member));
+        check(groups.directory(3L).size()==1,"left group disappears from member's AI directory");
+        db.update("update blade_reminder_group_member set status='ACTIVE' where group_id=? and user_id=3",a);
+        // Restore this scenario's friendships so earlier permission tests retain their original fixtures.
+        db.update("delete from blade_friendship where owner_user_id in (2,3)");
+    }
     static void invite(long group,Long...people){var input=new ReminderGroupDtos.Members();input.setGroupId(group);input.setUserIds(List.of(people));groups.invite(1L,input);}
     static long tag(long group,String name){return groups.tags(group).stream().filter(t->name.equals(t.get("name"))).map(t->Long.parseLong(t.get("id").toString())).findFirst().orElseThrow();}
     static Map<String,Object> member(long user,long group,long person){return groups.members(user,group).stream().filter(p->Long.toString(person).equals(p.get("id"))).findFirst().orElseThrow();}

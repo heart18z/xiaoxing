@@ -1,0 +1,2 @@
+# Compiled on macOS, signed when creating the IPA; do not publish stale/version-mismatched binaries.
+*.appex/

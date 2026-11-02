@@ -70,6 +70,7 @@ object XiaoxingNotifications {
         } catch (_: Exception) { lastError = "后台接收未启动，请在应用内重新检查通知" }
     }
     fun stop(context: Context) {
+        XiaoxingLiveReminder.clear(context)
         context.stopService(Intent(context, XiaoxingReminderService::class.java))
         manager(context).cancelAll()
         running = false
@@ -151,7 +152,7 @@ class XiaoxingReminderService: Service() {
     }
     override fun onStartCommand(intent: Intent?, flags: Int, id: Int): Int = START_NOT_STICKY
     override fun onTimeout(startId: Int, type: Int) { stopSelf() }
-    override fun onDestroy() { closed = true; executor.shutdownNow(); XiaoxingNotifications.running = false; super.onDestroy() }
+    override fun onDestroy() { closed = true; executor.shutdownNow(); XiaoxingLiveReminder.clear(this); XiaoxingNotifications.running = false; super.onDestroy() }
     private fun poll() {
         if (closed) return
         try {
@@ -161,11 +162,15 @@ class XiaoxingReminderService: Service() {
             val user = session.optString("userId")
             if (user.isEmpty() || session.optString("token").isEmpty()) { stopSelf(); return }
             if (owner.isNotEmpty() && owner != user) {
+                XiaoxingLiveReminder.clear(this)
                 val manager = XiaoxingNotifications.manager(this)
                 manager.activeNotifications.filter { it.tag?.startsWith("xiaoxing:") == true }.forEach { manager.cancel(it.tag, it.id) }
             }
             owner = user
             val config = JSONObject(XiaoxingAndroid.read(this, "android-push-config"))
+            try { XiaoxingLiveReminder.refresh(this,snapshot,config) { !closed && XiaoxingAndroid.read(this,"session")==snapshot } }
+            catch (_: Exception) { /* Existing reminder delivery must not depend on the new optional endpoint. */ }
+            if (closed || XiaoxingAndroid.read(this,"session")!=snapshot) return
             val connection = URL(config.getString("baseUrl") + "/app/reminder/chat/sync?limit=150&revision=").openConnection() as HttpURLConnection
             val result: JSONObject
             try {
@@ -204,6 +209,7 @@ class XiaoxingReminderService: Service() {
     }
     private fun expired(snapshot: String) {
         if (closed || XiaoxingAndroid.read(this, "session") != snapshot) return
+        XiaoxingLiveReminder.clear(this)
         XiaoxingNotifications.expiredSession = snapshot
         XiaoxingNotifications.lastError = "登录已过期，请打开应用重新登录后继续接收提醒"
         XiaoxingNotifications.manager(this).notify(7102, XiaoxingNotifications.notification(this, "AI小醒", XiaoxingNotifications.lastError))

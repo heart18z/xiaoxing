@@ -5,25 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>AI小醒</title>
   <style>
-#xiaoxing-startup{display:none;position:fixed;inset:0;z-index:2147483000;box-sizing:border-box;padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);background:radial-gradient(ellipse at 15% 20%,#d4efff,transparent 55%),radial-gradient(ellipse at 95% 55%,#e2e4ff,transparent 55%),#f6faff;color:#273755;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;align-items:center;justify-content:center;flex-direction:column;transition:opacity .24s ease}
+#xiaoxing-startup{display:none;position:fixed;inset:0;z-index:2147483000;box-sizing:border-box;padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom);background:#f8faff;color:#233454;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center;align-items:center;justify-content:center;flex-direction:column;transition:opacity .24s ease}
 html[data-xiaoxing-boot] #xiaoxing-startup{display:flex}
-#xiaoxing-startup .boot-logo{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#54d8f4,#1678ff,#9972ff);box-shadow:0 12px 36px #648ee433;display:grid;place-items:center;color:white;font-size:49px;margin:0 auto 22px}
-#xiaoxing-startup h1{font-size:25px;letter-spacing:2px;margin:0 0 12px;font-weight:650}
-#xiaoxing-startup p{font-size:14px;color:#7d8ba5;line-height:1.8;margin:0}
-#xiaoxing-startup .boot-track{width:112px;height:4px;overflow:hidden;background:#dfe8f6;border-radius:4px;margin:30px auto 20px}
-#xiaoxing-startup .boot-track:after{content:"";display:block;width:40%;height:100%;border-radius:4px;background:linear-gradient(90deg,#51c5f7,#6a6aff);animation:boot-progress 1.4s ease-in-out infinite alternate}
+#xiaoxing-startup .boot-content{display:flex;align-items:center;flex-direction:column;padding-bottom:32px}
+#xiaoxing-startup .boot-avatar{width:82px;height:82px;border-radius:24px;animation:boot-float 1.8s ease-in-out infinite}
+#xiaoxing-startup .boot-shadow{width:48px;height:6px;border-radius:24px;background:#6687ca;opacity:.15;margin:12px 0 25px;animation:boot-shadow 1.8s ease-in-out infinite}
+#xiaoxing-startup h1{font-size:30px;margin:0 0 10px;font-weight:600}
+#xiaoxing-startup p{font-size:14px;color:#8a96ab;line-height:24px;margin:0}
+#xiaoxing-startup .boot-dots{display:flex;gap:10px;align-items:center;height:8px;margin:28px 0 14px}
+#xiaoxing-startup .boot-dots i{width:5px;height:5px;border-radius:50%;background:#6582e8;animation:boot-breathe .9s ease-in-out infinite alternate}
+#xiaoxing-startup .boot-dots i:nth-child(2){animation-delay:-.9s}
+#xiaoxing-startup #xiaoxing-startup-message{font-size:12px;color:#98a3b6;line-height:20px;max-width:280px}
 #xiaoxing-startup-retry{margin-top:18px;padding:11px 24px;border:0;border-radius:24px;background:#426cff;color:#fff;font:inherit;font-size:14px;cursor:pointer;touch-action:manipulation}
 #xiaoxing-startup-retry[hidden]{display:none}
-#xiaoxing-startup .boot-footer{position:absolute;bottom:calc(32px + env(safe-area-inset-bottom));left:0;right:0;font-size:12px;letter-spacing:2px;color:#929fba}
-#xiaoxing-startup[data-failed] .boot-track:after{animation:none;width:100%;background:#b4bfdb}
-@keyframes boot-progress{to{transform:translateX(150%)}}
-@media(prefers-reduced-motion:reduce){#xiaoxing-startup{transition:none}#xiaoxing-startup .boot-track:after{animation:none;width:100%}}
+#xiaoxing-startup[data-failed] .boot-dots i{animation:none;opacity:.4}
+@keyframes boot-breathe{from{opacity:.3}to{opacity:1}}
+@keyframes boot-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes boot-shadow{0%,100%{opacity:.18;transform:scaleX(1)}50%{opacity:.11;transform:scaleX(.88)}}
+@media(prefers-reduced-motion:reduce){#xiaoxing-startup .boot-avatar,#xiaoxing-startup .boot-shadow{animation:none}}
+@media(prefers-reduced-motion:reduce){#xiaoxing-startup{transition:none}#xiaoxing-startup .boot-dots i{animation:none}}
 </style>
   </head>
   <body>
     <section id="xiaoxing-startup" aria-label="应用启动" role="status" aria-live="polite">
-  <div><div class="boot-logo" aria-hidden="true">✦</div><h1>AI小醒</h1><p>让提醒更贴心</p><div class="boot-track" aria-hidden="true"></div><p id="xiaoxing-startup-message">正在准备你的智能助手…</p><button id="xiaoxing-startup-retry" type="button" hidden>重新加载</button></div>
-  <span class="boot-footer">更智能的提醒 · 更从容的生活</span>
+  <div class="boot-content"><img class="boot-avatar" src="/static/avatars/assistant/A3.png" alt="" /><div class="boot-shadow" aria-hidden="true"></div><h1>AI小醒</h1><p>智能提醒助手</p><div class="boot-dots" aria-hidden="true"><i></i><i></i><i></i></div><p id="xiaoxing-startup-message">正在加载…</p><button id="xiaoxing-startup-retry" type="button" hidden>重新加载</button></div>
 </section>
     <script src="/static/startup.js"></script>
     <div id="app"></div>

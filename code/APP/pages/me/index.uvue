@@ -921,6 +921,7 @@ function stopTimer() {
   ticket++;
   clearInterval(timer);
   socialLoading = false;
+  loading.value = false;
 }
 watch(
   (): string => navigation.friendRequestsOwner,

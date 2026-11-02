@@ -1,0 +1,27 @@
+export type ReportSpan = { text: string; bold: boolean };
+export type ReportBlock = { heading: boolean; bullet: boolean; spans: ReportSpan[] };
+
+// Native text spans keep report prose selectable without embedding HTML or a web view.
+export function reportBlocks(content: string): ReportBlock[] {
+  const blocks: ReportBlock[] = [];
+  const lines = content.replace(/\r/g, '').split('\n');
+  for (const raw of lines) {
+    let line = raw.trim();
+    if (line.length == 0) continue;
+    const heading = /^#{1,6}\s/.test(line);
+    const bullet = /^([-*+]\s|\d+[.)]\s)/.test(line);
+    line = line.replace(/^#{1,6}\s+/, '').replace(/^([-*+]\s+|\d+[.)]\s+)/, '');
+    const spans: ReportSpan[] = [];
+    let remaining = line;
+    while (remaining.length > 0) {
+      const start = remaining.indexOf('**');
+      const end = start < 0 ? -1 : remaining.indexOf('**', start + 2);
+      if (start < 0 || end < 0) { spans.push({ text: remaining, bold: heading }); break; }
+      if (start > 0) spans.push({ text: remaining.substring(0, start), bold: heading });
+      spans.push({ text: remaining.substring(start + 2, end), bold: true });
+      remaining = remaining.substring(end + 2);
+    }
+    blocks.push({ heading: heading, bullet: bullet, spans: spans });
+  }
+  return blocks;
+}

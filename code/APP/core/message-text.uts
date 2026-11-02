@@ -1,0 +1,28 @@
+// iOS uses native text blocks instead of a large rich-text surface inside scroll-view.
+// Preserve content and line breaks while keeping each native layout bounded.
+export type MessageBlock = { text: string; kind: string };
+export function messageBlocks(content: string): MessageBlock[] {
+  const blocks: MessageBlock[] = [];
+  let code = false;
+  for (const line of content.replace(/\r\n/g, '\n').split('\n')) {
+    if (line.trim().startsWith('```')) { code = !code; continue; }
+    const heading = !code && /^#{1,6}\s/.test(line);
+    let text = code ? line : line
+      .replace(/^#{1,6}\s+/, '')
+      .replace(/^\s*[-*+]\s+/, '• ')
+      .replace(/^>\s?/, '│ ')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1（$2）');
+    if (text.length == 0) { blocks.push({text: ' ', kind: 'space'}); continue; }
+    while (text.length > 0) {
+      let length = Math.min(900, text.length);
+      const last = text.charCodeAt(length - 1) ?? 0;
+      if (length < text.length && last >= 0xd800 && last <= 0xdbff) length--;
+      blocks.push({text: text.slice(0, length), kind: code ? 'code' : heading ? 'heading' : 'body'});
+      text = text.slice(length);
+    }
+  }
+  return blocks;
+}

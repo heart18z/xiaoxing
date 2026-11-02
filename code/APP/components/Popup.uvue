@@ -28,6 +28,7 @@
         variant == 'conversation' ? 'conversation-panel' : '',
         variant == 'attachment' ? 'attachment-panel' : '',
         variant == 'account' ? 'account-panel' : '',
+        variant == 'alarm-time' ? 'alarm-time-panel' : '',
         variant == 'friend-edit' ? 'friend-edit-panel' : '',
         variant == 'friend-search' ? 'friend-search-panel' : '',
         variant == 'personal-qr' ? 'personal-qr-panel' : '',
@@ -230,6 +231,11 @@ function noop() {}
   flex: 1;
   height: 0;
 }
+.alarm-time-panel { max-width: 328px; border-radius: 20px; }
+.alarm-time-panel .popup-head { padding: 14px 16px 6px; }
+.alarm-time-panel .popup-head .title { font-size: 16px; line-height: 24px; }
+.alarm-time-panel .close { width: 30px; height: 30px; }
+.alarm-time-panel .popup-body { padding: 0 16px 6px; }
 .popup-footer {
   min-height: 80px;
   flex-shrink: 0;

@@ -37,6 +37,8 @@ public final class SmartReminderDtos {
 	@Data
 	public static class ChatRequest {
 		private String requestId;
+		/** Optional explicit event selection. Omitted by legacy clients. */
+		private Long replyEventId;
 		private String content;
 		private List<Long> fileIds = new ArrayList<>();
 		/** Opt in only when the client can review group recipients and permission issues. */

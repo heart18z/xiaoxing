@@ -1,0 +1,46 @@
+<template>
+  <view class="consent-row">
+    <view class="consent-hit" role="checkbox" :aria-checked="modelValue" :aria-label="t('同意用户协议和隐私政策')" @click="toggle">
+      <view class="consent-box" :class="{ checked: modelValue }"><text v-if="modelValue" class="app-font tick">✓</text></view>
+    </view>
+    <view class="consent-copy">
+      <text class="app-font consent-text" @click="toggle">{{ t('我已阅读并同意') }}</text>
+      <text class="app-font consent-link" @click="read(false)">{{ t('《用户协议》') }}</text>
+      <text class="app-font consent-text">{{ t('和') }}</text>
+      <text class="app-font consent-link" @click="read(true)">{{ t('《隐私政策》') }}</text>
+    </view>
+  </view>
+  <Popup :open="open" :title="t('请阅读并同意')" @close="emit('cancel')">
+    <text class="app-font consent-description">{{ t('请先阅读用户协议和隐私政策。点击下方同意按钮后，将继续本次操作。') }}</text>
+    <view class="document-links">
+      <text class="app-font consent-link" @click="read(false)">{{ t('《用户协议》') }}</text>
+      <text class="app-font consent-link" @click="read(true)">{{ t('《隐私政策》') }}</text>
+    </view>
+    <LoginButton :label="confirmLabel" @click="confirm" />
+    <text class="app-font consent-cancel" @click="emit('cancel')">{{ t('暂不同意') }}</text>
+  </Popup>
+</template>
+<script setup lang="uts">
+import Popup from './Popup.uvue';
+import LoginButton from './LoginButton.uvue';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
+const props = defineProps({ modelValue: { type: Boolean, default: false }, open: { type: Boolean, default: false }, disabled: { type: Boolean, default: false }, confirmLabel: { type: String, default: '' } });
+const emit = defineEmits(['update:modelValue', 'confirm', 'cancel']);
+function toggle() { if (!props.disabled) emit('update:modelValue', !props.modelValue); }
+function read(privacy: boolean) { uni.navigateTo({ url: '/pages/legal/index?type=' + (privacy ? 'privacy' : 'terms') }); }
+function confirm() { if (props.disabled || !props.open) return; emit('update:modelValue', true); emit('confirm'); }
+</script>
+<style scoped>
+.consent-row { flex-direction: row; align-items: center; margin: 4px 0 18px; }
+.consent-hit { width: 32px; height: 40px; flex-shrink: 0; justify-content: center; }
+.consent-box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #a5b1ca; align-items: center; justify-content: center; background-color: #ffffff; }
+.checked { background-color: #2678ff; border-color: #2678ff; }
+.tick { color: #ffffff; font-size: 14px; font-weight: 700; }
+.consent-copy { flex: 1; flex-direction: row; flex-wrap: wrap; align-items: center; }
+.consent-text { font-size: 12px; line-height: 22px; color: #77839b; margin-right: 3px; }
+.consent-link { font-size: 12px; line-height: 24px; color: #2368e8; margin-right: 3px; }
+.consent-description { font-size: 15px; line-height: 25px; color: #5f6d84; }
+.document-links { flex-direction: row; justify-content: center; padding: 18px 0 24px; }
+.consent-cancel { font-size: 14px; color: #7d879a; text-align: center; padding: 18px 0 4px; }
+</style>

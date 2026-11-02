@@ -1,5 +1,13 @@
 import { s } from './json.uts';
 
+export function eventPersonName(person: UTSJSONObject): string {
+  for (const key of ['name', 'realName', 'account']) {
+    const value = s(person, key).trim();
+    if (value.length > 0 && value != 'null' && value != 'undefined') return value;
+  }
+  return '群成员';
+}
+
 // Match the Web event list's fallback for missing or empty latestFact.
 export function latestProgress(event: UTSJSONObject): string {
   const fact = s(event, 'latestFact');

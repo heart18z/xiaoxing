@@ -5,6 +5,7 @@
     "UserNotifications.framework",
     "UniformTypeIdentifiers.framework",
     "AVFoundation.framework",
-    "Speech.framework"
+    "Speech.framework",
+    "ActivityKit.framework"
   ]
 }

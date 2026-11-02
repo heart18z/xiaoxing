@@ -145,3 +145,11 @@ test('requests after expiry cannot repeatedly relaunch the login page',async()=>
  await Promise.allSettled([f.module.post('/summary'),f.module.post('/events')]);
  assert.equal(launches,1);
 });
+
+test('logout renews expired access credentials before calling server revocation',async()=>{
+ const calls=[];const f=await fixture(o=>{calls.push([o.url,o.header['Blade-Auth']]);o.success({statusCode:200,data:o.url.includes('/oauth/token')?{access_token:'renewed'}:{code:200}});});
+ f.session.expiresAt=Date.now()-1000;
+ await f.module.post('/blade-auth/oauth/logout');
+ assert.equal(calls.length,2);assert.ok(calls[0][0].includes('/oauth/token'));
+ assert.ok(calls[1][0].endsWith('/oauth/logout'));assert.equal(calls[1][1],'bearer renewed');
+});

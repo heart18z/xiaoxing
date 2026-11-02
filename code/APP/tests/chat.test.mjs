@@ -45,6 +45,17 @@ test('same request ID submits once and clears only on committed success',async()
   assert.equal(f.calls.filter(x=>x[0]==='chat/jobs/submit').length,1);assert.equal(f.module.savedPending().requestId,undefined);
   assert.equal(f.calls.find(x=>x[0]==='chat/jobs/submit')[1].requestId,'request-id-'+ 'a'.repeat(24));
 });
+test('explicit quoted event survives pause/retry and is retained in committed local message',async()=>{
+ let committed=false;
+ const f=await fixture(action=>action==='chat/jobs/status'?{status:committed?'SUCCEEDED':'NOT_FOUND',result:{reply:'已更新引用事件'}}:{status:'UNKNOWN'},[],()=>{throw Error('offline history');});
+ await f.module.submit('延期到下周',[],[],{replyEventId:'6001',replyEventSummary:'项目演示'});
+ assert.equal(f.module.savedPending().replyEventId,'6001');
+ assert.equal(f.calls.find(c=>c[0]==='chat/jobs/submit')[1].replyEventId,'6001');
+ committed=true;await f.module.resume();
+ const user=f.module.chat.messages.find(m=>m.messageRole==='user');
+ assert.equal(user.content,'延期到下周');assert.equal(user.payload.replyEventId,'6001');
+ assert.equal(f.calls.filter(c=>c[0]==='chat/jobs/submit').length,1);
+});
 test('account changes during status response never submit for the new user',async()=>{
   const f=await fixture((action,data,session)=>{session.userId='2';session.revision++;return{status:'NOT_FOUND'}});
   await f.module.submit('保留消息',[]);assert.equal(f.calls.filter(x=>x[0]==='chat/jobs/submit').length,0);assert.ok(f.storage.get('pending:1').includes('保留消息'));
@@ -77,9 +88,33 @@ test('sync revision advances without replacing unchanged messages, including dur
  let step=0;const f=await fixture(()=>step++===0?{revision:'r1',messages:[{id:'1',messageType:'TEXT',content:'server echo'},{id:'2',messageType:'REMINDER',isRead:false,content:'new reminder'}]}:{revision:'r1'});
  f.module.setChatVisible(true);f.module.chat.busy=true;f.module.chat.pending={requestId:'active'};f.module.chat.messages=[{id:'old',content:'retained'}];
  await f.module.syncHistory();await f.module.syncHistory();
- assert.deepEqual(f.module.chat.messages.map(m=>m.id),['old','2']);
+ assert.deepEqual(f.module.chat.messages.map(m=>m.id),['old']);
  assert.equal(f.calls.filter(c=>c[0]==='chat/sync')[1][2].revision,'r1');
- assert.deepEqual(f.calls.find(c=>c[0]==='chat/read')[1].messageIds,['2']);
+ assert.equal(f.calls.some(c=>c[0]==='chat/read'),false);
+});
+
+test('incoming reminder is deferred until reply completes, deduplicated and only then marked read',async()=>{
+ let finish;
+ const row={id:'notice',messageType:'REMINDER',content:'其他事件',isRead:false};
+ const f=await fixture(action=>action==='chat/sync'?{revision:'r1',messages:[row]}:new Promise(r=>finish=r),[],action=>{if(action==='chat/messages')throw Error('history offline');return true;});
+ f.module.setChatVisible(true);
+ const sending=f.module.submit('我的问题',[]);
+ await new Promise(r=>setImmediate(r));
+ await f.module.syncHistory();await f.module.syncHistory();
+ assert.equal(f.module.chat.busy,true);
+ assert.equal(f.module.chat.messages.some(m=>m.id==='notice'),false);
+ assert.equal(f.calls.some(c=>c[0]==='chat/read'),false);
+ finish({status:'SUCCEEDED',result:{reply:'本轮回答'}});await sending;
+ assert.deepEqual(f.module.chat.messages.map(m=>m.content),['我的问题','本轮回答','其他事件']);
+ assert.deepEqual(f.calls.find(c=>c[0]==='chat/read')[1].messageIds,['notice']);
+});
+
+test('resetting chat discards a deferred notification from the previous account',async()=>{
+ const f=await fixture(action=>action==='chat/sync'?{messages:[{id:'private',messageType:'REMINDER'}]}:{status:'UNKNOWN'});
+ f.module.setChatVisible(true);f.module.chat.busy=true;f.module.chat.pending={requestId:'old'};
+ await f.module.syncHistory();f.module.resetChat();
+ await f.module.submit('new account',[]);
+ assert.equal(f.module.chat.messages.some(m=>m.id==='private'),false);
 });
 test('clearing context invalidates an in-flight sync response',async()=>{
  let resolve;const f=await fixture(()=>new Promise(r=>resolve=r));f.module.setChatVisible(true);
@@ -107,6 +142,22 @@ test('committed candidate appears even if history reload fails',async()=>{
  await f.module.submit('提醒我明天交标书',[]);
  const card=f.module.chat.messages.find(x=>x.messageType==='CANDIDATE');
  assert.equal(card.payload.candidateId,'321');assert.equal(card.payload.events[0].summary,'明天交标书');assert.equal(f.module.chat.busy,false);
+});
+
+test('queried report keeps its download links when history reload fails',async()=>{
+ const f=await fixture(()=>({status:'SUCCEEDED',result:{intent:'generate_report',messageType:'REPORT_LINK',reportId:'8901',reply:'## 本周概览\n\n已完成一项。'}}),[],()=>{throw Error('offline')});
+ await f.module.submit('生成本周报告',[]);
+ const message=f.module.chat.messages.at(-1);
+ assert.equal(message.messageType,'REPORT_LINK');assert.equal(message.payload.reportId,'8901');
+});
+
+test('automatic weekly card waits until the active answer finishes',async()=>{
+ let finish;const row={id:'weekly',messageType:'WEEKLY_REPORT',content:'本周周报',payload:{reportId:'8901'},isRead:false};
+ const f=await fixture(action=>action==='chat/sync'?{revision:'w1',messages:[row]}:new Promise(r=>finish=r),[],action=>{if(action==='chat/messages')throw Error('offline');return true;});
+ f.module.setChatVisible(true);const sending=f.module.submit('正在提问',[]);await new Promise(r=>setImmediate(r));
+ await f.module.syncHistory();assert.equal(f.module.chat.messages.some(m=>m.id==='weekly'),false);
+ finish({status:'SUCCEEDED',result:{reply:'答复'}});await sending;
+ assert.deepEqual(f.module.chat.messages.map(m=>m.content),['正在提问','答复','本周周报']);
 });
 
 

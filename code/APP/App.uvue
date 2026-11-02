@@ -1,5 +1,7 @@
 <script setup lang="uts">
 import { watch } from 'vue';
+import { liveActivityEvent } from '@/core/live-activity-link.uts';
+import { openEvent } from '@/core/ui.uts';
 import { checkUpdates, resetUpdateSession } from '@/services/updates.uts';
 import { syncLanguage } from '@/api/request.uts';
 import { restoreSession, session } from '@/store/session.uts';
@@ -12,10 +14,13 @@ import {
   refreshRingingAlarm,
   refreshNotificationPermission,
   alarmState,
+  clearLiveActivities,
 } from '@/services/native.uts';
 watch(
   (): string => session.userId,
-  () => {
+  (owner: string, previous: string) => {
+    // Restoring the same persisted login on cold start must not end a remotely started activity.
+    if (previous.length > 0 || owner.length == 0) void clearLiveActivities().catch(() => {});
     resetChat();
     alarmState.ringing = false;
     resetUpdateSession();
@@ -27,11 +32,18 @@ onLaunch(() => {
   restoreSession();
   void startNative().catch(() => {});
 });
-onShow(() => {
+onShow((options) => {
   session.visible = true;
   void refreshNotificationPermission().catch(() => {});
   void syncLanguage().catch(() => {});
   if (session.userId.length > 0) {
+    // #ifdef APP-IOS
+    const liveEvent = liveActivityEvent(options.appScheme ?? '', session.userId);
+    if (liveEvent.length > 0) {
+      const owner = session.userId;
+      setTimeout(() => { if (session.userId == owner && session.visible) openEvent(liveEvent); }, 300);
+    }
+    // #endif
     void checkUpdates(true);
     void resume().catch(() => {});
     void syncPush();

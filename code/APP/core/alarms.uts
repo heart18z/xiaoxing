@@ -12,6 +12,7 @@ export function alarmPlan(
   detail: UTSJSONObject,
   owner: string,
   now: number = Date.now(),
+  customTimestamp: number = 0,
 ): UTSJSONObject {
   const event = obj(detail, 'event'),
     branch = arr(detail, 'branches').find(
@@ -25,13 +26,14 @@ export function alarmPlan(
       ? s(event, 'event_time')
       : s(branch, 'taskEventTime');
   if (taskTime.length == 0 && b(event, 'alarm_requested')) taskTime = s(branch, 'taskDeadlineTime');
-  const timestamp = timeOf(taskTime) - Math.max(0, Math.min(10080, n(event, 'alarm_lead_minutes'))) * 60000;
+  const timestamp = customTimestamp != 0 ? customTimestamp * 1000 : timeOf(taskTime) - Math.max(0, Math.min(10080, n(event, 'alarm_lead_minutes'))) * 60000;
   if (!Number.isFinite(timestamp) || timestamp <= now + 2000)
     throw new Error('请先为自己的任务设置明确的未来时间');
   return {
     owner: owner,
     eventId: s(event, 'id'),
     timestamp: timestamp / 1000,
+    timeMode: customTimestamp != 0 ? 'manual' : 'suggested',
     title: s(branch, 'latestSummary', s(event, 'event_summary', '小醒提醒')).slice(0, 100),
   };
 }

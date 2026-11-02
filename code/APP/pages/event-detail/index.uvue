@@ -160,8 +160,8 @@
               />
             </view>
           </view>
-          <scroll-view :scroll-x="true" style="height: 40px">
-            <view class="row">
+          <scroll-view :scroll-x="true" style="height: 40px" :show-scrollbar="false">
+            <view class="row timeline-tabs">
               <text
                 class="app-font"
                 :class="['timeline-tab', branchFilter.length == 0 ? 'timeline-selected' : '']"
@@ -200,7 +200,7 @@
                     !isAi(node) && s(node, 'actorName').length > 0
                       ? s(node, 'actorName') + ' · '
                       : ''
-                  }}{{ nodeLabel(s(node, 'nodeType')) }}
+                  }}{{ nodeLabel(s(node, 'nodeType')) }}{{ b(node, 'readConfirmed') ? ' · ' + t('已读') : '' }}
                 </text>
               </view>
               <view class="node-copy"><EventAttachments :content="s(node, 'content')" :event-id="s(event, 'id')" :ids="strings(node, 'attachmentIds')" :tone="s(node, 'nodeType') == 'RECIPIENT_FEEDBACK' ? 'green' : 'blue'" :body-size="16" body-color="#66717f" /></view>
@@ -255,10 +255,22 @@
             s(row, 'messageRole') == 'user' ? 'dialog-user-bubble' : 'dialog-assistant-bubble',
           ]"
         >
-          <text v-if="s(row, 'messageRole') == 'user'" class="app-font dialog-user-text">
+          <view v-if="s(row, 'replyEventId').length > 0" class="dialog-reference">
+            <text class="app-font dialog-reference-title">{{ t('回复事件') }}</text>
+            <text class="app-font dialog-reference-text">{{ s(row, 'replyEventSummary') }}</text>
+          </view>
+          <EventAttachments v-if="strings(row, 'attachmentIds').length > 0" :content="s(row, 'content')" :event-id="id" :ids="strings(row, 'attachmentIds')" />
+          <text v-else-if="s(row, 'messageRole') == 'user'" class="app-font dialog-user-text" selectable>
             {{ s(row, 'content') }}
           </text>
-          <rich-text v-else class="dialog-rich-text" :nodes="s(row, 'renderedContent')" />
+          <view v-else style="align-self: stretch">
+            <!-- #ifdef APP-IOS -->
+            <MessageText :content="s(row, 'content')" />
+            <!-- #endif -->
+            <!-- #ifndef APP-IOS -->
+            <rich-text class="dialog-rich-text" :nodes="s(row, 'renderedContent')" selectable />
+            <!-- #endif -->
+          </view>
           <view v-if="strings(row, 'fileIds').length > 0" class="dialog-images">
             <ChatImage
               v-for="(fileId, index) in strings(row, 'fileIds')"
@@ -289,10 +301,12 @@ defineOptions({ inheritAttrs: false });
 // #endif
 import UiIcon from '@/components/UiIcon.uvue';
 import EventAttachments from '@/components/EventAttachments.uvue';
+import MessageText from '@/components/MessageText.uvue';
 import ChatImage from '@/components/ChatImage.uvue';
 import { t as _t } from '@/core/locale.uts';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { eventOverview, eventTimeline, eventIsAi } from '@/core/event-view.uts';
+import { eventPersonName } from '@/core/events.uts';
 import AppFrame from '@/components/AppFrame.uvue';
 import Popup from '@/components/Popup.uvue';
 import AlarmControl from '@/components/AlarmControl.uvue';
@@ -390,7 +404,7 @@ function isAi(node: UTSJSONObject): boolean {
 }
 const timeline = computed(() => eventTimeline(detail.value, showAI.value, branchFilter.value));
 function name(row: UTSJSONObject): string {
-  return s(row, 'name', s(row, 'realName', s(row, 'account')));
+  return eventPersonName(row);
 }
 function nodeLabel(type: string): string {
   const labels: UTSJSONObject = {
@@ -657,6 +671,9 @@ onBackPress((): boolean => updates.required && updates.available);
 .branch .muted {
   line-height: 23px;
 }
+.timeline-tabs {
+  flex-wrap: nowrap;
+}
 .timeline-tab {
   flex-shrink: 0;
   height: 30px;
@@ -837,4 +854,8 @@ onBackPress((): boolean => updates.required && updates.available);
   flex-wrap: wrap;
   margin-top: 8px;
 }
+
+.dialog-reference { padding: 7px 9px; margin-bottom: 8px; border-left: 2px solid #c8d2ff; background-color: #ffffff1a; border-radius: 5px; }
+.dialog-reference-title { color: #d9e2ff; font-size: 10px; line-height: 16px; }
+.dialog-reference-text { color: #f2f4ff; font-size: 12px; line-height: 18px; lines: 2; overflow: hidden; text-overflow: ellipsis; }
 </style>

@@ -1,0 +1,23 @@
+<template>
+  <view class="report-markdown">
+    <view v-for="(block,index) in blocks" :key="index" class="md-row" :class="block.heading?'md-heading':''">
+      <view v-if="block.bullet" class="md-bullet" />
+      <text class="app-font md-copy" :style="{fontSize:textSize+'px',lineHeight:textLine+'px'}" selectable><text v-for="(span,part) in block.spans" :key="part" class="app-font md-span" :style="{fontSize:textSize+'px',lineHeight:textLine+'px'}" :class="span.bold?'md-strong':''">{{ span.text }}</text></text>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { computed } from 'vue';
+import { reportBlocks, ReportBlock } from '@/core/report-markdown.uts';
+const props=defineProps<{content:string;fontSize?:number}>();
+const textSize=computed(():number=>props.fontSize??13);
+const textLine=computed(():number=>props.fontSize==null?22:25);
+const blocks=computed(():ReportBlock[]=>reportBlocks(props.content));
+</script>
+<style scoped>
+.report-markdown{align-self:stretch;flex-shrink:0}.md-row{flex-direction:row;align-items:flex-start;margin-bottom:6px}.md-copy{flex:1;font-size:13px;line-height:22px;color:#405477}.md-span{font-size:13px;line-height:22px;color:#405477}.md-strong{font-weight:600;color:#1e315b}.md-heading{margin-top:3px;margin-bottom:6px}.md-bullet{width:4px;height:4px;border-radius:2px;background-color:#7b9fdb;margin-right:8px;margin-top:10px;flex-shrink:0}
+/* #ifdef APP-IOS */
+.md-copy,.md-span{font-family:'PingFangSC-Regular'}
+.md-strong{font-family:'PingFangSC-Semibold';font-weight:600}
+/* #endif */
+</style>

@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <application>
+        <receiver android:name="uts.sdk.modules.xiaoxingNative.XiaoxingLiveDismissReceiver" android:exported="false" />
         <activity android:name="uts.sdk.modules.xiaoxingNative.XiaoxingAlarmActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTop" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <provider android:name="uts.sdk.modules.xiaoxingNative.XiaoxingUpdateProvider" android:authorities="${applicationId}.xiaoxingupdates" android:exported="false" android:grantUriPermissions="true" />
         <receiver android:name="uts.sdk.modules.xiaoxingNative.XiaoxingAlarmReceiver" android:exported="false">

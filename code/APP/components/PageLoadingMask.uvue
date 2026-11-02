@@ -1,0 +1,85 @@
+<template>
+  <view v-if="rendered" class="loading-mask" :style="{ opacity: visible ? 1 : 0 }" @click.stop="noop" @touchmove.stop="noop">
+    <view class="loading-panel">
+      <view class="loading-dots">
+        <view class="loading-dot" :style="{ opacity: pulse(0) }" />
+        <view class="loading-dot" :style="{ opacity: pulse(1) }" />
+        <view class="loading-dot" :style="{ opacity: pulse(2) }" />
+      </view>
+      <text class="app-font loading-label">{{ t('正在加载…') }}</text>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { ref, watch, onUnmounted } from 'vue';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
+function noop() {}
+const props = defineProps({ active: { type: Boolean, default: false } });
+const rendered = ref(false), visible = ref(false), position = ref(0);
+let motion: number = 0, finish: number = 0, fade: number = 0, epoch = 0, started = 0;
+function pulse(index: number): number {
+  const phase = (position.value + 3 - index * 0.35) % 1.8;
+  return 0.25 + (phase <= 0.9 ? phase / 0.9 : (1.8 - phase) / 0.9) * 0.75;
+}
+function clearTimers(): void {
+  clearInterval(motion);
+  clearTimeout(finish);
+  clearTimeout(fade);
+}
+watch((): boolean => props.active, (active: boolean) => {
+  clearTimers();
+  const current = ++epoch;
+  if (active) {
+    if (!rendered.value) started = Date.now();
+    rendered.value = true;
+    visible.value = true;
+    position.value = 0;
+    motion = setInterval(() => { position.value = ((Date.now() - started) % 1800) / 1000; }, 80);
+    return;
+  }
+  if (!rendered.value) return;
+  // Brief requests do not flash the screen; the fade also covers the final layout pass.
+  finish = setTimeout(() => {
+    if (current != epoch) return;
+    visible.value = false;
+    fade = setTimeout(() => {
+      if (current == epoch) rendered.value = false;
+    }, 160);
+  }, Math.max(0, 240 - (Date.now() - started)));
+}, { immediate: true });
+onUnmounted(() => { epoch++; clearTimers(); });
+</script>
+<style scoped>
+.loading-mask {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  align-items: center;
+  justify-content: center;
+  background-color: #eff4ffed;
+  transition-property: opacity;
+  transition-duration: 160ms;
+}
+.loading-panel {
+  width: 148px;
+  height: 118px;
+  border-radius: 24px;
+  border: 1px solid #ffffff;
+  background-color: #ffffffed;
+  align-items: center;
+  justify-content: center;
+}
+.loading-dots { height: 18px; flex-direction: row; align-items: center; margin-bottom: 15px; }
+.loading-dot { width: 7px; height: 7px; border-radius: 4px; margin: 0 5px; background-color: #5276ee; transition-property: opacity; transition-duration: 100ms; }
+.loading-label { font-size: 13px; line-height: 22px; color: #6f7e98; }
+/* #ifdef WEB */
+@media (prefers-reduced-motion: reduce) {
+  .loading-dot { opacity: 0.7 !important; transition: none; }
+  .loading-mask { transition: none; }
+}
+/* #endif */
+</style>

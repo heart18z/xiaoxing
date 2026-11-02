@@ -150,6 +150,12 @@ export async function post(
     throw new ApiError(401, '请先登录');
   }
   if (auth) redirectingToLogin = false;
+  // The logout endpoint cannot identify an expired access token. Renew it first
+  // while credentials still exist, then revoke the resulting server session.
+  if (auth && path == '/blade-auth/oauth/logout' && (refreshing != null || (session.expiresAt > 0 && session.expiresAt <= Date.now() + 30000))) {
+    await refreshToken();
+    if (owner != session.userId || revision != session.revision) throw new ApiError(401, '账号已变化');
+  }
   let body: UTSJSONObject;
   try {
     body = await raw(path, data, params, timeout);

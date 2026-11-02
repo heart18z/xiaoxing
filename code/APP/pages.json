@@ -3,7 +3,8 @@
     {
       "path": "pages/login/index",
       "style": {
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "disableScroll": true
       }
     },
     {
@@ -55,6 +56,13 @@
     },
     {
       "path": "pages/group-detail/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/legal/index",
       "style": {
         "navigationStyle": "custom",
         "disableScroll": true

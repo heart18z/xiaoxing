@@ -6,6 +6,7 @@
         <view class="alarm-heading">
           <text class="app-font alarm-title">{{ t('本机闹铃') }}</text>
           <text class="app-font alarm-help" @click="helpOpen = true">{{ t('说明') }}</text>
+          <text v-if="active && !ringing" class="app-font alarm-edit" @click="editTime()">{{ t('调整时间') }}</text>
         </view>
         <text class="app-font alarm-time">
           {{
@@ -47,6 +48,29 @@
       {{ t(alarmHelp) }}
     </text>
   </Popup>
+  <Popup :open="timeOpen" variant="alarm-time" :title="t('调整闹铃时间')" @close="closeTime()">
+    <text class="app-font time-note">{{ t('仅调整本机响铃时间，不改变事件时间。') }}</text>
+    <text class="app-font time-preview">{{ selectedTime }} · {{ t('北京时间') }}</text>
+    <view class="time-labels">
+      <text class="app-font date-label">{{ t('日期') }}</text>
+      <text class="app-font unit-label">{{ t('时') }}</text>
+      <text class="app-font unit-label">{{ t('分') }}</text>
+    </view>
+    <picker-view v-if="timeOpen" class="time-picker" :value="timeIndexes" indicator-style="height: 44px;" @change="timeChanged">
+      <picker-view-column style="flex: 2">
+        <view v-for="day in dates" :key="day" class="time-option"><text class="app-font time-option-text">{{ day }}</text></view>
+      </picker-view-column>
+      <picker-view-column style="flex: 1">
+        <view v-for="hour in hours" :key="hour" class="time-option"><text class="app-font time-option-text">{{ hour }}</text></view>
+      </picker-view-column>
+      <picker-view-column style="flex: 1">
+        <view v-for="minute in minutes" :key="minute" class="time-option"><text class="app-font time-option-text">{{ minute }}</text></view>
+      </picker-view-column>
+    </picker-view>
+    <text v-if="error.length > 0" class="app-font alarm-error">{{ error }}</text>
+    <button class="app-font primary time-save" :disabled="busy" :loading="busy" @click="saveTime(false)">{{ t('保存闹铃时间') }}</button>
+    <text v-if="eligible" class="app-font time-reset" @click="saveTime(true)">{{ t('恢复建议时间') }}</text>
+  </Popup>
 </template>
 <script setup lang="uts">
 import { t as _t } from '@/core/locale.uts';
@@ -54,6 +78,7 @@ import Popup from './Popup.uvue';
 import UiIcon from './UiIcon.uvue';
 import { session } from '@/store/session.uts';
 import { alarmTime, canSetAlarm } from '@/core/alarms.uts';
+import { dayOf, timeOf } from '@/core/time.uts';
 import { ref, computed, onMounted, watch } from 'vue';
 import { alarmList, setAlarm, cancelAlarm, alarmState, refreshRingingAlarm, openAlarmScreenPermission } from '@/services/native.uts';
 import { s as _s, b, obj, arr, message } from '@/core/json.uts';
@@ -87,6 +112,35 @@ const active = computed(() => s(activeItem.value, 'id').length > 0);
 const ringing = computed((): boolean => alarmState.ringing && alarmState.eventId == s(obj(props.detail, 'event'), 'id'));
 const eligible = computed((): boolean => canSetAlarm(props.detail, session.userId));
 const scheduledTime = computed(() => alarmTime(activeItem.value));
+const timeOpen = ref(false);
+const dates = ref<string[]>([]);
+const timeIndexes = ref<number[]>([0, 0, 0]);
+const hours: string[] = [], minutes: string[] = [];
+for (let i = 0; i < 60; i++) {
+  const value = i < 10 ? '0' + i : '' + i;
+  minutes.push(value);
+  if (i < 24) hours.push(value);
+}
+const selectedTime = computed((): string => {
+  if (dates.value.length == 0) return '';
+  return dates.value[timeIndexes.value[0]] + ' ' + hours[timeIndexes.value[1]] + ':' + minutes[timeIndexes.value[2]];
+});
+function editTime() {
+  if (busy.value) return;
+  error.value = '';
+  const current = scheduledTime.value;
+  const today = dayOf();
+  const base = timeOf(today + ' 12:00:00');
+  const days: string[] = [];
+  for (let i = 0; i < 366; i++) days.push(dayOf(base + i * 86400000));
+  const savedDay = current.slice(0, 10);
+  if (savedDay > days[days.length - 1]) days.push(savedDay);
+  dates.value = days;
+  timeIndexes.value = [Math.max(0, days.indexOf(savedDay)), parseInt(current.slice(11, 13)), parseInt(current.slice(14, 16))];
+  timeOpen.value = true;
+}
+function timeChanged(event: UniPickerViewChangeEvent) { timeIndexes.value = event.detail.value; }
+function closeTime() { if (!busy.value) timeOpen.value = false; }
 async function screenPermission() {
   try { await openAlarmScreenPermission(); } catch(e) { toast(message(e)); }
 }
@@ -94,6 +148,20 @@ async function refresh() {
   const data = await alarmList();
   supported.value = b(data, 'supported');
   items.value = arr(data, 'alarms');
+}
+async function saveTime(suggested: boolean) {
+  if (busy.value) return;
+  busy.value = true;
+  error.value = '';
+  try {
+    await setAlarm(props.detail, suggested ? 0 : timeOf(selectedTime.value) / 1000);
+    await refresh();
+    timeOpen.value = false;
+    toast('闹铃已设置 · ' + scheduledTime.value);
+  } catch (e) {
+    error.value = message(e);
+    toast(error.value);
+  } finally { busy.value = false; }
 }
 async function toggle() {
   if (busy.value || !ready.value) return;
@@ -187,4 +255,15 @@ watch((): boolean => ringing.value, (value: boolean) => {
   color: #be515e;
 }
 .alarm-permission { margin-top: 8px; font-size: 11px; line-height: 18px; font-weight: 600; color: #6659ba; }
+.alarm-edit { margin-left: 8px; padding: 2px 4px; font-size: 11px; line-height: 16px; color: #5865cf; }
+.time-note { font-size: 12px; line-height: 20px; color: #8991a4; }
+.time-preview { margin-top: 8px; margin-bottom: 10px; font-size: 14px; line-height: 22px; font-weight: 600; color: #454e88; text-align: center; }
+.time-labels { flex-direction: row; }
+.date-label { flex: 2; text-align: center; font-size: 12px; color: #8991a4; }
+.unit-label { flex: 1; text-align: center; font-size: 12px; color: #8991a4; }
+.time-picker { height: 132px; margin-top: 6px; margin-bottom: 12px; background-color: #f6f7fc; border-radius: 12px; }
+.time-option { height: 44px; align-items: center; justify-content: center; }
+.time-option-text { font-size: 14px; color: #35405e; }
+.time-save { height: 40px; min-height: 40px; line-height: 40px; padding: 0; font-size: 14px; border-radius: 12px; }
+.time-reset { align-self: center; padding: 10px; font-size: 12px; color: #6670b8; }
 </style>

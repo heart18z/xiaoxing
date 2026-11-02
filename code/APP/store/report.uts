@@ -1,0 +1,8 @@
+import { reactive } from 'vue';
+export type ReportViewerState={open:boolean;reportId:string;initialPage:number};
+export const reportViewer=reactive<ReportViewerState>({open:false,reportId:'',initialPage:0});
+export function openReport(id:string,page:number=0):void {
+  if(!/^[1-9][0-9]{0,19}$/.test(id))return;
+  uni.hideKeyboard();
+  reportViewer.reportId=id;reportViewer.initialPage=page;reportViewer.open=true;
+}

@@ -1,34 +1,41 @@
 <template>
   <view v-if="state.visible" class="startup-mask" :style="{ opacity: state.leaving ? 0 : 1 }">
-    <image class="startup-logo" src="/static/images/ai-assistant-tab.png" />
-    <text class="app-font startup-title">AI小醒</text>
-    <text class="app-font startup-subtitle">让提醒更贴心</text>
-    <view class="startup-track">
-      <view class="startup-progress" :style="{ transform: 'translateX(' + position + 'px)' }" />
+    <view class="startup-content">
+      <image class="startup-avatar" src="/static/avatars/assistant/A3.png" mode="aspectFit" :style="{ transform: 'translateY(' + (-3 * position) + 'px)' }" />
+      <view class="startup-shadow" :style="{ opacity: 0.18 - position * 0.07, transform: 'scaleX(' + (1 - position * 0.12) + ')' }" />
+      <text class="app-font startup-title">{{ t('AI小醒') }}</text>
+      <text class="app-font startup-subtitle">{{ t('智能提醒助手') }}</text>
+      <view class="startup-dots">
+        <view class="startup-dot" :style="{ opacity: 0.3 + position * 0.7 }" />
+        <view class="startup-dot" :style="{ opacity: 1 - position * 0.7 }" />
+        <view class="startup-dot" :style="{ opacity: 0.3 + position * 0.7 }" />
+      </view>
+      <text class="app-font startup-status">{{ t('正在加载…') }}</text>
     </view>
-    <text class="app-font startup-subtitle">正在准备你的智能助手…</text>
   </view>
 </template>
 <script setup lang="uts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { startup, StartupState } from '@/store/startup.uts';
+import { t as _t } from '@/core/locale.uts';
+function t(value: string): string { return _t(value); }
 const state: StartupState = startup;
 const position = ref(0);
 let timer: number = 0;
 function startMotion() {
   clearInterval(timer);
-  if (!state.visible) return;
+  if (!state.visible || state.leaving) return;
   const started = Date.now();
   position.value = 0;
   timer = setInterval(() => {
-    const phase = ((Date.now() - started) % 1200) / 600;
-    position.value = 65 * (phase <= 1 ? phase : 2 - phase);
-  }, 32);
+    const phase = ((Date.now() - started) % 1800) / 900;
+    position.value = phase <= 1 ? phase : 2 - phase;
+  }, 80);
 }
 onMounted(startMotion);
 onUnmounted(() => clearInterval(timer));
 watch(
-  (): boolean => state.visible,
+  (): boolean => state.visible && !state.leaving,
   (value: boolean) => {
     if (value) startMotion();
     else clearInterval(timer);
@@ -37,52 +44,22 @@ watch(
 </script>
 <style scoped>
 .startup-mask {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 10000;
-  align-items: center;
-  justify-content: center;
-  background-color: #f3f8ff;
-  /* #ifdef WEB */
-  background-image: linear-gradient(135deg, #e4f5ff, #f8fbff, #eaeaff);
-  /* #endif */
-  /* #ifndef WEB */
-  background-image: linear-gradient(to bottom right, #e4f5ff, #eaeaff);
-  /* #endif */
-  transition-property: opacity;
-  transition-duration: 240ms;
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 10000;
+  align-items: center; justify-content: center; background-color: #f8faff;
+  transition-property: opacity; transition-duration: 240ms;
 }
-.startup-logo {
-  width: 76px;
-  height: 76px;
-  margin-bottom: 22px;
+.startup-content { align-items: center; padding-bottom: 32px; }
+.startup-avatar { width: 82px; height: 82px; border-radius: 24px; transition-property: transform; transition-duration: 160ms; }
+.startup-shadow { width: 48px; height: 6px; border-radius: 24px; background-color: #6687ca; margin-top: 12px; margin-bottom: 25px; transition-property: opacity, transform; transition-duration: 160ms; }
+.startup-title { font-size: 30px; font-weight: 600; color: #233454; margin-bottom: 10px; }
+.startup-subtitle { font-size: 14px; color: #8a96ab; line-height: 24px; }
+.startup-dots { flex-direction: row; align-items: center; height: 8px; margin-top: 28px; margin-bottom: 14px; }
+.startup-dot { width: 5px; height: 5px; border-radius: 3px; margin: 0 5px; background-color: #6582e8; transition-property: opacity; transition-duration: 160ms; }
+.startup-status { font-size: 12px; color: #98a3b6; line-height: 20px; }
+/* #ifdef WEB */
+@media (prefers-reduced-motion: reduce) {
+  .startup-dot { transition: none; opacity: 1 !important; }
+  .startup-avatar, .startup-shadow { transition: none; transform: none !important; }
 }
-.startup-title {
-  font-size: 25px;
-  font-weight: 600;
-  color: #273755;
-  margin-bottom: 12px;
-}
-.startup-subtitle {
-  font-size: 14px;
-  color: #7d8ba5;
-  line-height: 25px;
-}
-.startup-track {
-  width: 112px;
-  height: 4px;
-  overflow: hidden;
-  background-color: #dfe8f6;
-  border-radius: 4px;
-  margin: 30px 0 20px;
-}
-.startup-progress {
-  width: 45px;
-  height: 4px;
-  border-radius: 4px;
-  background-color: #6784ff;
-}
+/* #endif */
 </style>

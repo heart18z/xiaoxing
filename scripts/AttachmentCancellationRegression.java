@@ -71,10 +71,19 @@ public class AttachmentCancellationRegression extends Stage1Regression {
       denied(()->attachments.owner(3L,sent,8101L),"other users cannot fetch event attachment");
       denied(()->attachments.owner(2L,ref,8101L),"same file cannot be accessed through unrelated event");
       check(count("select count(*) from blade_smart_chat_message where event_id=? and user_id=2 and message_type='EVENT_ASSIGNED' and payload_json like '%attachmentIds%'",sent)==1,"creation card includes delivered attachment button references");
+      var conversation=SmartReminderService.class.getDeclaredMethod("eventConversationFor",Long.class,Long.class,Long.class,boolean.class);conversation.setAccessible(true);
+      var deliveredHistory=(Map<?,?>)conversation.invoke(service,1L,sent,2L,false);
+      check(deliveredHistory.toString().contains("attachmentIds=[8101]"),"recipient event conversation projects delivered attachment button before payload stripping");
+      check(!deliveredHistory.toString().contains("payloadJson")&&!deliveredHistory.toString().contains("file_path"),"conversation attachment projection never exposes private payload or storage path");
+      // An ungranted ID in a legacy message must not become an attachment button.
+      db.update("update blade_smart_chat_message set payload_json=? where event_id=? and user_id=2 and message_type='EVENT_ASSIGNED'","{\"attachmentIds\":[\"8101\",\"8103\",\"8101\"]}",sent);
+      var filteredHistory=(Map<?,?>)conversation.invoke(service,2L,sent,2L,false);
+      check(filteredHistory.toString().contains("attachmentIds=[8101]")&&!filteredHistory.toString().contains("8103"),"recipient history filters forged, unrelated and duplicate attachment references");
       db.update("insert into blade_smart_chat_message(id,user_id,message_role,content,payload_json) values(81022,2,'user','已完成，拍照反馈','{\"fileIds\":[\"8102\"]}')");
       as(2,81022,sent,"已完成，拍照反馈","{\"intent\":\"feedback\",\"feedback\":{\"eventId\":\""+sent+"\",\"fact\":\"已完成\",\"stopBranch\":true,\"attachmentMode\":\"DELIVER\"}}");
       check(attachments.owner(1L,sent,8102L)==2L,"creator can read completion feedback file after branch stops");
       check(count("select count(*) from blade_smart_chat_message where event_id=? and user_id=1 and message_type='FEEDBACK' and payload_json like '%8102%'",sent)==1,"feedback card contains returned attachment");
+      check(((Map<?,?>)conversation.invoke(service,1L,sent,1L,false)).toString().contains("attachmentIds=[8102]"),"creator event conversation retains completion feedback attachment");
       denied(()->attachments.owner(3L,sent,8102L),"feedback attachment stays private to creator and its branch");
       var timeline=db.queryForList("select id,branch_id as branchId,node_type as nodeType,payload_json as payloadJson from blade_smart_timeline where event_id=? order by id",sent);
       attachments.decorateTimeline(1L,sent,timeline);

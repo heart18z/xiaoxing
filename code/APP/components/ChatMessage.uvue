@@ -11,10 +11,15 @@
       ]"
       :style="{ maxWidth: messageWidth + 'px', width: user ? 'auto' : messageWidth + 'px' }"
     >
+      <WeeklyReportCard v-if="s(item,'messageType')=='WEEKLY_REPORT'" :data="payload(item)" />
       <view
-        v-if="!notification && (!candidate || s(item, 'content').length > 0 || reason.length > 0)"
+        v-if="s(item,'messageType')!='WEEKLY_REPORT' && !notification && (!candidate || s(item, 'content').length > 0 || reason.length > 0)"
         :class="['bubble', user ? 'user-bubble' : '', !user ? 'thought-bubble' : '']"
       >
+        <view v-if="user && s(payload(item), 'replyEventId').length > 0" class="sent-quote" @click.stop="openEvent(s(payload(item), 'replyEventId'))">
+          <text class="app-font sent-quote-label">{{ t('回复事件') }}</text>
+          <text class="app-font sent-quote-text">{{ s(payload(item), 'replyEventSummary', t('查看事件')) }}</text>
+        </view>
         <ThinkingPanel
           v-if="reason.length > 0 && !user"
           :content="reason"
@@ -35,7 +40,15 @@
         >
           <text v-if="user" class="app-font user-text" selectable>{{ s(item, 'content') }}</text>
           <EventAttachments v-else-if="s(item, 'messageType') == 'EVENT_ASSIGNED'" :content="s(item, 'content')" :event-id="s(item, 'eventId')" :ids="strings(payload(item), 'attachmentIds')" />
-          <rich-text v-else :nodes="markdown(replyText(item))" />
+          <ReportLink v-else-if="s(payload(item),'reportId').length>0" :report-id="s(payload(item),'reportId')" :content="replyText(item)" />
+          <view v-else style="align-self: stretch">
+            <!-- #ifdef APP-IOS -->
+            <MessageText :content="replyText(item)" @layout="emit('layout')" />
+            <!-- #endif -->
+            <!-- #ifndef APP-IOS -->
+            <rich-text :nodes="markdown(replyText(item))" selectable />
+            <!-- #endif -->
+          </view>
         </view>
         <ReplyProgress v-if="isStreaming && reason.length == 0 && s(item, 'content').length == 0" />
         <view v-if="strings(payload(item), 'fileIds').length > 0" class="message-images">
@@ -93,11 +106,16 @@
             @layout="emit('layout')"
           />
         </view>
-        <view :class="['notice-label', noticeClass]">
-          <UiIcon :name="noticeIcon" :tone="noticeTone" :size="16" />
-          <text class="app-font notice-label-text" :class="['related-' + noticeClass]">
-            {{ t(label) }}
-          </text>
+        <view class="notice-heading">
+          <view :class="['notice-label', noticeClass]">
+            <UiIcon :name="noticeIcon" :tone="noticeTone" :size="16" />
+            <text class="app-font notice-label-text" :class="['related-' + noticeClass]">
+              {{ t(label) }}
+            </text>
+          </view>
+          <view v-if="canReply" class="quote-action" role="button" :aria-label="t('引用回复')" @click.stop="emit('reply', item)">
+            <text class="app-font quote-action-text" :class="'related-' + noticeClass">{{ t('引用回复') }}</text>
+          </view>
         </view>
         <view
           :class="[
@@ -116,7 +134,7 @@
             <text class="app-font" :class="['related-label', 'related-' + noticeClass]">
               {{ t('关联事件') }}
             </text>
-            <text class="app-font related-summary">{{ s(payload(item), 'eventSummary') }}</text>
+            <text class="app-font related-summary" selectable @click.stop>{{ s(payload(item), 'eventSummary') }}</text>
           </view>
         </view>
         <view class="card-footer">
@@ -142,8 +160,8 @@
           :key="index"
           :class="['candidate-event', eventMacro(event) ? 'macro-event' : '']"
         >
-          <text class="app-font candidate-title">{{ s(event, 'summary') }}</text>
-          <text class="app-font muted">{{ t('接收人：') }}{{ recipients(event) }}</text>
+          <text class="app-font candidate-title" selectable>{{ s(event, 'summary') }}</text>
+          <text class="app-font muted" selectable>{{ t('接收人：') }}{{ recipients(event) }}</text>
           <view v-if="arr(event, 'groupSelectors').length > 0" class="group-recipient-actions">
             <text class="app-font group-recipient-note">
               {{ arr(event, 'recipients').length }} {{ t('人可提醒') }}
@@ -216,11 +234,14 @@
 <script setup lang="uts">
 import { openFriendRequests } from '@/store/navigation.uts';
 import UiIcon from '@/components/UiIcon.uvue';
+import WeeklyReportCard from './WeeklyReportCard.uvue';
+import ReportLink from './ReportLink.uvue';
 import { t as _t } from '@/core/locale.uts';
 import ThinkingPanel from './ThinkingPanel.uvue';
 import ReplyProgress from './ReplyProgress.uvue';
 import EventAttachments from './EventAttachments.uvue';
 import ChatImage from './ChatImage.uvue';
+import MessageText from './MessageText.uvue';
 import { timeOf, dayOf } from '@/core/time.uts';
 import { candidateAlarmAvailable } from '@/core/alarms.uts';
 import { alarmState, alarmList } from '@/services/native.uts';
@@ -263,7 +284,7 @@ function openEvent(id: string): void {
 }
 const messageWidth = Math.max(180, (uni.getWindowInfo().windowWidth - 70) * 0.94);
 const props = defineProps<{ item: UTSJSONObject; busy: boolean; visible?: boolean }>();
-const emit = defineEmits(['confirm', 'layout', 'reveal', 'people']);
+const emit = defineEmits(['confirm', 'layout', 'reveal', 'people', 'reply']);
 let manuallyToggled = false;
 const expanded = ref(b(props.item, 'streaming')),
   alarms = ref<number[]>([]);
@@ -286,6 +307,7 @@ const notification = computed(
     ['REMINDER', 'QUESTION', 'FEEDBACK', 'CONFLICT'].includes(s(props.item, 'messageType')) &&
     !(s(props.item, 'messageType') == 'CONFLICT' && s(payload(props.item), 'detail').length > 0),
 );
+const canReply = computed((): boolean => notification.value && !user.value && /^[1-9][0-9]{0,18}$/.test(s(props.item, 'eventId')) && b(session.summary, 'supportsEventReply'));
 const label = computed(() => {
   const type = s(props.item, 'messageType');
   return type == 'FEEDBACK'
@@ -928,4 +950,13 @@ watch(
   font-family: 'PingFangSC-Semibold';
 }
 /* #endif */
+
+.notice-heading { flex-direction: row; align-items: center; justify-content: space-between; margin-top: -4px; margin-bottom: 6px; }
+.notice-heading .notice-label { margin-bottom: 0; align-self: center; }
+.quote-action { min-height: 36px; padding: 0 4px 0 12px; align-items: center; justify-content: center; flex-shrink: 0; }
+.quote-action-text { font-size: 12px; line-height: 18px; font-weight: 500; }
+.sent-quote { padding: 8px 10px; margin-bottom: 10px; background-color: #ffffff1a; border-left: 3px solid #c9d4ff; border-radius: 6px; }
+.sent-quote-label { font-size: 10px; line-height: 16px; color: #d9e2ff; }
+.sent-quote-text { font-size: 12px; line-height: 18px; color: #f1f4ff; lines: 2; overflow: hidden; text-overflow: ellipsis; }
+
 </style>

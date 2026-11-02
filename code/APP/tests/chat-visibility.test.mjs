@@ -11,7 +11,7 @@ async function fixture() {
  const dom={getElementById:()=>{reads++;return {clientHeight:100,getBoundingClientRect:()=>({height:100})}}};
  const result=new Function('uni','document','setTimeout','clearTimeout','setInterval','clearInterval','nextTick',`
  let active=true;const session={visible:true},follow={value:true},scrollAnimated={value:false},scrollTop={value:0},chat={busy:false},keyboard={value:0};
- let touching=false,userScrolling=false,scrollHeight=0,actualScrollTop=0,scrollLockedUntil=0,layoutTimer=0,revealTimer=0,scrollTimer=0,initialScrollPending=false,keyboardLayoutTimer=0;
+ let touching=false,userScrolling=false,scrollHeight=0,actualScrollTop=0,scrollLockedUntil=0,layoutTimer=0,revealTimer=0,scrollTimer=0,initialScrollPending=false,keyboardLayoutTimer=0,restoringUntil=0;
  ${code}
  return {measureScroll,moveScroll,scrollLatest,revealThinking,updateKeyboard,scrollTop,setVisibility:(page,app)=>{active=page;session.visible=app}};
  `)(dom,dom,fn=>{timers.push(fn);return timers.length},()=>{},fn=>{timers.push(fn);return timers.length},()=>{},fn=>ticks.push(fn));

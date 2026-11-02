@@ -1,0 +1,14 @@
+// Links are navigation hints only. Detail authorization remains enforced by the server.
+export function liveActivityEvent(url: string, owner: string): string {
+  if (owner.length == 0 || !url.startsWith('xiaoxing://live?')) return '';
+  let recipient = '', eventId = '';
+  try {
+    for (const part of url.slice('xiaoxing://live?'.length).split('&')) {
+      const pair = part.split('=');
+      if (pair.length != 2) return '';
+      if (pair[0] == 'owner') recipient = decodeURIComponent(pair[1]);
+      if (pair[0] == 'eventId') eventId = decodeURIComponent(pair[1]);
+    }
+  } catch (_) { return ''; }
+  return recipient == owner && /^[0-9]{1,20}$/.test(eventId) ? eventId : '';
+}

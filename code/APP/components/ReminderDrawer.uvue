@@ -66,8 +66,9 @@
           {{ t(label) }}
         </text>
       </view>
+      <view class="drawer-content">
+      <view v-if="loading" class="loading-indicator"><text class="app-font loading-label">{{ t('正在读取…') }}</text></view>
       <scroll-view :scroll-y="true" class="scroll">
-        <text v-if="loading" class="app-font muted">{{ t('正在读取…') }}</text>
         <view v-if="error.length > 0">
           <text class="app-font error">{{ error }}</text>
           <button class="app-font secondary" @click="load()">{{ t('重试') }}</button>
@@ -131,6 +132,7 @@
           </view>
         </view>
       </scroll-view>
+      </view>
       <text class="app-font drawer-footer">
         {{ t('按北京时间分组 · 待提醒按计划评估时间展示') }}
       </text>
@@ -148,7 +150,8 @@
 import { HorizontalSwipe } from '@/core/swipe.uts';
 import UiIcon from '@/components/UiIcon.uvue';
 import { t as _t } from '@/core/locale.uts';
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
+import { session } from '@/store/session.uts';
 import { reminder } from '@/api/request.uts';
 import { firstText as _firstText, s as _s, b as _b, message } from '@/core/json.uts';
 import { ReminderGroup, reminderGroups } from '@/core/reminders.uts';
@@ -188,11 +191,14 @@ const top = uni.getWindowInfo().safeAreaInsets.top,
   start = ref(''),
   end = ref('');
 let ticket = 0;
+let rowsOwner = '';
 const groups = computed<ReminderGroup[]>(() =>
   reminderGroups(rows.value, Date.now(), start.value, end.value),
 );
 async function load() {
   const current = ++ticket;
+  const owner = session.userId;
+  if (rowsOwner != owner) { rows.value = []; rowsOwner = owner; }
   loading.value = true;
   error.value = '';
   try {
@@ -201,9 +207,10 @@ async function load() {
       ? ['sent', 'received']
       : [type.value == 1 ? 'sent' : 'received']) {
       const data = await reminder('events/drawer', null, { type: side });
+      if (current != ticket || owner != session.userId) return;
       result.push(...((data['value'] as UTSJSONObject[]) ?? []));
     }
-    if (current == ticket) {
+    if (current == ticket && owner == session.userId) {
       const ids = new Set<string>();
       rows.value = result.filter((row: UTSJSONObject): boolean => {
         const id = s(row, 'eventId') + ':' + s(row, 'branchId');
@@ -213,9 +220,9 @@ async function load() {
       });
     }
   } catch (e) {
-    if (current == ticket) error.value = message(e);
+    if (current == ticket && owner == session.userId) error.value = message(e);
   } finally {
-    if (current == ticket) loading.value = false;
+    if (current == ticket && owner == session.userId) loading.value = false;
   }
 }
 function applyRange(a: string, b: string) {
@@ -266,21 +273,29 @@ function swipeEnd(e: UniTouchEvent): void {
 const rendered = ref(false),
   visible = ref(false);
 let animationTimer: number = 0;
-onUnmounted(() => clearTimeout(animationTimer));
+let animationEpoch = 0;
+onUnmounted(() => { animationEpoch++; ticket++; clearTimeout(animationTimer); });
 
 watch(
   (): boolean => props.open,
   (value: boolean) => {
     clearTimeout(animationTimer);
+    const epoch = ++animationEpoch;
     swipeCancel();
     if (value) {
+      visible.value = false;
       rendered.value = true;
-      animationTimer = setTimeout(() => {
-        visible.value = true;
-      }, 30);
+      // Wait for native layout before starting the transform transition.
+      nextTick(() => {
+        if (epoch != animationEpoch || !props.open) return;
+        animationTimer = setTimeout(() => {
+          if (epoch == animationEpoch && props.open) visible.value = true;
+        }, 60);
+      });
       void load();
     } else {
       ticket++;
+      loading.value = false;
       dateOpen.value = false;
       visible.value = false;
       animationTimer = setTimeout(() => {
@@ -292,6 +307,24 @@ watch(
 );
 </script>
 <style scoped>
+.drawer-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.loading-indicator {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  z-index: 2;
+  border-radius: 12px;
+  padding: 4px 9px;
+  background-color: #f5f8ff;
+}
+.loading-label {
+  font-size: 11px;
+  color: #7c89a6;
+}
 .drawer-mask {
   position: fixed;
   left: 0;

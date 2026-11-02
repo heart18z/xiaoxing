@@ -1,4 +1,44 @@
 export const english: UTSJSONObject = {
+  "本期概览":"Period overview", "本期概况":"Period summary",
+  "或":" or ","。":".","事件周报":"Event weekly report","完整报告已生成，点击":"Your report is ready. ","，也可":", or ","统计口径":"Report scope","本周周报":"Weekly report","已生成":"Ready","完成":"Done","待跟进":"Follow-up","本周概况":"Overview","工作总览":"Highlights","进展建议":"Progress","完成情况":"Status","下周建议":"Next week","重点方向":"Priorities","查看周报":"View report","本周概览":"Weekly overview","总事项":"Total","进展与建议":"Progress & advice","本期暂无事件进展":"No progress recorded this period.","暂无明确的下周安排":"No confirmed plans for next week.","建议仅供参考，点击事项可查看原事件。":"Suggestions only. Tap an item to view its event.","下载报告":"Download report","查看报告":"View report","下载 PDF":"Download PDF","下载 Word":"Download Word","重点推进":"Priority","加强沟通":"Communication","建议关注":"Prepare","正在整理报告…":"Preparing report…","上一页":"Previous page","下一页":"Next page",
+  "引用回复": "Reply to event",
+  "回复事件": "Replying to event",
+  "正在回复事件": "Replying to this event",
+  "取消引用": "Cancel reply",
+  "回复这件事，或补充进展…": "Reply to this event or share progress\u2026",
+  "请等待本轮回复结束后再引用": "Wait for the current reply to finish.",
+  "当前服务暂不支持引用回复": "This server does not yet support event replies.",
+
+  "新增人员": "Add members",
+  "复制": "Copy",
+  "调整时间": "Change time",
+  "调整闹铃时间": "Change alarm time",
+  "保存闹铃时间": "Save alarm time",
+  "恢复建议时间": "Use suggested time",
+  "仅调整本机响铃时间，不改变事件时间。": "Changes this device’s alarm only, not the event time.",
+  "日期": "Date",
+  "时": "Hour",
+  "分": "Minute",
+  "北京时间": "Beijing time",
+
+  "运营主体：陈通（个人）": "Operator: Chen Tong (individual)",
+  "暂不同意": "Not now",
+  "同意并注册": "Agree and register",
+  "同意并登录": "Agree and sign in",
+  "请先阅读用户协议和隐私政策。点击下方同意按钮后，将继续本次操作。": "Please read the Terms of Service and Privacy Policy. Choosing Agree below will continue this action.",
+  "请阅读并同意": "Please read and agree",
+  "和": " and ",
+  "隐私政策": "Privacy Policy",
+  "用户协议": "Terms of Service",
+  "《隐私政策》": "Privacy Policy",
+  "《用户协议》": "Terms of Service",
+  "我已阅读并同意": "I have read and agree to ",
+  "同意用户协议和隐私政策": "Agree to the Terms and Privacy Policy",
+  "在合适的时候重新判断": "reassess at the right time",
+  "理解你的计划，": "Understand your plans,",
+  "邮箱登录": "Email",
+  "账号登录": "Account",
+  "正在加载…": "Loading…",
   "点击图片放大": "Tap image to enlarge",
   "左右滑动查看附件": "Swipe to view attachments",
   "上一张": "Previous image",
@@ -823,3 +863,16 @@ english["通知尚未开启，可再次点击开启通知"] = "Notifications are
 english["通知权限申请失败，请重试"] = "Could not request notification permission. Please try again.";
 english["请在系统设置中允许通知，返回后将重新检查"] = "Allow notifications in system settings. We will check again when you return.";
 english['切换语言'] = 'Language';
+english['成员资料'] = 'Member profile';
+english['群成员'] = 'Group member';
+english['群内标签'] = 'Group tags';
+english['好友关系'] = 'Friendship';
+english['这是你在群组中的资料'] = 'Your profile in this group';
+english['好友申请已发送，等待对方确认'] = 'Friend request sent. Awaiting confirmation.';
+english['你们还不是好友，添加后可按授权互相提醒'] = 'Add as a friend to send reminders with their permission.';
+english['已是好友 · 可以互相提醒'] = 'Friends · Reminders allowed both ways';
+english['已是好友 · 你可以提醒对方'] = 'Friends · You can remind them';
+english['已是好友 · 对方可以提醒你'] = 'Friends · They can remind you';
+english['发送好友申请'] = 'Send friend request';
+english['我可以提醒对方'] = 'I can remind them';
+english['对方可以提醒我'] = 'They can remind me';

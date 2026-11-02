@@ -1,0 +1,36 @@
+<template>
+  <view class="weekly-card">
+    <view class="report-hero" @click="show(0)">
+      <image class="report-banner" src="/static/reports/card-banner.png" mode="widthFix" />
+      <text class="app-font generated">✦ {{ t('已生成') }}</text>
+      <view class="title-row"><image class="calendar" src="/static/reports/calendar.png" mode="aspectFit" /><text class="app-font report-title">{{ t('事件周报') }}</text></view>
+      <text class="app-font date">{{ range(s(data,'start'),s(data,'end')) }}</text>
+    </view>
+    <view class="report-content">
+      <view class="stats">
+        <view v-for="metric in metrics" :key="s(metric,'key')" class="stat"><view :class="['status-mark',s(metric,'key')]"><UiIcon :name="s(metric,'icon')" tone="white" :size="12" /></view><text class="app-font stat-label">{{ t(s(metric,'label')) }} <text class="app-font stat-count" :class="s(metric,'key')+'-text'">{{ n(obj(data,'counts'),s(metric,'key')) }}</text> {{ t('项') }}</text></view>
+      </view>
+      <view class="sections"><view v-for="(part,index) in sections" :key="s(part,'icon')" class="section" @click="show(index)"><image class="section-icon" :src="'/static/reports/'+s(part,'icon')+'.png'" mode="aspectFit" /><view><text class="app-font section-title">{{ t(s(part,'title')) }}</text><text class="app-font section-hint">{{ t(s(part,'hint')) }}</text></view></view></view>
+      <view class="open-report" role="button" :aria-label="t('查看周报')" @click="show(0)"><text class="app-font open-label">{{ t('查看周报') }}</text><view class="open-arrow"><UiIcon name="chevron" tone="white" :size="19" /></view></view>
+    </view>
+  </view>
+</template>
+<script setup lang="uts">
+import { openReport } from '@/store/report.uts';
+import { reportRange as _range } from '@/core/report-display.uts';
+import { s as _s,n as _n,obj as _obj } from '@/core/json.uts';
+import { t as _t } from '@/core/locale.uts';
+import UiIcon from './UiIcon.uvue';
+const props=defineProps<{data:UTSJSONObject}>();
+const metrics:UTSJSONObject[]=[{key:'completed',label:'完成',icon:'check'},{key:'active',label:'进行中',icon:'reset'},{key:'followUp',label:'待跟进',icon:'clock'}];
+const sections:UTSJSONObject[]=[{icon:'overview',title:'本周概况',hint:'工作总览'},{icon:'progress',title:'进展建议',hint:'完成情况'},{icon:'target',title:'下周建议',hint:'重点方向'}];
+function s(o:UTSJSONObject,k:string,d:string=''):string{return _s(o,k,d);}function n(o:UTSJSONObject,k:string):number{return _n(o,k);}function obj(o:UTSJSONObject,k:string):UTSJSONObject{return _obj(o,k);}function t(v:string):string{return _t(v);}
+function show(index:number){openReport(s(props.data,'reportId',s(props.data,'id')),index);}
+function range(start:string,end:string):string{return _range(start,end);}
+</script>
+<style scoped>
+.weekly-card{align-self:stretch;width:100%;border-radius:22px;overflow:hidden;border:1px solid #ffffff;background-color:#f5f9ff}.report-hero{height:96px;position:relative;justify-content:center;padding:12px 12px 0}.report-banner{position:absolute;left:0;top:0;width:100%}.generated{position:absolute;right:10px;top:10px;color:#8861ed;background-color:#eee8ffb8;border-radius:12px;font-size:10px;padding:3px 8px}.title-row{flex-direction:row;align-items:center}.calendar{width:31px;height:34px;margin-right:6px}.report-title{font-size:21px;font-weight:700;color:#14233d}.date{font-size:11px;line-height:20px;color:#8291a9;margin-left:7px}.report-content{margin:0 7px 9px;padding:7px;background-color:#ffffffb8;border-radius:18px}.stats{flex-direction:row;padding-bottom:9px;border-bottom:1px solid #e4eafa}.stat{flex:1;flex-direction:row;align-items:center;justify-content:center;border-radius:9px;background-color:#f6faff;padding:7px 2px;margin:0 2px}.status-mark{width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;margin-right:4px}.completed{background-color:#20c18c}.active{background-color:#367bff}.followUp{background-color:#ffab43}.stat-label{font-size:10px;color:#405173}.stat-count{font-size:15px;font-weight:700}.completed-text{color:#17bb83}.active-text{color:#327bff}.followUp-text{color:#f29d28}.sections{flex-direction:row;padding:12px 0}.section{margin:0;flex:1;flex-direction:row;align-items:center}.section-icon{width:31px;height:31px;margin-right:3px}.section-title{font-size:10px;line-height:16px;font-weight:600;color:#243451}.section-hint{font-size:9px;line-height:15px;color:#94a0b5}.open-report{height:42px;border-radius:22px;flex-direction:row;align-items:center;justify-content:center;background-color:#4689ff;background-image:linear-gradient(to right,#299cff,#9264f5)}.open-label{font-size:15px;font-weight:600;color:#ffffff}.open-arrow{margin-left:8px;width:24px;height:24px;border-radius:12px;background-color:#ffffff30;align-items:center;justify-content:center}
+/* #ifdef APP-IOS */
+.report-title,.stat-count,.section-title,.open-label{font-family:'PingFangSC-Semibold'}
+/* #endif */
+</style>

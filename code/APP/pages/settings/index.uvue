@@ -91,6 +91,14 @@
             }}
           </button>
         </view>
+        <view class="card">
+          <view class="between" @click="openLegal(false)">
+            <text class="app-font body-text">{{ t('用户协议') }}</text><UiIcon name="chevron" tone="blue" :size="22" />
+          </view>
+          <view class="between" style="margin-top: 20px" @click="openLegal(true)">
+            <text class="app-font body-text">{{ t('隐私政策') }}</text><UiIcon name="chevron" tone="blue" :size="22" />
+          </view>
+        </view>
         <text v-if="loading" class="app-font muted">{{ t('正在读取设置…') }}</text>
         <text v-if="error.length > 0" class="app-font error">{{ error }}</text>
         <view v-if="!loading" class="settings-fields">
@@ -205,6 +213,7 @@ function syncPush(requestPermission: boolean = false): Promise<void> {
 const pushState: PushState = _pushState;
 const checkingNotification = ref(false);
 const notificationFeedback = ref('');
+function openLegal(privacy: boolean) { uni.navigateTo({ url: '/pages/legal/index?type=' + (privacy ? 'privacy' : 'terms') }); }
 function t(value: string): string {
   return _t(value);
 }
@@ -249,7 +258,7 @@ async function confirmClosure() {
     await post('/app/account/close', { password: closurePassword.value, confirmed: true });
     closurePassword.value = '';
     closureStep.value = 0;
-    await logout();
+    await logout(true);
     toast('账号已注销');
   } catch (e) {
     closureError.value = message(e);
