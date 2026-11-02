@@ -25,7 +25,7 @@
    ```
 
    `.appex` 在 Finder 看似单个文件，实际是 bundle 目录；务必完整压缩，包含可执行文件、Info.plist 和签名目录等，不能只复制 Swift 源码或内部可执行文件。
-5. 附上构建日志、所用 Git 提交号、Xcode 版本，以及主 APP/扩展版本号。若编译失败，请交付原始报错，不要手工造一个空扩展目录。本脚本尚待首次 Mac 编译、云签名及真机验证。
+5. 附上构建日志、所用 Git 提交号、Xcode 版本，以及主 APP/扩展版本号。若编译失败，请交付原始报错，不要手工造一个空扩展目录。2026-11-02 已接收同事提供的 Mac 编译产物及成功日志，并在 Windows 核对文件哈希、arm64 可执行文件、版本和源码一致性；云签名 IPA 及真机验证仍待完成。
 
 ## Windows 接收与云打包
 
@@ -43,3 +43,11 @@
 - 三个生成产物均不进入 Git；只拉取仓库不会得到它们，务必另行留存。已有主 APP 签名材料无需让同事重复发送，私钥和密码不要提交仓库。
 
 参考：[DCloud iOS Extension 云打包](https://doc.dcloud.net.cn/uni-app-x/plugin/uts-plugin.html#iosextension)。
+
+## 2026-11-02：修复上传校验 90502
+
+arm64 扩展必须在 Info.plist 的 UIRequiredDeviceCapabilities 中声明 arm64。构建脚本现已在签名前写入该数组，并同步到生成的 ios-extension.json.plists。已生成的同版本扩展可以通过云打包配置合并此字段，无需仅为该字段重新编译 Swift。务必重新云打包完成签名，再检查最终 IPA 内扩展 Info.plist；不要直接修改已签名 IPA。该修改通过本地配置合并检查，但最终上传仍待重新打包验证。
+
+## 2026-11-02：90898 必须重新编译
+
+后续上传确认旧扩展的 Mach-O LC_MAIN 指向普通 `_main`，缺少扩展入口。之前的签名完整性验证不覆盖此发布要求，旧产物不能继续发布。现构建脚本改为 Xcode app-extension 目标、显式 `_NSExtensionMain` 链接入口，并在交付前运行 `verify-extension.py`。必须在 Mac 重建后替换完整扩展，不能仅重新云打包旧二进制。当前仅完成 Windows 语法、工程生成及旧包拒绝检查；新脚本的 Mac 构建、云打包、苹果校验和真机测试仍待完成。

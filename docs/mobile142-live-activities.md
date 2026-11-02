@@ -1,5 +1,9 @@
 # 小醒临近事项与实时活动
 
+## 2026-11-02 原生交接接入
+
+已接收 `XiaoxingLiveActivity-1.0.143-143-Windows.zip`，将完整扩展、ios-extension.json 和扩展描述文件接入本地 APP 工程，并合入构建脚本元数据修正。11 个交付文件 SHA-256 全部通过，扩展为 arm64 / iPhoneOS，主 APP、扩展、云配置均为 1.0.143 / 143。Swift 界面及共享数据结构与本地源码一致（仅换行符差异）。同事提供的日志记录 Mac 编译及本地 ad-hoc 签名检查通过；Windows 未独立执行 codesign。描述文件为 App Store 分发，2027-10-15 到期，需匹配原 Team 和云打包证书。尚未验证云签名 IPA、TestFlight 上传和 iPhone 实机展示。以下 11 月 1 日缺少产物的描述为接入前记录。
+
 ## 2026-11-01 打包核对
 
 当前工作区只有扩展源码，没有 `XiaoxingLiveActivityExtension.appex`、扩展描述文件或 `nativeResources/ios/ios-extension.json`。直接使用 HBuilderX 云打包不会自动编译并嵌入这个 WidgetKit 扩展，因此已安装的 142 包不能仅通过网页后台打开实时活动。普通消息推送正常不代表实时活动已具备发布条件。
