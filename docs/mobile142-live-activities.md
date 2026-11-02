@@ -66,3 +66,11 @@
 - 本轮未提交 GitHub、未部署服务端、未发布安装包。没有创建或修改生产提醒。
 
 官方参考：[Apple ActivityKit 推送](https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications)、[DCloud iOS Extension 打包](https://doc.dcloud.net.cn/uni-app-x/plugin/uts-plugin.html#iosextension)、[Android Live Updates 条件](https://developer.android.com/develop/ui/views/notifications/live-update)。
+# Android 图二样式适配（2026-11-02）
+
+安卓的动态提醒通知现在使用 `XiaoxingLiveCard.kt` 与插件 `app-android/res` 内的原生 RemoteViews。展开状态采用小醒头像、状态、左侧事件标题/时间、右侧倒计时、浅蓝紫渐变背景，无完成或稍后提醒按钮。折叠状态使用 48dp 紧凑布局，保留头像、标题、时间和右侧倒计时，适应系统通知高度限制。整张通知继续跳转对应事件，并保留原有私密内容设置、账号检查和划掉后不再显示的规则。
+
+Android 8+ 使用系统倒计时，倒计时卡片在目标时刻超时；进程存活时本地切换到“已到时间”卡片，随后由服务端快照继续更新。进程被终止时先让旧倒计时退出，避免过零倒数。Android 6/7 显示绝对提醒时间，Android 6 使用紧凑布局。手机厂商仍决定外部通知框架、是否默认折叠及锁屏是否隐藏内容；这仍是普通动态提醒通知，不是 Android 官方 promoted Live Updates。
+
+本次已完成全部插件 Kotlin 文件编译，以及 AAPT2 布局和图片资源编译、链接。尚无连接设备，未验证真机通知显示；需重新云打包安卓 APK 或制作包含新资源的自定义基座，不能只更新页面资源。iOS 扩展及服务端无需为本次安卓样式重新构建。
+

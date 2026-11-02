@@ -5,6 +5,7 @@ import android.content.*
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -20,9 +21,11 @@ object XiaoxingLiveReminder {
     private var shownOwner = ""
     private val expiryHandler = Handler(Looper.getMainLooper())
     private var expiryTask: Runnable? = null
+    private var dueTask: Runnable? = null
 
     @Synchronized fun clear(context: Context) {
         expiryTask?.let { expiryHandler.removeCallbacks(it) }; expiryTask=null
+        dueTask?.let { expiryHandler.removeCallbacks(it) }; dueTask=null
         XiaoxingNotifications.manager(context).cancel(ID)
         shownKey = ""; shownOwner = ""
     }
@@ -84,10 +87,23 @@ object XiaoxingLiveReminder {
             .setContentIntent(tap).setDeleteIntent(deleted).setOnlyAlertOnce(true).setAutoCancel(false)
             .setCategory(Notification.CATEGORY_REMINDER).setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPriority(Notification.PRIORITY_LOW).setWhen(target*1000).setShowWhen(true)
-        if(Build.VERSION.SDK_INT>=24 && target>now) builder.setUsesChronometer(true).setChronometerCountDown(true)
-        if(Build.VERSION.SDK_INT>=26) builder.setTimeoutAfter((end-now)*1000)
+        val custom = XiaoxingLiveCard.apply(context, builder, row, now, en)
+        // A system chronometer otherwise counts past zero if our process dies.
+        // Expire the countdown at its target; the local transition or next snapshot shows the due card.
+        if(Build.VERSION.SDK_INT>=26) builder.setTimeoutAfter((if(custom && target>now) minOf(target,end)-now else end-now)*1000)
         if(!valid() || XiaoxingAndroid.read(context,"session")!=snapshot) return
         manager.notify(ID,builder.build());shownKey=key;shownOwner=owner
+        dueTask?.let { expiryHandler.removeCallbacks(it) }; dueTask=null
+        if(target>now && target<end) {
+            val transitionData=JSONObject(data.toString())
+            val scheduledAt=SystemClock.elapsedRealtime()
+            dueTask=Runnable { synchronized(this) {
+                // Handler callbacks can be delayed by sleep; never revive an already expired card.
+                val currentTime=now+(SystemClock.elapsedRealtime()-scheduledAt)/1000
+                if(shownOwner==owner && shownKey==key) render(context.applicationContext,transitionData.put("serverTime",currentTime),snapshot,language,valid)
+            } }
+            expiryHandler.postDelayed(dueTask!!,(target-now)*1000)
+        }
         // Also expire on Android 6/7 and on network failure, without waiting for another server response.
         expiryTask?.let { expiryHandler.removeCallbacks(it) }
         val application = context.applicationContext

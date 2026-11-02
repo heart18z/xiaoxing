@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="48dp"
+    android:orientation="vertical" android:padding="6dp" android:background="@drawable/xiaoxing_live_background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:visibility="gone">
+        <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/xiaoxing_live_avatar" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/xiaoxing_live_brand" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:textSize="14sp" android:textStyle="bold" android:textColor="#12214A" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/xiaoxing_live_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#6666AC" android:maxLines="1" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" android:gravity="center_vertical">
+        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="7dp" android:visibility="visible" android:src="@drawable/xiaoxing_live_avatar" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+            <TextView android:id="@+id/xiaoxing_live_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:textStyle="bold" android:textSize="13sp" android:textColor="#12214A" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" />
+            <TextView android:id="@+id/xiaoxing_live_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:textSize="10sp" android:textColor="#576695" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" />
+        </LinearLayout>
+        <TextView android:layout_width="1dp" android:layout_height="28dp" android:layout_marginStart="8dp" android:layout_marginEnd="8dp" android:background="#334A45F2" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="82dp" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/xiaoxing_live_time_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="9sp" android:textColor="#576695" android:gravity="center" android:maxLines="1" android:includeFontPadding="false" />
+            <Chronometer android:id="@+id/xiaoxing_live_clock" android:layout_width="match_parent" android:layout_height="26dp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="22sp" android:autoSizeStepGranularity="1sp" android:textSize="22sp" android:textStyle="bold" android:fontFamily="sans-serif-medium" android:textColor="#4A45F2" android:gravity="center" android:singleLine="true" android:includeFontPadding="false" />
+            <TextView android:id="@+id/xiaoxing_live_time" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="15sp" android:textStyle="bold" android:textColor="#4A45F2" android:gravity="center" android:maxLines="1" android:includeFontPadding="false" />
+            <TextView android:id="@+id/xiaoxing_live_time_unit" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#576695" android:gravity="center" android:visibility="gone" android:maxLines="1" android:includeFontPadding="false" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
