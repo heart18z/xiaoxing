@@ -30,7 +30,10 @@ def write_project(directory):
     avatar = add('A0000000000000000000000C', 'PBXFileReference', lastKnownFileType='image.png', path='live-activity-avatar.png', sourceTree='<group>')
     references.append(avatar)
     avatar_build = add('A0000000000000000000000D', 'PBXBuildFile', fileRef=avatar)
-    resources = add('A0000000000000000000000E', 'PBXResourcesBuildPhase', buildActionMask=2147483647, files=[avatar_build], runOnlyForDeploymentPostprocessing=0)
+    assets = add('A0000000000000000000000F', 'PBXFileReference', lastKnownFileType='folder.assetcatalog', path='Assets.xcassets', sourceTree='<group>')
+    references.append(assets)
+    assets_build = add('A00000000000000000000010', 'PBXBuildFile', fileRef=assets)
+    resources = add('A0000000000000000000000E', 'PBXResourcesBuildPhase', buildActionMask=2147483647, files=[avatar_build, assets_build], runOnlyForDeploymentPostprocessing=0)
     product = add('A00000000000000000000001', 'PBXFileReference', explicitFileType='wrapper.app-extension', path=name+'.appex', sourceTree='BUILT_PRODUCTS_DIR')
     products = add('A00000000000000000000002', 'PBXGroup', children=[product], name='Products', sourceTree='<group>')
     group = add('A00000000000000000000003', 'PBXGroup', children=references+[products], sourceTree='<group>')
@@ -67,6 +70,24 @@ def write_project(directory):
     (path/'project.pbxproj').write_text('// !$*UTF8*$!\n'+encode({'archiveVersion':1, 'classes':{}, 'objectVersion':56, 'objects':objects, 'rootObject':project}), encoding='utf-8')
     return path
 
+def prepare_avatar(directory):
+    # SwiftUI/WidgetKit named images must resolve in the extension's compiled asset
+    # catalog. Supply actual 28pt scale variants rather than a loose oversized PNG.
+    catalog = directory/'Assets.xcassets'
+    imageset = catalog/'live-activity-avatar.imageset'
+    imageset.mkdir(parents=True)
+    info = {'author': 'xcode', 'version': 1}
+    (catalog/'Contents.json').write_text(json.dumps({'info': info}))
+    images = []
+    for scale in (1, 2, 3):
+        filename = f'avatar@{scale}x.png'
+        subprocess.run(['sips', '-s', 'format', 'png', '-z', str(28*scale), str(28*scale),
+            str(root/'static/avatars/assistant/A3.png'), '--out', str(imageset/filename)], check=True, stdout=subprocess.DEVNULL)
+        images.append({'idiom': 'universal', 'filename': filename, 'scale': f'{scale}x'})
+    (imageset/'Contents.json').write_text(json.dumps({'images': images, 'info': info}))
+    # Keep an explicit-file fallback in the extension too, not in the host APP bundle.
+    shutil.copy2(imageset/'avatar@3x.png', directory/'live-activity-avatar.png')
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--profile', type=Path, required=True)
@@ -83,7 +104,7 @@ def main():
         directory = Path(temporary)
         shutil.copy2(plugin/'XiaoxingReminderAttributes.swift', directory/'XiaoxingReminderAttributes.swift')
         shutil.copy2(Path(__file__).with_name('XiaoxingLiveActivity.swift'), directory/'XiaoxingLiveActivity.swift')
-        shutil.copy2(root/'static/avatars/assistant/A3.png', directory/'live-activity-avatar.png')
+        prepare_avatar(directory)
         project = write_project(directory)
         info = {'CFBundleIdentifier': bundle, 'CFBundleExecutable': name, 'CFBundleName': name,
             'CFBundleDisplayName': '小醒提醒', 'CFBundlePackageType': 'XPC!', 'CFBundleInfoDictionaryVersion': '6.0',
@@ -100,6 +121,8 @@ def main():
         product = products/(name+'.appex')
         if not (product/'live-activity-avatar.png').is_file():
             raise SystemExit('Missing Live Activity avatar resource in built extension')
+        if not (product/'Assets.car').is_file():
+            raise SystemExit('Missing compiled Live Activity avatar asset catalog')
         # Reject the previous hand-built executable before it can overwrite a good bundle.
         subprocess.run(['python3', str(Path(__file__).with_name('verify-extension.py')), str(product)], check=True)
         subprocess.run(['codesign', '--force', '--sign', '-', str(product)], check=True)

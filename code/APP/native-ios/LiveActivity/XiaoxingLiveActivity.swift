@@ -1,6 +1,7 @@
 import SwiftUI
 import WidgetKit
 import ActivityKit
+import UIKit
 
 @main
 struct XiaoxingLiveActivityBundle: WidgetBundle {
@@ -41,6 +42,29 @@ private enum ReminderPalette {
     static let accent = Color(red:0.29,green:0.27,blue:0.95)
 }
 
+private struct ReminderLogo: View {
+    // Resolve pixels while rendering the extension, with an explicit local fallback.
+    // A failed lookup must never leave an invisible 28pt space beside the app name.
+    private static let avatar: UIImage? = {
+        if let image = UIImage(named:"live-activity-avatar",in:Bundle.main,compatibleWith:nil) { return image }
+        guard let path = Bundle.main.path(forResource:"live-activity-avatar",ofType:"png") else { return nil }
+        return UIImage(contentsOfFile:path)
+    }()
+    var body: some View {
+        Group {
+            if let avatar = Self.avatar {
+                Image(uiImage:avatar).renderingMode(.original).resizable().scaledToFit()
+            } else {
+                Image(systemName:"bell.badge.fill").font(.system(size:18,weight:.semibold))
+                    .foregroundColor(.white).frame(maxWidth:.infinity,maxHeight:.infinity)
+                    .background(ReminderPalette.accent)
+            }
+        }.frame(width:28,height:28)
+            .clipShape(RoundedRectangle(cornerRadius:7,style:.continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 private struct ReminderCard: View {
     let state:XiaoxingReminderAttributes.ContentState
     let stale:Bool
@@ -70,10 +94,7 @@ private struct ReminderCard: View {
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
             HStack(spacing:7) {
-                Image("live-activity-avatar",bundle:.main)
-                    .resizable().scaledToFit().frame(width:28,height:28)
-                    .clipShape(RoundedRectangle(cornerRadius:7,style:.continuous))
-                    .accessibilityHidden(true)
+                ReminderLogo()
                 Text(english ? "AI Xiaoxing" : "AI小醒")
                     .font(.system(size:15,weight:.bold)).foregroundColor(ReminderPalette.ink)
                 Spacer(minLength:6)

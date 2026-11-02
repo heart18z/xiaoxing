@@ -18,3 +18,20 @@ test('large messages use bounded native blocks without losing text or splitting 
   assert.equal(blocks.map(b=>b.text).join(''),content);
   assert.ok(blocks.every(b=>!/[\ud800-\udbff]$/.test(b.text)));
 });
+
+test('summary headings and inline emphasis retain native font information',()=>{
+  const blocks=messageBlocks('### 本周待办\n- **准备演示**：**11月8日**前确认时间。\n1. __确认场地__，用 `编号` 查询。');
+  assert.ok(blocks[0].spans.every(s=>s.bold));
+  assert.equal(blocks[1].kind,'list');
+  assert.deepEqual(blocks[1].spans.filter(s=>s.bold).map(s=>s.text),['准备演示','11月8日']);
+  assert.equal(blocks[2].spans.find(s=>s.text==='编号').code,true);
+  assert.ok(blocks[2].spans.find(s=>s.text==='确认场地').bold);
+});
+
+test('long emphasized spans remain bold across native layout boundaries',()=>{
+  const text='字'.repeat(899)+'😀'+'继续'.repeat(1000);
+  const blocks=messageBlocks('**'+text+'**');
+  assert.equal(blocks.map(b=>b.text).join(''),text);
+  assert.ok(blocks.every(b=>b.text.length<=900 && b.spans.every(s=>s.bold)));
+  assert.ok(blocks.every(b=>!/[\ud800-\udbff]$/.test(b.text)));
+});

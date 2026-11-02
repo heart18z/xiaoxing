@@ -369,10 +369,12 @@ public class SmartReminderService {
 		return (Func.isBlank(config.intentPrompt())?SmartReminderPrompts.INTENT:config.intentPrompt())+SmartScheduleService.TIME_EVIDENCE_RULES+"""
 
         事件总结协议：回答“我还有什么事没做”等查询时，用Markdown短标题、重点文字和项目列表梳理，不输出宽表格，不臆造统计数字。
+        事件归纳必须用真实Markdown而非仅换行或“•”：分组用“### 本周待办”等短标题，每项用“- **事项名称**：时间与下一步”。只加粗事项和关键日期，正文保持简洁；不同分组之间空一行。不得把全文都加粗，也不得将已停止事项列入未完成清单。
+        待办查询是读取当前事件，不是历史报告：用户问“我还有哪些事没做”“总结下这个月我还要做的事”时，必须直接列出具体事项、有效时间和当前进展，不得仅回答“好的/帮你梳理/正在整理”。本月剩余待办包含今天到月末的未来安排，另列已过期但仍在进行及时间未定的事项；本周同理。区分本人要做的任务与我发起、需对方处理的任务，不把已完成或已停止事项混为待办。不因询问待办而修改或停止事件。
         用户明确要求归总本周/上周/本月/上月/指定时段的个人事件、周报/月报或下载报告时，intent=generate_report，report={"start":"YYYY-MM-DD","end":"YYYY-MM-DD"}。
         按北京时间解析日期，周一是一周开始；本周/本月截止今天，上周/上月使用完整周期。范围不明确先clarify，最大一年。
         generate_report只读，不携带eventActions、feedbacks、events、friendRemarks或personAliases；报告由服务端读取完整授权数据后生成，不用当前50条上下文猜统计。
-        不编造下载链接。reply说明正在整理即可，真实下载入口由服务端结果提供。引用事件回复时不能生成全局报告。
+        不编造下载链接。仅当intent=generate_report时reply可说明正在整理，服务端会替换为真实总结和下载入口；intent=chat必须在本次reply中给出实际答案，不能承诺稍后回答。引用事件回复时不能生成全局报告。
 
 		本人识别协议：好友上下文中self=true是当前登录用户。用户说“提醒我/自己/本人”时recipientNames与recipientTasks.recipientName必须使用“我”，不替换成姓名，也不从好友推测本人。
         创建输出协议：创建或修改候选提醒时，每个events元素必须完整给出recipientTasks（与recipientNames逐项同名）、relatedMessageIds（从本轮候选消息选取真实ID，必须包含当前用户消息）。这两项在本次推理完成，避免遗漏后再次请求模型补全。不要为无关闲聊输出events。
@@ -395,6 +397,8 @@ public class SmartReminderService {
 	}
 
 	private AiAnswer groupAwareAnswer(PreparedChat prepared,AiRuntimeConfig config,Consumer<String> reasoning,boolean groupsEnabled) {
+		if(prepared.replyEventId()==null && PendingEventQuery.resolve(prepared.content(),now().toLocalDate()).isPresent())
+			return new AiAnswer("{\"intent\":\"chat\"}","",config.modelName(),"");
 		String system=intentPrompt(config,prepared.userId(),groupsEnabled)+EventReplyScope.instruction(prepared.replyEventId()),prompt=prepared.userPrompt();
 		for(int round=0;round<3;round++) {
 			AiAnswer answer=reasoning==null?aiClient.chat(config,system,prompt,prepared.images()):aiClient.chatStream(config,system,prompt,prepared.images(),ignored->{},reasoning);
@@ -424,6 +428,13 @@ public class SmartReminderService {
 		Long userId = prepared.userId();
 		String content = prepared.content();
 		Long sourceMessageId = prepared.sourceMessageId();
+		var pendingQuery=prepared.replyEventId()==null?PendingEventQuery.resolve(content,now().toLocalDate()):Optional.<PendingEventQuery.Range>empty();
+		if(pendingQuery.isPresent()) {
+			// Read the current authorized state, not a model promise or the last report snapshot.
+			String reply=PendingEventQuery.reply(objectMapper.valueToTree(parseJsonValue(allEventContext(userId))),userId,pendingQuery.get(),now());
+			insertChat(userId,"assistant","TEXT",reply,null,null,null,true);
+			return Map.of("intent","chat","reply",reply);
+		}
 		ObjectNode parsed = parseObject(answerContent);
 		if (!EventReplyScope.bind(parsed,prepared.replyEventId())) {
 			parsed = objectMapper.createObjectNode().put("intent","clarify").put("reply","本次只回复所引用的事件。若要处理其他事件或创建新提醒，请取消引用后另行发送。");

@@ -1,8 +1,8 @@
 # 实时活动扩展：Mac 编译与 Windows 云打包交接
 
-当前主 APP 版本见 `code/APP/manifest.json`（本次 1.0.144 / 144）。扩展构建脚本读取该文件。
+当前主 APP 版本见 `code/APP/manifest.json`（本次 1.0.145 / 145）。扩展构建脚本读取该文件。
 
-143 已打包，本轮图二样式使用 144 发布。Mac 请重新拉取最新 main 后构建，确认日志、扩展 Info.plist 和 ios-extension.json 均为 1.0.144 / 144。旧截图中的编译命令不变，但固定在 acaefef 提交或使用旧源码 ZIP 会生成 143。不要用旧交接包的配置覆盖 Windows 已升级的 144 配置，也不要直接修改已签名扩展。Windows 当前保留的已编译扩展仍须由此次新样式构建产物替换。
+144 已打包。本次 145 修复实时活动 logo：新增编译后的 Asset Catalog，并保留 PNG 加载回退。Mac 请拉取最新 main 后重新构建，确认日志、扩展 Info.plist 和 ios-extension.json 均为 1.0.145 / 145。不能复用旧 144 扩展，也不要直接修改已签名扩展。Windows 当前保留的已编译扩展仍须由此次构建产物替换。
 
 ## Mac 同事操作
 
@@ -26,8 +26,8 @@
        └── xiaoxing-live.mobileprovision
    ```
 
-   `.appex` 在 Finder 看似单个文件，实际是 bundle 目录；务必完整压缩，包含可执行文件、Info.plist 和签名目录等，不能只复制 Swift 源码或内部可执行文件。
-5. 附上构建日志、所用 Git 提交号、Xcode 版本，以及主 APP/扩展版本号。若编译失败，请交付原始报错，不要手工造一个空扩展目录。2026-11-02 已接收同事提供的 Mac 编译产物及成功日志，并在 Windows 核对文件哈希、arm64 可执行文件、版本和源码一致性；云签名 IPA 及真机验证仍待完成。
+   `.appex` 在 Finder 看似单个文件，实际是 bundle 目录；务必完整压缩，包含可执行文件、Info.plist、Assets.car、live-activity-avatar.png 和签名目录等，不能只复制 Swift 源码或内部可执行文件。
+5. 附上构建日志、所用 Git 提交号、Xcode 版本，以及主 APP/扩展版本号。若编译失败，请交付原始报错，不要手工造一个空扩展目录。此前接收的是 144 编译产物；本次 145 仍需新产物、云签名 IPA 和真机 logo 验证。
 
 ## Windows 接收与云打包
 

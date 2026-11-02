@@ -1,6 +1,6 @@
 <template>
   <view class="message-text">
-    <text v-for="(block,index) in blocks" :key="index" class="app-font native-line" :class="'line-' + block.kind" selectable>{{ block.text }}</text>
+    <text v-for="(block,index) in blocks" :key="index" class="app-font native-line" :class="'line-' + block.kind" selectable><text v-for="(span,part) in block.spans" :key="part" class="app-font native-span" :class="[span.bold ? 'span-strong' : '', span.code ? 'span-code' : '']">{{ span.text }}</text></text>
   </view>
 </template>
 <script setup lang="uts">
@@ -16,7 +16,15 @@ watch((): string => props.content, layout);
 <style scoped>
 .message-text { align-self: stretch; flex-shrink: 0; }
 .native-line { align-self: stretch; flex-shrink: 0; font-size: 15px; line-height: 25px; color: #263451; }
-.line-heading { font-size: 16px; font-weight: 600; padding-top: 3px; padding-bottom: 3px; }
+.native-span { font-size: 15px; line-height: 25px; color: #263451; }
+.span-strong { font-weight: 600; color: #182944; }
+.span-code { background-color: #f0f3f8; }
+.line-heading { font-weight: 600; padding-top: 4px; padding-bottom: 5px; }
+.line-list { padding-bottom: 5px; }
 .line-space { font-size: 6px; line-height: 9px; }
 .line-code { background-color: #f0f3f8; padding: 3px 7px; font-size: 13px; line-height: 22px; }
+/* #ifdef APP-IOS */
+.native-line,.native-span { font-family: 'PingFangSC-Regular'; }
+.span-strong { font-family: 'PingFangSC-Semibold'; font-weight: 600; }
+/* #endif */
 </style>
